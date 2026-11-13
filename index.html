@@ -265,18 +265,18 @@
 
     <!-- ==================== 5. 최종 결과 화면 ==================== -->
     <section id="resultScreen" class="screen-view hidden">
-      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; text-align:center;">
-        <div>
-          <div style="font-size:2.2rem; margin-bottom:4px;">🏆</div>
+      <div class="card result-card">
+        <div class="result-top">
+          <div style="font-size:2.1rem; margin-bottom:2px;">🏆</div>
           <h2 id="finalRankTitle" style="font-size:1.25rem; font-weight:800; margin-bottom:4px;">전설의 음악왕</h2>
-          <p id="finalScoreText" style="color:var(--primary); font-size:0.9rem; font-weight:700; margin-bottom:12px;"></p>
+          <p id="finalScoreText" style="color:var(--primary); font-size:0.92rem; font-weight:700; margin-bottom:10px;"></p>
         </div>
 
-        <div id="historyList" style="flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:5px; text-align:left; margin-bottom:12px;"></div>
+        <div id="historyList" class="history-scroll-box"></div>
 
-        <div class="action-row">
-          <button class="btn btn-primary" id="restartSameBtn" style="flex:1.5; padding:11px;">🔄 다시 도전</button>
-          <button class="btn" id="resultToLobbyBtn" style="flex:1; padding:11px;">🏠 메인으로</button>
+        <div class="action-row" style="flex-shrink:0; margin-top:10px;">
+          <button class="btn btn-primary" id="restartSameBtn" style="flex:1.5; padding:12px;">🔄 다시 도전</button>
+          <button class="btn" id="resultToLobbyBtn" style="flex:1; padding:12px;">🏠 메인으로</button>
         </div>
       </div>
     </section>

@@ -621,6 +621,8 @@ body {
 /* ==================== 4. 문제별 정답/오답 전용 결과 화면 ==================== */
 .judge-card {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -685,6 +687,8 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 10px;
@@ -695,6 +699,47 @@ body {
   text-align: left;
   margin-bottom: 12px;
   word-break: keep-all;
+}
+
+.judge-note-box::-webkit-scrollbar,
+.question-content::-webkit-scrollbar,
+.history-scroll-box::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==================== 5. 최종 결과 화면 (하단 버튼 고정 + 리스트 투명 스크롤) ==================== */
+.result-card {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  padding: 18px 16px;
+}
+
+.result-top {
+  flex-shrink: 0;
+}
+
+.history-scroll-box {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 2px 0;
+}
+
+.history-scroll-box .hint-box {
+  flex-shrink: 0;
 }
 
 /* 모달 */
