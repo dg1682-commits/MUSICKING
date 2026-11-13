@@ -52,13 +52,13 @@ body {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 100%);
   color: var(--text-main);
-  font-size: 13.5px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.48;
 }
 
 /* 앱 프레임: 모바일·PC 모두 한 화면(100dvh) 내 고정 */
 .app-shell {
-  max-width: 480px;
+  max-width: 500px;
   width: 100%;
   height: 100dvh;
   margin: 0 auto;
@@ -86,20 +86,20 @@ body {
 }
 
 .brand-icon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 9px;
   background: var(--primary);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 16px;
   box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
 }
 
 .brand-title {
-  font-size: 0.98rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.3px;
@@ -110,8 +110,8 @@ body {
   background: #ffffff;
   color: var(--text-sub);
   border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 0.75rem;
+  padding: 6px 11px;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -142,7 +142,7 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 20px 16px;
+  padding: 22px 18px;
   background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: 22px;
@@ -152,20 +152,20 @@ body {
 .hero-badge {
   background: var(--primary-light);
   color: var(--primary);
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 999px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .hero-emblem {
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   border-radius: 24px;
   background: linear-gradient(135deg, #4f46e5, #0ea5e9);
   color: #ffffff;
-  font-size: 40px;
+  font-size: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,15 +174,15 @@ body {
 }
 
 .home-hero h1 {
-  font-size: 1.65rem;
+  font-size: 1.8rem;
   font-weight: 900;
   color: var(--text-main);
   letter-spacing: -0.6px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .home-hero p {
-  font-size: 0.84rem;
+  font-size: 0.94rem;
   color: var(--text-sub);
   margin-bottom: 20px;
   word-break: keep-all;
@@ -192,7 +192,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   margin-bottom: 26px;
 }
 
@@ -200,8 +200,8 @@ body {
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 0.75rem;
+  padding: 7px 11px;
+  font-size: 0.84rem;
   color: var(--text-sub);
   font-weight: 600;
 }
@@ -217,14 +217,14 @@ body {
 }
 
 .setup-group {
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 
 .section-label {
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   font-weight: 800;
   color: var(--primary);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -251,7 +251,7 @@ body {
   background: var(--bg-subtle);
   border: 1.5px solid var(--border-color);
   border-radius: 10px;
-  padding: 8px 6px;
+  padding: 8px 5px;
   text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -265,15 +265,65 @@ body {
 
 .option-chip .chip-title {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   display: block;
 }
 
 .option-chip .chip-desc {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--text-sub);
   display: block;
   margin-top: 2px;
+}
+
+/* 설정 화면 중하단 점수 책정 기준 안내 박스 */
+.score-rule-box {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+
+.score-rule-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.score-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px 8px;
+}
+
+.score-rule-item {
+  background: #ffffff;
+  border: 1px solid rgba(199, 210, 254, 0.7);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-main);
+}
+
+.score-rule-item strong {
+  font-weight: 800;
+}
+
+.score-plus {
+  color: var(--primary);
+}
+
+.score-minus {
+  color: var(--warning);
 }
 
 /* ==================== 3. 인게임 화면 ==================== */
@@ -293,9 +343,9 @@ body {
 }
 
 .badge {
-  padding: 3px 8px;
+  padding: 4px 9px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 700;
   background: #ffffff;
   border: 1px solid var(--border-color);
@@ -319,7 +369,7 @@ body {
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
 }
 
 .question-card {
@@ -339,22 +389,22 @@ body {
   background: #f0f9ff;
   border: 1px solid #bae6fd;
   border-radius: 9px;
-  padding: 6px 11px;
+  padding: 7px 12px;
   margin-bottom: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   flex-shrink: 0;
 }
 
 .given-info-banner strong {
   color: #0284c7;
-  font-size: 0.84rem;
+  font-size: 0.94rem;
 }
 
 .question-type-tag {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--primary);
   margin-bottom: 6px;
@@ -365,12 +415,12 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  font-size: 0.9rem;
-  line-height: 1.58;
+  font-size: 1rem;
+  line-height: 1.62;
   word-break: keep-all;
   color: var(--text-main);
   background: var(--bg-subtle);
-  padding: 12px 14px;
+  padding: 13px 14px;
   border-radius: 10px;
   border-left: 3.5px solid var(--primary);
   display: flex;
@@ -397,15 +447,15 @@ body {
 }
 
 .vinyl-disc {
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   margin-bottom: 10px;
   border-radius: 50%;
   background: radial-gradient(circle, #4f46e5 0%, #4f46e5 20%, #1e293b 22%, #334155 55%, #0f172a 75%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 24px;
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
 }
 
@@ -428,13 +478,13 @@ body {
 
 .hint-btn {
   flex: 1;
-  padding: 7px 6px;
+  padding: 8px 6px;
   border-radius: 9px;
   background: var(--warning-bg);
   border: 1px solid #fde68a;
   color: #b45309;
   font-weight: 700;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
@@ -456,8 +506,8 @@ body {
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 0.76rem;
+  padding: 6px 10px;
+  font-size: 0.84rem;
   color: #92400e;
   display: flex;
   align-items: center;
@@ -467,7 +517,7 @@ body {
 
 .letter-boxes {
   font-family: monospace;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: var(--primary);
   font-weight: 800;
 }
@@ -494,19 +544,19 @@ body {
 }
 
 .input-group label {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-sub);
 }
 
 .text-input {
   width: 100%;
-  padding: 9px 11px;
+  padding: 10px 12px;
   border-radius: 9px;
   border: 1.5px solid var(--border-color);
   background: var(--bg-subtle);
   color: var(--text-main);
-  font-size: 0.86rem;
+  font-size: 0.95rem;
   outline: none;
 }
 
@@ -531,8 +581,8 @@ body {
 .btn {
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 0.82rem;
+  padding: 10px 13px;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   background: #ffffff;
@@ -563,8 +613,8 @@ body {
 
 .btn-lg {
   width: 100%;
-  padding: 12px;
-  font-size: 0.92rem;
+  padding: 13px;
+  font-size: 1rem;
   border-radius: 12px;
 }
 
@@ -590,9 +640,9 @@ body {
 
 .judge-status-pill {
   display: inline-block;
-  padding: 5px 14px;
+  padding: 6px 15px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 0.94rem;
   font-weight: 800;
   margin-bottom: 8px;
 }
@@ -608,8 +658,8 @@ body {
 }
 
 .album-thumb {
-  width: 88px;
-  height: 88px;
+  width: 90px;
+  height: 90px;
   border-radius: 14px;
   object-fit: cover;
   margin: 6px auto 10px;
@@ -619,14 +669,14 @@ body {
 }
 
 .judge-song-title {
-  font-size: 1.12rem;
+  font-size: 1.22rem;
   font-weight: 800;
   color: var(--text-main);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .judge-song-sub {
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   color: var(--text-sub);
   margin-bottom: 10px;
 }
@@ -638,9 +688,9 @@ body {
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 11px 12px;
-  font-size: 0.8rem;
-  line-height: 1.55;
+  padding: 12px 13px;
+  font-size: 0.9rem;
+  line-height: 1.58;
   color: var(--text-main);
   text-align: left;
   margin-bottom: 12px;

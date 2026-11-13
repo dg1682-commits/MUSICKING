@@ -129,6 +129,32 @@
               </div>
             </div>
           </div>
+
+          <!-- 📊 중하단 점수 책정 기준 안내 박스 -->
+          <div class="score-rule-box">
+            <div class="score-rule-title">
+              <span>📊 점수 책정 기준 (1문제당)</span>
+              <span style="font-size:0.74rem; color:var(--text-sub); font-weight:600;">오답·패스 0점 (무한도전 ❤️-1)</span>
+            </div>
+            <div class="score-rule-grid">
+              <div class="score-rule-item">
+                <span>⭕ 기본 정답</span>
+                <strong class="score-plus">+100점</strong>
+              </div>
+              <div class="score-rule-item">
+                <span>🔥 3단계 보너스</span>
+                <strong class="score-plus">+20점</strong>
+              </div>
+              <div class="score-rule-item">
+                <span>🔤·🔑 글자/단어 힌트</span>
+                <strong class="score-minus">각 -15점</strong>
+              </div>
+              <div class="score-rule-item">
+                <span>🎧 노래 듣기 힌트</span>
+                <strong class="score-minus">-20점</strong>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="action-row" style="margin-top:6px;">
@@ -164,7 +190,7 @@
         <!-- 1초 듣기 전용 UI -->
         <div id="oneSecContainer" class="one-sec-player hidden">
           <div class="vinyl-disc" id="vinylDisc">🎵</div>
-          <p id="audioStatusText" style="margin-bottom:10px; color:var(--text-sub); font-size:0.78rem;">
+          <p id="audioStatusText" style="margin-bottom:10px; color:var(--text-sub); font-size:0.88rem;">
             버튼을 누르면 정확히 1초간 재생됩니다.
           </p>
           <div style="display:flex; justify-content:center; gap:6px;">
@@ -222,7 +248,7 @@
       <div id="judgeCard" class="card judge-card is-correct">
         <div>
           <span id="judgeStatusPill" class="judge-status-pill">⭕ 정답입니다!</span>
-          <p id="judgeUserSubmitInfo" style="font-size:0.76rem; color:var(--text-sub); margin-bottom:4px;"></p>
+          <p id="judgeUserSubmitInfo" style="font-size:0.86rem; color:var(--text-sub); margin-bottom:4px;"></p>
           <img id="revealThumb" class="album-thumb" alt="앨범 커버" />
           <div id="revealTitle" class="judge-song-title">가수 - 노래</div>
           <div id="revealAliases" class="judge-song-sub">발매 연도</div>
