@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>음악왕 - K-POP 비하인드 · 가사 · 1초 듣기 퀴즈</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- 상단 헤더 -->
+    <header class="top-header">
+      <div class="brand" id="brandHome" title="메인 로비로 이동">
+        <div class="brand-icon">🎵</div>
+        <div class="brand-title">
+          <h1>음악왕 (MUSIC KING)</h1>
+          <p>비하인드 스토리 · 가사 · 1초 듣고 노래/가수 맞히기</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="openMdModalBtn">📂 MD 문제 추가/관리</button>
+      </div>
+    </header>
+
+    <!-- ==================== 1. 메인 로비 화면 ==================== -->
+    <main id="lobbyScreen">
+      <div class="card">
+        <!-- ① 연도별 선택 -->
+        <div class="section-label">
+          <span>① 출제 연대 선택 (복수 선택 가능)</span>
+          <span id="availablePoolCount" style="font-size:0.82rem; color:var(--text-sub);"></span>
+        </div>
+        <div class="option-grid cols-4">
+          <div class="option-chip active" data-decade="1990s">
+            <span class="chip-title">📼 1990년대</span>
+            <span class="chip-desc">90년대 레전드 명곡</span>
+          </div>
+          <div class="option-chip active" data-decade="2000s">
+            <span class="chip-title">💿 2000년대</span>
+            <span class="chip-desc">밀레니엄 & 싸이월드 감성</span>
+          </div>
+          <div class="option-chip active" data-decade="2010s">
+            <span class="chip-title">📱 2010년대</span>
+            <span class="chip-desc">스마트폰 & K-POP 전성기</span>
+          </div>
+          <div class="option-chip active" data-decade="2020s">
+            <span class="chip-title">🎧 2020년대</span>
+            <span class="chip-desc">최신 히트 & 챌린지 명곡</span>
+          </div>
+        </div>
+
+        <!-- ② 문제 유형(모드) 선택 -->
+        <div class="section-label">
+          <span>② 게임 모드 선택</span>
+        </div>
+        <div class="option-grid cols-3">
+          <div class="option-chip active" data-mode="behind">
+            <span class="chip-title">📖 비하인드 스토리</span>
+            <span class="chip-desc">나무위키·방송 팩트 여담 보고 맞히기</span>
+          </div>
+          <div class="option-chip" data-mode="lyrics">
+            <span class="chip-title">📝 가사 보고 맞히기</span>
+            <span class="chip-desc">인상적인 가사 구절 보고 맞히기</span>
+          </div>
+          <div class="option-chip" data-mode="onesec">
+            <span class="chip-title">⚡ 1초 듣고 맞히기</span>
+            <span class="chip-desc">실제 음원 딱 1초만 듣고 맞히기</span>
+          </div>
+        </div>
+
+        <!-- ③ 단계(난이도) 선택 -->
+        <div class="section-label">
+          <span>③ 단계(난이도) 선택</span>
+        </div>
+        <div class="option-grid cols-3">
+          <div class="option-chip active" data-stage="1">
+            <span class="chip-title">1단계 · 노래 맞히기</span>
+            <span class="chip-desc">가수 이름 기본 공개 ➔ 곡명 입력</span>
+          </div>
+          <div class="option-chip" data-stage="2">
+            <span class="chip-title">2단계 · 가수 맞히기</span>
+            <span class="chip-desc">비하인드/노래 단서 ➔ 가수 입력</span>
+          </div>
+          <div class="option-chip" data-stage="3">
+            <span class="chip-title">3단계 · 가수 + 노래</span>
+            <span class="chip-desc">가수명과 노래 제목 모두 맞히기</span>
+          </div>
+        </div>
+
+        <!-- ④ 문제 수 선택 -->
+        <div class="section-label">
+          <span>④ 도전 문제 수 선택</span>
+        </div>
+        <div class="option-grid cols-4">
+          <div class="option-chip active" data-limit="10">
+            <span class="chip-title">10문제</span>
+            <span class="chip-desc">가볍게 한 판</span>
+          </div>
+          <div class="option-chip" data-limit="20">
+            <span class="chip-title">20문제</span>
+            <span class="chip-desc">본격 실력 테스트</span>
+          </div>
+          <div class="option-chip" data-limit="50">
+            <span class="chip-title">50문제</span>
+            <span class="chip-desc">마라톤 매니아 코스</span>
+          </div>
+          <div class="option-chip" data-limit="infinite">
+            <span class="chip-title">🔥 무한도전</span>
+            <span class="chip-desc">하트 5개 서바이벌 올클리어</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="startGameBtn">🚀 게임 시작하기</button>
+      </div>
+    </main>
+
+    <!-- ==================== 2. 인게임 화면 ==================== -->
+    <section id="gameScreen" class="hidden">
+      <div class="game-statusbar">
+        <div class="badge-group">
+          <span class="badge primary" id="badgeDecade">2010년대</span>
+          <span class="badge accent" id="badgeMode">비하인드 스토리</span>
+          <span class="badge pink" id="badgeStage">1단계: 노래 맞히기</span>
+        </div>
+        <div class="score-board">
+          <span id="heartsDisplay" class="hearts hidden">❤️❤️❤️❤️❤️</span>
+          <span id="progressText">문제 1 / 10</span>
+          <span id="scoreText" style="color:var(--accent);">0점</span>
+          <button class="btn" id="backToLobbyBtn" style="padding:6px 12px; font-size:0.82rem;">나가기</button>
+        </div>
+      </div>
+
+      <div class="question-card">
+        <!-- 단계별 기본 제공 정보 배너 -->
+        <div id="givenInfoBanner" class="given-info-banner"></div>
+
+        <span class="question-type-tag" id="questionTypeTag">💡 비하인드 퀴즈</span>
+
+        <!-- 비하인드 / 가사 텍스트 영역 -->
+        <div id="questionContent" class="question-content"></div>
+
+        <!-- 1초 듣고 맞히기 전용 플레이어 영역 -->
+        <div id="oneSecContainer" class="one-sec-player hidden">
+          <div class="vinyl-disc" id="vinylDisc">🎵</div>
+          <p id="audioStatusText" style="margin-bottom:14px; color:var(--text-sub); font-size:0.95rem;">
+            버튼을 누르면 정확히 1초 동안 노래가 재생됩니다.
+          </p>
+          <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="playOneSecMain()">▶ 1초 듣기 재생</button>
+            <button class="btn" onclick="playOneSecAltOffset()">🔄 다른 구간 1초 듣기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 힌트 버튼 바 (1초 듣기 모드에서는 오디오 힌트 버튼 자동 숨김) -->
+      <div class="hints-bar">
+        <button class="hint-btn" id="hintLetterBtn">🔤 철자 글자 수 힌트</button>
+        <button class="hint-btn" id="hintKeywordBtn">🔑 포인트 단어 힌트</button>
+        <button class="hint-btn" id="hintAudioBtn">🎧 노래 짧게 듣기 힌트 (2.5초)</button>
+      </div>
+
+      <!-- 오픈된 힌트 표시 영역 -->
+      <div id="hintsDisplay" class="hints-display"></div>
+
+      <!-- 정답 입력 영역 -->
+      <div class="card answer-area">
+        <div class="input-row">
+          <div class="input-group" id="artistInputGroup">
+            <label for="artistInput">🎤 가수(그룹) 이름</label>
+            <input
+              type="text"
+              id="artistInput"
+              class="text-input"
+              placeholder="가수 이름 입력 (띄어쓰기·대소문자 무관)"
+              autocomplete="off"
+            />
+          </div>
+          <div class="input-group" id="titleInputGroup">
+            <label for="titleInput">🎵 노래 제목</label>
+            <input
+              type="text"
+              id="titleInput"
+              class="text-input"
+              placeholder="노래 제목 입력 (띄어쓰기·대소문자 무관)"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div id="feedbackToast" class="feedback-toast"></div>
+
+        <div class="action-row">
+          <button class="btn btn-primary" id="submitAnswerBtn" style="flex:2; padding:14px;">
+            ✅ 정답 확인 (Enter)
+          </button>
+          <button class="btn" id="skipQuestionBtn" style="flex:1; padding:14px;">
+            🏳️ 모르겠어요 (정답 보기)
+          </button>
+        </div>
+
+        <!-- 정답 공개 및 해설 패널 -->
+        <div id="revealPanel" class="reveal-panel hidden">
+          <div class="reveal-header">
+            <img id="revealThumb" class="album-thumb" alt="앨범 커버" />
+            <div class="reveal-title">
+              <span class="badge primary" id="revealBadge" style="margin-bottom:6px; display:inline-block;">정답!</span>
+              <h3 id="revealTitle">가수 - 노래제목</h3>
+              <p id="revealAliases" style="font-size:0.85rem;"></p>
+            </div>
+          </div>
+          <div class="reveal-note" id="revealNote"></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-accent" onclick="playFullPreviewInReveal()">🔊 하이라이트 10초 들어보기</button>
+            <button class="btn btn-primary" id="nextQuestionBtn" style="flex:1;">다음 문제로 이동 ➔ (Enter)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 3. 최종 결과 화면 ==================== -->
+    <section id="resultScreen" class="hidden">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:3rem; margin-bottom:10px;">🏆</div>
+        <h2 id="finalRankTitle" style="font-size:1.7rem; margin-bottom:8px;">전설의 음악왕</h2>
+        <p id="finalScoreText" style="color:var(--accent); font-size:1.15rem; font-weight:700; margin-bottom:24px;"></p>
+
+        <div id="historyList" class="hints-display" style="text-align:left; max-height:360px; overflow-y:auto; margin-bottom:24px;"></div>
+
+        <div class="action-row">
+          <button class="btn btn-primary btn-lg" id="restartSameBtn">🔄 같은 설정으로 다시 도전</button>
+          <button class="btn btn-lg" id="resultToLobbyBtn">🏠 메인 로비로 이동</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ==================== MD 파일 자동 변환 & 문제 관리 모달 ==================== -->
+  <div id="mdModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3>📂 MD 파일로 문제 자동 추가하기</h3>
+        <button class="btn" id="closeMdModalBtn" style="padding:6px 12px;">닫기 ✕</button>
+      </div>
+      <p id="customQCountText" style="color:var(--accent); font-weight:700; font-size:0.9rem; margin-bottom:12px;"></p>
+      <p style="font-size:0.88rem; color:var(--text-sub); margin-bottom:14px;">
+        철자 세기나 정답 빈칸 가리기(마스킹)를 직접 하실 필요가 없습니다!<br/>
+        아래 양식처럼 적힌 <code>.md</code> 파일을 업로드하거나 붙여넣으시면 자동으로 글자수 계산, 정답 마스킹, iTunes 음원 연동이 완료됩니다.
+      </p>
+
+      <div style="margin-bottom:12px;">
+        <input type="file" id="mdFileInput" accept=".md,.txt" class="text-input" style="padding:10px;" />
+      </div>
+
+      <textarea
+        id="mdRawTextarea"
+        class="text-input"
+        rows="8"
+        placeholder="가수: 국카스텐
+동의어: 하현우, 우리동네 음악대장
+노래: 거울
+연도: 2010
+키워드: 국카스텐 1집, 록 페스티벌, 자아 성찰
+가사: 거울 속에 뒷모습을 보며 / 손가락질하는 너의 모습
+비하인드: 국카스텐 정규 1집의 타이틀곡으로 강렬한 사이키델릭 록 사운드가 특징입니다.
+---"
+        style="font-family:monospace; font-size:0.9rem; margin-bottom:12px;"
+      ></textarea>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="parseMdTextBtn" style="flex:2;">✨ 자동으로 DB에 변환·추가하기</button>
+        <button class="btn" id="clearCustomBtn" style="flex:1;">🗑️ 추가 문제 초기화</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
