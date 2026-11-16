@@ -86,6 +86,8 @@ const userState = {
   nickname: "게스트도전자",
   bio: "안녕하세요! 음악왕 도전자입니다.",
   cdCoins: 100,
+  exp: 0,
+  claimedTopRanks: {},
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
@@ -171,6 +173,25 @@ function updateHeaderUserUI() {
     adminBtn.classList.toggle("hidden", !(userState.isLoggedIn && userState.nickname === "관리자"));
   }
 
+  // 레벨 · 타이틀 · 경험치 UI 동기화
+  if (typeof getLevelInfo === "function") {
+    const lv = getLevelInfo(userState.exp);
+    const titlePill = document.getElementById("homeCharTitlePill");
+    if (titlePill) titlePill.textContent = `Lv.${lv.level} ${lv.title}`;
+
+    const lvLabel = document.getElementById("homeExpLevelLabel");
+    if (lvLabel) {
+      lvLabel.textContent = lv.isMax
+        ? `Lv.20 MAX (${lv.exp.toLocaleString()} EXP)`
+        : `Lv.${lv.level} (${lv.inLevelExp.toLocaleString()} / ${lv.needInLevel.toLocaleString()} EXP)`;
+    }
+    const pctLabel = document.getElementById("homeExpPercentLabel");
+    if (pctLabel) pctLabel.textContent = `${lv.percent.toFixed(1)}%`;
+
+    const barFill = document.getElementById("homeExpBarFill");
+    if (barFill) barFill.style.width = `${lv.percent.toFixed(1)}%`;
+  }
+
   const homeCanvas = document.getElementById("homeHeroAvatar");
   if (homeCanvas) renderPixelAvatar(homeCanvas, userState.avatarConfig);
 
@@ -182,6 +203,39 @@ function updateHeaderUserUI() {
   const signupPreview = document.getElementById("signupCharPreview");
   if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
 }
+
+window.openTitlesModal = function () {
+  if (typeof EXP_LEVEL_TABLE === "undefined") return;
+  const lv = getLevelInfo(userState.exp);
+  const summaryEl = document.getElementById("titlesCurrentSummary");
+  if (summaryEl) {
+    summaryEl.textContent = lv.isMax
+      ? `👑 현재 최고 레벨 Lv.20 달성! (${lv.title}) · 총 ${lv.exp.toLocaleString()} EXP`
+      : `현재 Lv.${lv.level} [${lv.title}] · 보유 ${lv.exp.toLocaleString()} EXP (Lv.${lv.level + 1}까지 ${(lv.nextReq - lv.exp).toLocaleString()} EXP 남음)`;
+  }
+
+  const listEl = document.getElementById("titlesTableList");
+  if (listEl) {
+    listEl.innerHTML = EXP_LEVEL_TABLE.map((row, idx) => {
+      const unlocked = userState.exp >= row.reqExp;
+      const isCurrent = lv.level === row.level;
+      const nextReq = EXP_LEVEL_TABLE[idx + 1] ? EXP_LEVEL_TABLE[idx + 1].reqExp : null;
+      const rangeStr = nextReq
+        ? `필요 누적 ${row.reqExp.toLocaleString()} EXP (다음 +${(nextReq - row.reqExp).toLocaleString()})`
+        : `최종 달성 누적 ${row.reqExp.toLocaleString()} EXP (MAX)`;
+      return `
+        <div class="pixel-list-item" style="cursor:default; background:${isCurrent ? "#fef9c3" : unlocked ? "#f0fdf4" : "#f8fafc"}; border-color:${isCurrent ? "#f59e0b" : unlocked ? "#86efac" : "#cbd5e1"};">
+          <div>
+            <div style="font-weight:900; font-size:0.88rem; color:var(--text-main);">Lv.${row.level} ${row.title} ${isCurrent ? "⭐(현재)" : ""}</div>
+            <div style="font-size:0.73rem; color:var(--text-sub);">${rangeStr}</div>
+          </div>
+          <span class="badge ${unlocked ? "accent" : ""}">${unlocked ? "✅ 달성" : "🔒 잠금"}</span>
+        </div>
+      `;
+    }).join("");
+  }
+  openModal("titlesModal");
+};
 
 // ============================================================================
 // 아이디 저장 / 자동로그인 설정 관리
@@ -242,7 +296,7 @@ async function loadServerGlobalConfigs() {
 
     if (data) {
       if (data.avatar_config && data.avatar_config.shopCatalog) {
-        applyServerShopCatalog(data.avatar_config.shopCatalog);
+        applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
       }
       if (Array.isArray(data.owned_items) && data.owned_items.length > 0) {
         applyServerSongsOverride(data.owned_items);
@@ -292,7 +346,10 @@ async function restoreSupabaseSession() {
         userState.nickname = prof.nickname;
         userState.bio = prof.bio || userState.bio;
         userState.cdCoins = prof.cd_coins ?? 100;
-        userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...(prof.avatar_config || {}) };
+        const rawCfg = prof.avatar_config || {};
+        userState.exp = Number(rawCfg._exp) || 0;
+        userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
+        userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...rawCfg };
         userState.ownedItems = Array.isArray(prof.owned_items)
           ? prof.owned_items
           : ["meadow", "default", "none", "basic", "mic_silver"];
@@ -314,12 +371,17 @@ async function syncProfileToServer() {
   updateHeaderUserUI();
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
   try {
+    const payloadConfig = {
+      ...userState.avatarConfig,
+      _exp: userState.exp,
+      _claimedTopRanks: userState.claimedTopRanks || {}
+    };
     await sbClient.from("profiles").upsert({
       id: userState.id,
       nickname: userState.nickname,
       bio: userState.bio,
       cd_coins: userState.cdCoins,
-      avatar_config: userState.avatarConfig,
+      avatar_config: payloadConfig,
       owned_items: userState.ownedItems,
       updated_at: new Date().toISOString()
     });
@@ -380,6 +442,8 @@ window.handleAuthSubmit = async function (mode) {
       userState.id = uid;
       userState.nickname = nickInput;
       userState.cdCoins = 100;
+      userState.exp = 0;
+      userState.claimedTopRanks = {};
       userState.isLoggedIn = true;
       saveAuthPreferences(nickInput);
 
@@ -388,7 +452,7 @@ window.handleAuthSubmit = async function (mode) {
         nickname: nickInput,
         bio: userState.bio,
         cd_coins: userState.cdCoins,
-        avatar_config: userState.avatarConfig,
+        avatar_config: { ...userState.avatarConfig, _exp: 0, _claimedTopRanks: {} },
         owned_items: userState.ownedItems
       });
 
@@ -417,7 +481,10 @@ window.handleAuthSubmit = async function (mode) {
       userState.nickname = prof?.nickname || nickInput;
       userState.bio = prof?.bio || userState.bio;
       userState.cdCoins = prof?.cd_coins ?? 100;
-      userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...(prof?.avatar_config || {}) };
+      const rawCfg = prof?.avatar_config || {};
+      userState.exp = Number(rawCfg._exp) || 0;
+      userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
+      userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...rawCfg };
       userState.ownedItems = prof?.owned_items || userState.ownedItems;
       userState.isLoggedIn = true;
       saveAuthPreferences(userState.nickname);
@@ -476,6 +543,64 @@ async function submitScoreToRanking(record) {
       accuracy: record.accuracy
     });
   } catch (e) {}
+}
+
+// 게임 종료 시 기본 경험치(점수*0.1) + 랭킹 TOP3 최초 달성 순간(1회) 1위×5 / 2위×3 / 3위×2 배율 보너스 지급
+async function checkAndProcessGameRewards(score, mode, stage) {
+  const baseExp = Math.max(0, Math.round((Number(score) || 0) * 0.1));
+  const expBefore = Number(userState.exp) || 0;
+  let multiplier = 1;
+  let achievedTopRank = null; // 1, 2, 3 (없으면 null)
+
+  if (sbClient && userState.isLoggedIn && userState.id && score > 0) {
+    try {
+      const { data: topRows } = await sbClient
+        .from("rankings")
+        .select("user_id, score")
+        .eq("game_mode", mode)
+        .eq("stage", Number(stage))
+        .order("score", { ascending: false })
+        .limit(80);
+
+      if (Array.isArray(topRows) && topRows.length > 0) {
+        // 유저별 최고 기록 기준으로 중복 제거해 상위 3명 추출
+        const bestByUser = [];
+        const seen = new Set();
+        for (const r of topRows) {
+          if (!r.user_id || seen.has(r.user_id)) continue;
+          seen.add(r.user_id);
+          bestByUser.push(r);
+          if (bestByUser.length >= 3) break;
+        }
+
+        const myIdx = bestByUser.findIndex(r => r.user_id === userState.id && Number(r.score) === Number(score));
+        if (myIdx !== -1 && myIdx < 3) {
+          const currentRank = myIdx + 1;
+          const rankKey = `${mode}_${stage}`;
+          const prevClaimed = Number(userState.claimedTopRanks?.[rankKey]) || 99;
+          // 해당 순위(또는 더 높은 순위)에 방금 처음으로 도달한 그 순간(1회)만 발동!
+          if (currentRank < prevClaimed) {
+            achievedTopRank = currentRank;
+            multiplier = currentRank === 1 ? 5 : currentRank === 2 ? 3 : 2;
+            userState.claimedTopRanks = { ...(userState.claimedTopRanks || {}), [rankKey]: currentRank };
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  const finalExp = baseExp * multiplier;
+  userState.exp = expBefore + finalExp;
+  await syncProfileToServer();
+
+  return {
+    baseExp,
+    finalExp,
+    multiplier,
+    achievedTopRank,
+    expBefore,
+    expAfter: userState.exp
+  };
 }
 
 window.loadRankingsList = async function () {
@@ -552,6 +677,14 @@ function updateShopPreviewCanvas() {
   const cv = document.getElementById("shopAvatarCanvas");
   if (cv) {
     renderPixelAvatar(cv, shopPreviewState.config, { transparentBg: true });
+  }
+
+  // 선택한 배경(bg) 컬러를 상점 상단 스테이지에도 실시간 반영!
+  const topBackdrop = document.getElementById("shopTopBackdrop");
+  if (topBackdrop) {
+    const bgItem = getItemById("bg", shopPreviewState.config.bg);
+    const c = (bgItem && bgItem.colors) || ["#5ec8f8", "#aee4ff", "#76d32d", "#58b018"];
+    topBackdrop.style.background = `linear-gradient(180deg, ${c[0]} 0%, ${c[1]} 58%, ${c[2]} 58%, ${c[3]} 100%)`;
   }
 
   const cdSpan = document.getElementById("shopCdBalance");
@@ -642,18 +775,18 @@ async function purchaseAndEquipPreviewItem(sel) {
 
 function purchaseNicknameTicket() {
   const item = getItemById("special", "nickname_ticket");
-  const price = item ? item.price : 500;
+  const price = item ? item.price : 5000;
 
   if (!userState.isLoggedIn) {
     gameAlert("닉네임 변경권은 로그인한 계정에서 사용할 수 있습니다!");
     return;
   }
   if (userState.cdCoins < price) {
-    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price} CD)`);
+    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price.toLocaleString()} CD)`);
     return;
   }
 
-  gamePrompt(`🎫 닉네임 변경권 (${price} CD)\n새 닉네임을 입력해주세요 (2~12자):`, userState.nickname, async newNick => {
+  gamePrompt(`🎫 닉네임 변경권 (${price.toLocaleString()} CD)\n새 닉네임을 입력해주세요 (2~12자):`, userState.nickname, async newNick => {
     if (!newNick || newNick.length < 2) {
       gameAlert("닉네임은 2글자 이상이어야 합니다.");
       return;
@@ -684,17 +817,17 @@ function purchaseNicknameTicket() {
 
 function purchaseGenderTicket() {
   const item = getItemById("special", "gender_ticket");
-  const price = item ? item.price : 1000;
+  const price = item ? item.price : 10000;
 
   if (userState.cdCoins < price) {
-    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price} CD)`);
+    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price.toLocaleString()} CD)`);
     return;
   }
 
   const nextGender = userState.avatarConfig.gender === "female" ? "male" : "female";
   const nextLabel = nextGender === "female" ? "👧 여자 캐릭터" : "👦 남자 캐릭터";
 
-  gameConfirm(`⚧️ 성별 변경권 (${price} CD)을 구매하여\n내 기본 캐릭터를 [${nextLabel}]로 변경하시겠습니까?`, async () => {
+  gameConfirm(`⚧️ 성별 변경권 (${price.toLocaleString()} CD)을 구매하여\n내 기본 캐릭터를 [${nextLabel}]로 변경하시겠습니까?`, async () => {
     userState.cdCoins -= price;
     userState.avatarConfig.gender = nextGender;
     shopPreviewState.config.gender = nextGender;
@@ -767,8 +900,24 @@ window.openMyProfileModal = async function () {
   if (cv) renderPixelAvatar(cv, userState.avatarConfig);
 
   document.getElementById("profileNickDisplay").textContent = userState.nickname;
-  document.getElementById("profileCdDisplay").textContent = `💿 ${userState.cdCoins} CD`;
+  document.getElementById("profileCdDisplay").textContent = `💿 ${userState.cdCoins.toLocaleString()} CD`;
   document.getElementById("profileBioInput").value = userState.bio;
+
+  if (typeof getLevelInfo === "function") {
+    const lv = getLevelInfo(userState.exp);
+    const pTitle = document.getElementById("profileTitleDisplay");
+    if (pTitle) pTitle.textContent = `Lv.${lv.level} ${lv.title}`;
+    const pExpText = document.getElementById("profileExpText");
+    if (pExpText) {
+      pExpText.textContent = lv.isMax
+        ? `MAX (${lv.exp.toLocaleString()} EXP)`
+        : `${lv.inLevelExp.toLocaleString()} / ${lv.needInLevel.toLocaleString()} EXP (총 ${lv.exp.toLocaleString()})`;
+    }
+    const pExpPct = document.getElementById("profileExpPercent");
+    if (pExpPct) pExpPct.textContent = `${lv.percent.toFixed(1)}%`;
+    const pExpFill = document.getElementById("profileExpFill");
+    if (pExpFill) pExpFill.style.width = `${lv.percent.toFixed(1)}%`;
+  }
 
   // 수파베이스에서 내 통산 전적 및 랭킹 순위 계산
   document.getElementById("statPlayCount").textContent = "조회중...";
@@ -1582,6 +1731,30 @@ function renderBattlePlayScreen(room) {
     const winner = sorted[0];
     document.getElementById("battleWinnerBanner").textContent =
       `🏆 최종 우승: ${winner ? winner.nickname : "없음"} (${winner ? winner.score : 0}점)`;
+
+    const roundRewardKey = `${room.id}_${(room.question_ids || []).join(",")}`;
+    if (plazaState.lastRewardedKey !== roundRewardKey) {
+      plazaState.lastRewardedKey = roundRewardKey;
+      const me = (room.players || []).find(p => p.id === userState.id);
+      const myScore = me ? Number(me.score) || 0 : 0;
+      const earnedCd = winner && winner.id === userState.id ? 30 : myScore > 0 ? 10 : 0;
+      const expBefore = Number(userState.exp) || 0;
+      const gainExp = Math.round(myScore * 0.1);
+      userState.exp = expBefore + gainExp;
+      if (earnedCd > 0) userState.cdCoins += earnedCd;
+      syncProfileToServer();
+      if (typeof showRewardSummaryModal === "function") {
+        showRewardSummaryModal({
+          earnedCd,
+          baseExp: gainExp,
+          finalExp: gainExp,
+          multiplier: 1,
+          achievedTopRank: null,
+          expBefore,
+          expAfter: userState.exp
+        });
+      }
+    }
     return;
   }
 
@@ -1710,7 +1883,6 @@ window.submitOnlineBattleAnswer = async function () {
 
     if ((room.current_q_index || 0) + 1 >= (room.question_ids || []).length) {
       room.status = "finished";
-      addCdCoins(30);
     } else {
       room.current_q_index = (room.current_q_index || 0) + 1;
     }

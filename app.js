@@ -101,6 +101,8 @@ function safeOn(id, event, handler) {
 
 window.closeAllModals = function () {
   document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
+  const confettiCv = document.getElementById("confettiCanvas");
+  if (confettiCv) confettiCv.classList.add("hidden");
 };
 
 window.openModal = function (id) {
@@ -412,6 +414,77 @@ window.confirmExitSingleGame = function () {
 };
 
 // ============================================================================
+// 배경음악(BGM) 컨트롤 & 우측 하단 플로팅 음소거 버튼
+// ============================================================================
+const bgmState = {
+  mainAudio: new Audio("./bgm/main.mp3"),
+  shopAudio: new Audio("./bgm/shop.mp3"),
+  muted: localStorage.getItem("mk_bgm_muted") === "true",
+  currentType: "none"
+};
+bgmState.mainAudio.loop = true;
+bgmState.mainAudio.volume = 0.22;
+bgmState.shopAudio.loop = true;
+bgmState.shopAudio.volume = 0.22;
+
+function syncFloatingSoundBtn(screenId) {
+  const btn = document.getElementById("floatingSoundBtn");
+  if (!btn) return;
+  const showBtn = ["loginScreen", "homeScreen", "rankingScreen", "shopScreen"].includes(screenId);
+  btn.classList.toggle("hidden", !showBtn);
+  btn.textContent = bgmState.muted ? "🔇" : "🔊";
+  btn.classList.toggle("is-muted", bgmState.muted);
+}
+
+window.toggleBgmMute = function () {
+  bgmState.muted = !bgmState.muted;
+  localStorage.setItem("mk_bgm_muted", bgmState.muted ? "true" : "false");
+  updateBgmForScreen(state.currentScreen);
+};
+
+function updateBgmForScreen(screenId) {
+  syncFloatingSoundBtn(screenId);
+
+  if (bgmState.muted) {
+    bgmState.mainAudio.pause();
+    bgmState.shopAudio.pause();
+    bgmState.currentType = "none";
+    return;
+  }
+
+  // 게임 진행 화면(1초 듣기 등 음원과 겹침 방지)은 BGM 정지
+  if (["gameScreen", "judgeScreen", "battlePlayScreen"].includes(screenId)) {
+    bgmState.mainAudio.pause();
+    bgmState.shopAudio.pause();
+    bgmState.currentType = "none";
+    return;
+  }
+
+  if (screenId === "shopScreen") {
+    bgmState.mainAudio.pause();
+    bgmState.currentType = "shop";
+    bgmState.shopAudio.play().catch(() => {});
+  } else {
+    bgmState.shopAudio.pause();
+    bgmState.currentType = "main";
+    bgmState.mainAudio.play().catch(() => {});
+  }
+}
+
+document.addEventListener(
+  "pointerdown",
+  () => {
+    if (!bgmState.muted && bgmState.currentType !== "none") {
+      const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
+      if (targetAudio.paused) {
+        targetAudio.play().catch(() => {});
+      }
+    }
+  },
+  { passive: true }
+);
+
+// ============================================================================
 // 화면 전환
 // ============================================================================
 window.switchScreen = function (targetId) {
@@ -448,6 +521,13 @@ window.switchScreen = function (targetId) {
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
+  });
+
+  updateBgmForScreen(targetId);
+
+  // 숨겨져 있던 캔버스가 표시된 직후 실제 CSS 크기에 맞춘 1:1 정배율 렌더링 재호출!
+  requestAnimationFrame(() => {
+    if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
   });
 };
 
@@ -942,7 +1022,7 @@ async function showFinalResult() {
   const earnedCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
   document.getElementById("finalCdEarnedText").textContent = `💿 획득 보상: +${earnedCd} CD 지급 완료! (보유: ${userState.cdCoins + earnedCd} CD)`;
   if (earnedCd > 0) {
-    await addCdCoins(earnedCd);
+    userState.cdCoins += earnedCd;
   }
 
   if (state.score > 0 && typeof submitScoreToRanking === "function") {
@@ -957,6 +1037,20 @@ async function showFinalResult() {
     });
   }
 
+  let rewardResult = {
+    earnedCd,
+    baseExp: Math.round(state.score * 0.1),
+    finalExp: Math.round(state.score * 0.1),
+    multiplier: 1,
+    achievedTopRank: null,
+    expBefore: userState.exp || 0,
+    expAfter: (userState.exp || 0) + Math.round(state.score * 0.1)
+  };
+  if (typeof checkAndProcessGameRewards === "function") {
+    const res = await checkAndProcessGameRewards(state.score, state.mode, state.stage);
+    rewardResult = { earnedCd, ...res };
+  }
+
   const listEl = document.getElementById("historyList");
   listEl.innerHTML = state.history
     .map(
@@ -968,7 +1062,127 @@ async function showFinalResult() {
     `
     )
     .join("");
+
+  showRewardSummaryModal(rewardResult);
 }
+
+// ============================================================================
+// 결과 보상 정산 · 경험치 바 상승(%) 애니메이션 · TOP 3 폭죽 파티클
+// ============================================================================
+let confettiAnimId = null;
+
+window.launchTop3Confetti = function () {
+  const cv = document.getElementById("confettiCanvas");
+  if (!cv) return;
+  cv.classList.remove("hidden");
+  cv.width = window.innerWidth;
+  cv.height = window.innerHeight;
+  const ctx = cv.getContext("2d");
+
+  const colors = ["#facc15", "#f43f5e", "#38bdf8", "#4ade80", "#a855f7", "#fb923c"];
+  const particles = Array.from({ length: 120 }, () => ({
+    x: Math.random() * cv.width,
+    y: Math.random() * -cv.height * 0.6 - 20,
+    vx: (Math.random() - 0.5) * 6,
+    vy: Math.random() * 4 + 3,
+    w: Math.random() * 10 + 6,
+    h: Math.random() * 6 + 4,
+    rot: Math.random() * Math.PI * 2,
+    vRot: (Math.random() - 0.5) * 0.25,
+    color: colors[Math.floor(Math.random() * colors.length)]
+  }));
+
+  if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+  const startTime = Date.now();
+
+  const frame = () => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.08;
+      p.rot += p.vRot;
+      if (p.y < cv.height + 30) alive = true;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+
+    if (alive && Date.now() - startTime < 4500) {
+      confettiAnimId = requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      cv.classList.add("hidden");
+    }
+  };
+  confettiAnimId = requestAnimationFrame(frame);
+};
+
+window.showRewardSummaryModal = function (res) {
+  const modal = document.getElementById("rewardSummaryModal");
+  if (!modal) return;
+
+  const beforeLv = getLevelInfo(res.expBefore);
+  const afterLv = getLevelInfo(res.expAfter);
+
+  const top3Banner = document.getElementById("rewardTop3Banner");
+  if (top3Banner) {
+    if (res.achievedTopRank && res.achievedTopRank <= 3) {
+      const medal = res.achievedTopRank === 1 ? "🥇 1위" : res.achievedTopRank === 2 ? "🥈 2위" : "🥉 3위";
+      top3Banner.innerHTML = `🎉 축하합니다! 랭킹 <strong>${medal}</strong> 신규 달성!<br/>보너스 경험치 <strong>×${res.multiplier}배</strong> 적용!`;
+      top3Banner.classList.remove("hidden");
+      launchTop3Confetti();
+    } else {
+      top3Banner.classList.add("hidden");
+    }
+  }
+
+  document.getElementById("rewardCdGain").textContent = `+${res.earnedCd || 0} CD`;
+  document.getElementById("rewardExpGain").textContent =
+    res.multiplier > 1
+      ? `+${res.finalExp.toLocaleString()} EXP (×${res.multiplier}배!)`
+      : `+${res.finalExp.toLocaleString()} EXP`;
+
+  document.getElementById("rewardLevelTitle").textContent = `Lv.${afterLv.level} ${afterLv.title}`;
+  document.getElementById("rewardLevelUpTag").classList.toggle("hidden", afterLv.level <= beforeLv.level);
+
+  const leveledUp = afterLv.level > beforeLv.level;
+  const startPct = leveledUp ? 0 : beforeLv.percent;
+  const endPct = afterLv.percent;
+  const deltaPct = leveledUp
+    ? (100 - beforeLv.percent + endPct)
+    : Math.max(0, endPct - beforeLv.percent);
+
+  document.getElementById("rewardExpDetailText").textContent = afterLv.isMax
+    ? `MAX (${afterLv.exp.toLocaleString()} EXP)`
+    : `${afterLv.inLevelExp.toLocaleString()} / ${afterLv.needInLevel.toLocaleString()} EXP`;
+  document.getElementById("rewardPercentDeltaText").textContent = `${endPct.toFixed(1)}% (+${deltaPct.toFixed(1)}% ↑)`;
+
+  const barFill = document.getElementById("rewardExpBarFill");
+  barFill.style.transition = "none";
+  barFill.style.width = `${startPct.toFixed(1)}%`;
+
+  modal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      barFill.style.transition = "width 1.15s cubic-bezier(0.22, 1, 0.36, 1)";
+      barFill.style.width = `${endPct.toFixed(1)}%`;
+    });
+  });
+};
+
+window.closeRewardSummaryModal = function () {
+  closeModal("rewardSummaryModal");
+  const cv = document.getElementById("confettiCanvas");
+  if (cv) {
+    if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+    cv.classList.add("hidden");
+  }
+};
 
 async function shareResultImage() {
   const target = document.getElementById("resultCaptureTarget");
@@ -1017,6 +1231,12 @@ async function shareResultImage() {
     gameAlert("화면 캡처 중 오류가 발생했습니다.");
   }
 }
+
+window.addEventListener("resize", () => {
+  if (["homeScreen", "loginScreen"].includes(state.currentScreen) && typeof updateHeaderUserUI === "function") {
+    updateHeaderUserUI();
+  }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();

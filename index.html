@@ -15,7 +15,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=9.0" />
+  <link rel="stylesheet" href="style.css?v=10.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -71,25 +71,39 @@
       </div>
     </header>
 
-    <!-- ==================== 1. 메인 홈 화면 (와이드 파노라마 배경 + 정중앙 캐릭터) ==================== -->
+    <!-- ==================== 1. 메인 홈 화면 (넓은 배경 + 캐릭터 위 타이틀 + 경험치 바) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
-        <span class="hero-badge">✨ MUSIC KING · K-POP QUIZ & ARENA</span>
-
-        <!-- 와이드 파노라마 배경 + 정중앙 캐릭터 -->
+        <!-- 와이드 파노라마 배경 + 캐릭터 머리 위 타이틀 + 정중앙 정배율 캐릭터 -->
         <div class="home-wide-stage">
-          <canvas id="homeHeroAvatar" width="760" height="380" style="width:100%; height:210px; display:block;"></canvas>
+          <button type="button" id="homeCharTitlePill" class="home-title-pill" onclick="openTitlesModal()" title="타이틀 · 레벨 도감 보기">
+            Lv.1 🐣 방구석 리스너
+          </button>
+          <canvas id="homeHeroAvatar" width="760" height="470" style="width:100%; height:235px; display:block;"></canvas>
+        </div>
+
+        <!-- 레벨 · 경험치 바 + 타이틀 도감 버튼 -->
+        <div class="home-exp-row">
+          <div class="exp-bar-wrap">
+            <div class="exp-bar-top">
+              <span id="homeExpLevelLabel">Lv.1 · 다음 레벨까지 1,000 EXP</span>
+              <span id="homeExpPercentLabel" style="color:var(--primary-dark);">0.0%</span>
+            </div>
+            <div class="exp-progress-track">
+              <div id="homeExpBarFill" class="exp-progress-fill" style="width:0%;"></div>
+            </div>
+          </div>
+          <button class="btn" onclick="openTitlesModal()" style="padding:6px 9px; font-size:0.75rem; flex-shrink:0;">📜 타이틀</button>
         </div>
 
         <div>
-          <h1>👑 대한민국 음악왕</h1>
-          <p>
-            나무위키·방송 팩트 기반 비하인드 스토리부터<br />
-            가사 퀴즈, 1초 듣기, 실시간 온라인 대전까지!
+          <h1 style="font-size:1.5rem;">👑 대한민국 음악왕</h1>
+          <p style="font-size:0.8rem;">
+            비하인드·가사·1초 듣기 퀴즈부터 실시간 온라인 대전까지!
           </p>
         </div>
 
-        <button class="btn btn-primary btn-lg" id="enterSetupBtn" onclick="openPlayModeSelect()" style="font-size:1.12rem; padding:15px;">
+        <button class="btn btn-primary btn-lg" id="enterSetupBtn" onclick="openPlayModeSelect()" style="font-size:1.1rem; padding:13px;">
           🚀 음악왕 도전
         </button>
 
@@ -101,10 +115,10 @@
       </div>
     </main>
 
-    <!-- ==================== 2. 전용 전체화면 상점 (#shopScreen) ==================== -->
+    <!-- ==================== 2. 전용 전체화면 상점 (#shopScreen — 배경 탭 포함 7종!) ==================== -->
     <section id="shopScreen" class="screen-view hidden">
       <div class="apf-shop-wrapper">
-        <div class="apf-shop-top">
+        <div class="apf-shop-top" id="shopTopBackdrop">
           <div class="apf-shop-topbar">
             <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기">⬅</button>
             <div class="cd-pill">
@@ -134,8 +148,9 @@
           </div>
         </div>
 
-        <!-- 중단 탭 바 (전부 한 줄로 깔끔하게 표시) -->
+        <!-- 중단 탭 바 (배경 포함 7개 카테고리 한 줄 표시) -->
         <div class="apf-tab-bar">
+          <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')">🏞️ 배경</div>
           <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')">💇 헤어</div>
           <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')">🎧 모자</div>
           <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')">👓 표정</div>
@@ -583,7 +598,17 @@
         <canvas id="profileAvatarCanvas" width="480" height="480" style="width:92px; height:92px; border-radius:14px; border:2px solid var(--game-border); flex-shrink:0;"></canvas>
         <div style="flex:1;">
           <h4 id="profileNickDisplay" style="font-size:1.15rem; font-weight:900; margin-bottom:2px;">닉네임</h4>
-          <p id="profileCdDisplay" style="font-size:0.84rem; color:#b45309; font-weight:800; margin-bottom:6px;"></p>
+          <p id="profileTitleDisplay" style="font-size:0.8rem; font-weight:900; color:var(--primary-dark); margin-bottom:2px;">Lv.1 🐣 방구석 리스너</p>
+          <p id="profileCdDisplay" style="font-size:0.82rem; color:#b45309; font-weight:800; margin-bottom:5px;"></p>
+          <div class="exp-bar-wrap" style="margin-bottom:6px;">
+            <div class="exp-bar-top">
+              <span id="profileExpText">0 / 1,000 EXP</span>
+              <span id="profileExpPercent">0.0%</span>
+            </div>
+            <div class="exp-progress-track" style="height:9px;">
+              <div id="profileExpFill" class="exp-progress-fill" style="width:0%;"></div>
+            </div>
+          </div>
           <div class="score-rule-grid">
             <div class="score-rule-item"><span>플레이</span><strong id="statPlayCount">0회</strong></div>
             <div class="score-rule-item"><span>최고점</span><strong id="statBestScore" class="score-plus">0점</strong></div>
@@ -774,6 +799,59 @@
     </div>
   </div>
 
+  <!-- ==================== [모달 10] 타이틀 · 1~20레벨 경험치 테이블 도감 ==================== -->
+  <div id="titlesModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">📜 음악왕 20단계 타이틀 · 경험치 도감</h3>
+        <button class="header-btn" onclick="closeModal('titlesModal')">닫기 ✕</button>
+      </div>
+      <div id="titlesCurrentSummary" style="background:#fef9c3; border:2px solid var(--game-border); border-radius:12px; padding:8px 10px; font-size:0.82rem; font-weight:900; margin-bottom:8px; text-align:center;"></div>
+      <div id="titlesTableList" class="history-scroll-box" style="max-height:360px;"></div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 11] 게임 보상 · 경험치 애니메이션 · 랭킹 TOP3 폭죽 결과 바 ==================== -->
+  <div id="rewardSummaryModal" class="modal-backdrop hidden" style="z-index:2200;">
+    <div class="modal-content" style="text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1.05rem;">🎁 게임 보상 정산</h3>
+        <button class="header-btn" onclick="closeRewardSummaryModal()">닫기 ✕</button>
+      </div>
+
+      <!-- 랭킹 3위 내 최초 진입 시에만 표시되는 TOP 3 배너 -->
+      <div id="rewardTop3Banner" class="hidden" style="background:linear-gradient(135deg, #fef08a, #f59e0b); border:2.5px solid #1e1b18; border-radius:14px; padding:10px; margin-bottom:10px; color:#1e1b18; font-weight:900;"></div>
+
+      <div class="score-rule-grid" style="margin-bottom:12px;">
+        <div class="score-rule-item"><span>💿 획득 CD</span><strong id="rewardCdGain" style="color:#b45309;">+0 CD</strong></div>
+        <div class="score-rule-item"><span>✨ 획득 EXP</span><strong id="rewardExpGain" class="score-plus">+0 EXP</strong></div>
+      </div>
+
+      <!-- 경험치 바 상승 & % 애니메이션 영역 -->
+      <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:14px; padding:12px; margin-bottom:14px;">
+        <div id="rewardLevelTitle" style="font-size:0.98rem; font-weight:900; color:var(--primary-dark); margin-bottom:4px;">Lv.1 🐣 방구석 리스너</div>
+        <div id="rewardLevelUpTag" class="hidden" style="display:inline-block; background:#f43f5e; color:#fff; font-size:0.75rem; font-weight:900; padding:2px 10px; border-radius:999px; margin-bottom:5px;">🎉 LEVEL UP!</div>
+        <div class="exp-bar-top" style="margin-bottom:4px;">
+          <span id="rewardExpDetailText">0 / 1,000 EXP</span>
+          <span id="rewardPercentDeltaText" style="color:#16a34a;">0.0% (+0.0%)</span>
+        </div>
+        <div class="exp-progress-track" style="height:15px;">
+          <div id="rewardExpBarFill" class="exp-progress-fill" style="width:0%;"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" onclick="closeRewardSummaryModal()" style="padding:12px;">
+        ✕ 닫기 (결과표 확인 · 공유하기)
+      </button>
+    </div>
+  </div>
+
+  <!-- 우측 하단 둥둥 떠있는 사운드 ON/OFF 플로팅 버튼 (로그인·메인·랭킹·상점) -->
+  <button type="button" id="floatingSoundBtn" class="floating-sound-btn hidden" onclick="toggleBgmMute()" title="배경음악 켜기/끄기">🔊</button>
+
+  <!-- 랭킹 3위 이내 달성 시 터지는 축하 폭죽 파티클 캔버스 -->
+  <canvas id="confettiCanvas" class="hidden"></canvas>
+
   <!-- ==================== [커스텀 시스템 팝업 모달] ==================== -->
   <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
     <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
@@ -789,9 +867,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=9.0"></script>
-  <script src="pixel_avatar.js?v=9.0"></script>
-  <script src="online.js?v=9.0"></script>
-  <script src="app.js?v=9.0"></script>
+  <script src="data.js?v=10.0"></script>
+  <script src="pixel_avatar.js?v=10.0"></script>
+  <script src="online.js?v=10.0"></script>
+  <script src="app.js?v=10.0"></script>
 </body>
 </html>

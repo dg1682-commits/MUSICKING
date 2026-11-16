@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=9.0" />
+  <link rel="stylesheet" href="style.css?v=10.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -261,9 +261,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=9.0"></script>
-  <script src="pixel_avatar.js?v=9.0"></script>
-  <script src="online.js?v=9.0"></script>
+  <script src="data.js?v=10.0"></script>
+  <script src="pixel_avatar.js?v=10.0"></script>
+  <script src="online.js?v=10.0"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -313,7 +313,7 @@
       if (data) {
         adminConfigRowId = data.id;
         if (data.avatar_config && data.avatar_config.shopCatalog) {
-          applyServerShopCatalog(data.avatar_config.shopCatalog);
+          applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
         }
         if (Array.isArray(data.owned_items)) {
           adminOverridesList = data.owned_items;
@@ -345,7 +345,7 @@
             nickname: "__ADMIN_CONFIG__",
             bio: "시스템 글로벌 설정 데이터",
             cd_coins: 0,
-            avatar_config: { shopCatalog: AVATAR_SHOP_ITEMS },
+            avatar_config: { shopCatalog: AVATAR_SHOP_ITEMS, catalogVersion: SHOP_CATALOG_VERSION },
             owned_items: adminOverridesList,
             updated_at: new Date().toISOString()
           });
