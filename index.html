@@ -16,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.6" />
+  <link rel="stylesheet" href="style.css?v=10.7" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -78,15 +78,22 @@
       🔔<span id="dmNotiBadgeCount" class="noti-count-badge">0</span>
     </button>
 
-    <!-- ==================== 1. 메인 홈 화면 (넓은 배경 + 캐릭터 위 타이틀 + 경험치 바) ==================== -->
+    <!-- ==================== 1. 메인 홈 화면 (상단 타이틀 + 확장된 배경/캐릭터 + 경험치 바) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
+        <div class="home-title-block">
+          <h1 style="font-size:1.48rem;">👑 대한민국 음악왕</h1>
+          <p style="font-size:0.79rem;">
+            비하인드·가사·1초 듣기 퀴즈부터 실시간 온라인 대전까지!
+          </p>
+        </div>
+
         <!-- 와이드 파노라마 배경 + 캐릭터 머리 위 타이틀 + 정중앙 정배율 캐릭터 -->
         <div class="home-wide-stage">
           <button type="button" id="homeCharTitlePill" class="home-title-pill" onclick="openTitlesModal()" title="타이틀 · 레벨 도감 보기">
             Lv.1 🐣 방구석 리스너
           </button>
-          <canvas id="homeHeroAvatar" width="760" height="470" style="width:100%; height:235px; display:block;"></canvas>
+          <canvas id="homeHeroAvatar" width="760" height="560" style="width:100%; height:100%; display:block;"></canvas>
         </div>
 
         <!-- 레벨 · 경험치 바 + 타이틀 도감 버튼 -->
@@ -101,13 +108,6 @@
             </div>
           </div>
           <button class="btn" onclick="openTitlesModal()" style="padding:6px 9px; font-size:0.75rem; flex-shrink:0;">📜 타이틀</button>
-        </div>
-
-        <div>
-          <h1 style="font-size:1.5rem;">👑 대한민국 음악왕</h1>
-          <p style="font-size:0.8rem;">
-            비하인드·가사·1초 듣기 퀴즈부터 실시간 온라인 대전까지!
-          </p>
         </div>
 
         <button class="btn btn-primary btn-lg" id="enterSetupBtn" onclick="openPlayModeSelect()" style="font-size:1.1rem; padding:13px;">
@@ -452,14 +452,20 @@
           <div class="midi-eq-bars"><span></span><span></span><span></span><span></span></div>
           <span id="battlePlayProgress" style="font-size:0.86rem; font-weight:900; color:#7dd3fc;">ROUND 1 / 10</span>
         </div>
-        <span id="battlePlayModeBadge" class="badge primary">📖 비하인드</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="badge" style="background:rgba(15,23,42,0.7); color:#a7f3d0; border-color:#34d399; font-size:0.7rem;">∞ 무제한</span>
+          <span id="battlePlayModeBadge" class="badge primary">📖 비하인드</span>
+        </div>
       </div>
 
       <!-- 실시간 참가자 점수 HUD -->
       <div id="battlePlayPlayersHud" class="score-rule-grid" style="flex-shrink:0;"></div>
 
+      <!-- 문제 전환 이펙트 배너 -->
+      <div id="battleRoundToast" class="battle-round-toast hidden"></div>
+
       <!-- 전자 미디 문제 디스플레이 카드 -->
-      <div class="question-card" style="flex:1; min-height:110px; max-height:none;">
+      <div class="question-card" id="battleQuestionCard" style="flex:1; min-height:110px; max-height:none;">
         <div class="given-info-banner" id="battlePlayHintBanner">
           <span id="battlePlayHintText">🎤 가수 힌트</span>
           <strong id="battlePlayYearTag">2020년</strong>
@@ -494,7 +500,11 @@
           </div>
         </div>
         <div class="action-row">
-          <button class="btn btn-gold" onclick="submitOnlineBattleAnswer()" style="flex:2; padding:12px;">⚡ 버저 정답 외치기!</button>
+          <button class="btn btn-gold" onclick="submitOnlineBattleAnswer()" style="flex:2.2; padding:12px;">⚡ 버저 정답 외치기!</button>
+          <button class="btn battle-pass-btn" id="battlePassBtn" onclick="passOnlineBattleQuestion()" style="flex:1; padding:12px; position:relative;">
+            ⏭️ 패스
+            <span id="battlePassBadge" class="battle-pass-badge hidden">0</span>
+          </button>
         </div>
       </div>
 
@@ -688,6 +698,10 @@
             <div class="score-rule-item"><span>정답률</span><strong id="statAvgAcc">0%</strong></div>
             <div class="score-rule-item"><span>랭킹</span><strong id="statMyRank" style="color:#b45309;">-</strong></div>
           </div>
+          <div class="battle-stats-grid" style="margin-top:6px;">
+            <div class="battle-stat-pill"><span>⚡ 1:1 대결</span><strong id="profileBattle1v1">0전 0승 0패 (0%)</strong></div>
+            <div class="battle-stat-pill"><span>🏆 4인 대결</span><strong id="profileBattle4p">0전 0승 0패 (0%)</strong></div>
+          </div>
         </div>
       </div>
       <div class="input-group" style="margin-bottom:10px;">
@@ -702,21 +716,72 @@
     </div>
   </div>
 
-  <!-- ==================== [모달 3] 타 유저 프로필 보기 ==================== -->
+  <!-- ==================== [모달 3] 타 유저 프로필 보기 (내 프로필과 동일 전적 UI) ==================== -->
   <div id="userInspectModal" class="modal-backdrop hidden">
-    <div class="modal-content" style="text-align:center;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:0.95rem;">👤 유저 프로필 정보</h3>
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1rem;">👤 유저 프로필 & 통산 전적</h3>
         <button class="header-btn" onclick="closeModal('userInspectModal')">닫기 ✕</button>
       </div>
       <input type="hidden" id="inspectTargetId" />
-      <canvas id="inspectAvatarCanvas" width="480" height="480" style="width:104px; height:104px; border-radius:14px; border:2px solid var(--game-border); margin-bottom:6px;"></canvas>
-      <h4 id="inspectNick" style="font-size:1.1rem; font-weight:900; margin-bottom:2px;"></h4>
-      <p id="inspectStatsSummary" style="font-size:0.78rem; color:var(--primary-dark); font-weight:800; margin-bottom:6px;"></p>
-      <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:8px; border-radius:8px; margin-bottom:12px;"></p>
-      <div class="action-row">
-        <button class="btn btn-primary" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
-        <button class="btn btn-accent" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
+      <div style="display:flex; align-items:center; gap:14px; background:var(--bg-subtle); padding:12px; border-radius:14px; border:2px solid var(--game-border); margin-bottom:10px;">
+        <canvas id="inspectAvatarCanvas" width="480" height="480" style="width:92px; height:92px; border-radius:14px; border:2px solid var(--game-border); flex-shrink:0;"></canvas>
+        <div style="flex:1; min-width:0;">
+          <h4 id="inspectNick" style="font-size:1.15rem; font-weight:900; margin-bottom:2px;">닉네임</h4>
+          <p id="inspectTitleDisplay" style="font-size:0.8rem; font-weight:900; color:var(--primary-dark); margin-bottom:2px;">Lv.1 🐣 방구석 리스너</p>
+          <p id="inspectCdDisplay" style="font-size:0.82rem; color:#b45309; font-weight:800; margin-bottom:5px;">💿 0 CD</p>
+          <div class="exp-bar-wrap" style="margin-bottom:6px;">
+            <div class="exp-bar-top">
+              <span id="inspectExpText">0 / 1,000 EXP</span>
+              <span id="inspectExpPercent">0.0%</span>
+            </div>
+            <div class="exp-progress-track" style="height:9px;">
+              <div id="inspectExpFill" class="exp-progress-fill" style="width:0%;"></div>
+            </div>
+          </div>
+          <div class="score-rule-grid">
+            <div class="score-rule-item"><span>플레이</span><strong id="inspectPlayCount">0회</strong></div>
+            <div class="score-rule-item"><span>최고점</span><strong id="inspectBestScore" class="score-plus">0점</strong></div>
+            <div class="score-rule-item"><span>정답률</span><strong id="inspectAvgAcc">0%</strong></div>
+            <div class="score-rule-item"><span>랭킹</span><strong id="inspectUserRank" style="color:#b45309;">-</strong></div>
+          </div>
+          <div class="battle-stats-grid" style="margin-top:6px;">
+            <div class="battle-stat-pill"><span>⚡ 1:1 대결</span><strong id="inspectBattle1v1">0전 0승 0패 (0%)</strong></div>
+            <div class="battle-stat-pill"><span>🏆 4인 대결</span><strong id="inspectBattle4p">0전 0승 0패 (0%)</strong></div>
+          </div>
+        </div>
+      </div>
+      <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:9px 10px; border-radius:10px; border:1.5px solid #e2e8f0; margin-bottom:12px; text-align:center;"></p>
+      <div class="action-row" id="inspectActionRow">
+        <button class="btn btn-primary" id="inspectFriendBtn" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
+        <button class="btn btn-accent" id="inspectDmBtn" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 3-B] 상점 입어보기 일괄/선택 구매 모달 ==================== -->
+  <div id="shopMultiBuyModal" class="modal-backdrop hidden" style="z-index:2050;">
+    <div class="modal-content" style="max-width:390px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">🛍️ 입어본 아이템 선택 구매</h3>
+        <button class="header-btn" onclick="closeModal('shopMultiBuyModal')">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px; line-height:1.4;">
+        현재 입어보고 있는 <strong>미구매 아이템</strong>이 여러 개 있습니다.<br/>
+        구매할 아이템을 선택해 주세요. (선택하지 않은 아이템은 구매·저장되지 않습니다)
+      </p>
+      <div id="shopMultiBuyList" class="shop-multibuy-list"></div>
+      <div class="shop-multibuy-summary">
+        <div>
+          <span style="font-size:0.78rem; color:var(--text-sub);">내 보유: <strong id="shopMultiBuyBalance">0 CD</strong></span>
+        </div>
+        <div style="font-size:0.98rem; font-weight:900; color:#b45309;">
+          총 결제: <span id="shopMultiBuyTotal">💿 0 CD</span>
+        </div>
+      </div>
+      <div class="action-row" style="margin-top:10px;">
+        <button class="btn" onclick="closeModal('shopMultiBuyModal')" style="flex:0.8;">취소</button>
+        <button class="btn btn-gold" id="shopMultiBuyConfirmBtn" onclick="confirmMultiBuyShopItems()" style="flex:1.6;">🛍️ 선택 항목 구매 · 장착</button>
       </div>
     </div>
   </div>
@@ -976,10 +1041,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.6"></script>
-  <script src="pixel_avatar.js?v=10.6"></script>
-  <script src="online.js?v=10.6"></script>
-  <script src="app.js?v=10.6"></script>
+  <script src="data.js?v=10.7"></script>
+  <script src="pixel_avatar.js?v=10.7"></script>
+  <script src="online.js?v=10.7"></script>
+  <script src="app.js?v=10.7"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

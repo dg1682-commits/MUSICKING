@@ -47,7 +47,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -55,6 +55,19 @@ document.addEventListener(
   },
   { passive: false }
 );
+
+// 상점 그리드 고스트 스크롤 (스크롤할 때만 얇은 스크롤바 표시)
+document.addEventListener("DOMContentLoaded", () => {
+  const shopGrid = document.getElementById("shopItemsGrid");
+  if (shopGrid) {
+    let scrollTimer = null;
+    shopGrid.addEventListener("scroll", () => {
+      shopGrid.classList.add("is-scrolling");
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => shopGrid.classList.remove("is-scrolling"), 750);
+    }, { passive: true });
+  }
+});
 
 // Standalone/APK 앱 모드인지 판별 (앱 모드 및 일반 터치 시 크롬의 '전체 화면 종료 스와이프 도움말' 토스트가 강제 노출되지 않도록 자동 requestFullscreen 제거)
 function isRunningAsApp() {
@@ -186,10 +199,21 @@ function pushAppHistoryState() {
   } catch (e) {}
 }
 
+let allowAppExit = false;
+
 window.addEventListener("popstate", () => {
+  if (allowAppExit) return;
+
   const dialog = document.getElementById("customDialogModal");
   if (dialog && !dialog.classList.contains("hidden")) {
     dialog.classList.add("hidden");
+    pushAppHistoryState();
+    return;
+  }
+
+  const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
+  if (openModals.length > 0) {
+    window.closeAllModals();
     pushAppHistoryState();
     return;
   }
@@ -202,13 +226,6 @@ window.addEventListener("popstate", () => {
 
   if (state.currentScreen === "battleRoomScreen") {
     leaveBattleRoom();
-    pushAppHistoryState();
-    return;
-  }
-
-  const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
-  if (openModals.length > 0) {
-    window.closeAllModals();
     pushAppHistoryState();
     return;
   }
@@ -234,9 +251,26 @@ window.addEventListener("popstate", () => {
 
   if (state.currentScreen === "homeScreen") {
     pushAppHistoryState();
-    gameConfirm("로그아웃하고 로그인 화면으로 돌아가시겠습니까?", () => {
-      showLoginScreen();
-    }, "👑 음악왕 종료/로그아웃");
+    gameConfirm(
+      "음악왕을 종료하고 나가시겠습니까?",
+      () => {
+        allowAppExit = true;
+        try {
+          bgmState.mainAudio.pause();
+          bgmState.shopAudio.pause();
+          state.audioEl.pause();
+        } catch (e) {}
+        try {
+          window.close();
+        } catch (e) {}
+        if (history.length > 1) {
+          history.go(-history.length);
+        } else {
+          history.back();
+        }
+      },
+      "👑 음악왕 종료"
+    );
     return;
   }
 
