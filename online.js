@@ -114,28 +114,67 @@ window.selectSignupGender = function (gender) {
   document.querySelectorAll("[data-signup-gender]").forEach(btn => {
     btn.classList.toggle("active", btn.getAttribute("data-signup-gender") === gender);
   });
-  const loginPreview = document.getElementById("loginCharPreview");
-  if (loginPreview) renderPixelAvatar(loginPreview, userState.avatarConfig);
+  const signupPreview = document.getElementById("signupCharPreview");
+  if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
+};
+
+window.openSignupGenderStep = async function () {
+  const nickInput = document.getElementById("authNicknameInput").value.trim();
+  const pwInput = document.getElementById("authPasswordInput").value.trim();
+
+  if (!nickInput || nickInput.length < 2) {
+    gameAlert("가입할 닉네임을 2글자 이상 먼저 입력해주세요.");
+    return;
+  }
+  if (!pwInput || pwInput.length < 6) {
+    gameAlert("비밀번호를 6자리 이상 먼저 입력해주세요.");
+    return;
+  }
+  if (sbClient) {
+    try {
+      const { data: existNick } = await sbClient
+        .from("profiles")
+        .select("id")
+        .eq("nickname", nickInput)
+        .maybeSingle();
+      if (existNick) {
+        gameAlert("이미 사용 중인 닉네임입니다!\n다른 닉네임을 입력하거나 [로그인]을 눌러주세요.");
+        return;
+      }
+    } catch (e) {}
+  }
+
+  openModal("signupGenderModal");
+  const signupPreview = document.getElementById("signupCharPreview");
+  if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
+};
+
+window.confirmSignupWithGender = function () {
+  closeModal("signupGenderModal");
+  handleAuthSubmit("signup");
 };
 
 function updateHeaderUserUI() {
   const cdEl = document.getElementById("headerCdCount");
   if (cdEl) cdEl.textContent = `${userState.cdCoins}`;
 
-  // 왼쪽 상단: 음악왕 대신 내 닉네임 표시
+  // 왼쪽 상단: 아이콘·도형 없이 닉네임만 최대 5글자 + '..' 표기
   const topNickEl = document.getElementById("headerTopMyNick");
   if (topNickEl) {
-    topNickEl.textContent = userState.isLoggedIn ? userState.nickname : `${userState.nickname} (게스트)`;
+    const rawNick = String(userState.nickname || "도전자");
+    topNickEl.textContent = rawNick.length > 5 ? rawNick.slice(0, 5) + ".." : rawNick;
   }
-
-  const miniCanvas = document.getElementById("headerMiniAvatar");
-  if (miniCanvas) renderPixelAvatar(miniCanvas, userState.avatarConfig);
 
   const homeCanvas = document.getElementById("homeHeroAvatar");
   if (homeCanvas) renderPixelAvatar(homeCanvas, userState.avatarConfig);
 
-  const loginPreview = document.getElementById("loginCharPreview");
-  if (loginPreview) renderPixelAvatar(loginPreview, userState.avatarConfig);
+  const logoCanvas = document.getElementById("loginLogoCanvas");
+  if (logoCanvas && typeof renderPixelLogo === "function") {
+    renderPixelLogo(logoCanvas);
+  }
+
+  const signupPreview = document.getElementById("signupCharPreview");
+  if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
 }
 
 function nicknameToEmail(nick) {
@@ -342,13 +381,6 @@ window.handleAuthSubmit = async function (mode) {
   }
 };
 
-window.continueAsGuest = function () {
-  userState.isLoggedIn = false;
-  userState.nickname = "게스트도전자";
-  updateHeaderUserUI();
-  showHome();
-};
-
 window.handleLogout = async function () {
   gameConfirm("정말 로그아웃 하시겠습니까?", async () => {
     if (sbClient) {
@@ -356,7 +388,7 @@ window.handleLogout = async function () {
     }
     userState.id = null;
     userState.isLoggedIn = false;
-    userState.nickname = "게스트도전자";
+    userState.nickname = "도전자";
     closeAllModals();
     showLoginScreen();
   }, "🚪 로그아웃");

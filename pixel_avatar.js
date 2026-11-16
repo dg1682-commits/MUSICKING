@@ -793,3 +793,157 @@ function renderItemThumbnail(canvas, category, item) {
 
   ctx.restore();
 }
+
+// ============================================================================
+// 4. 로그인 화면 전용 '고해상도 도트 디자인 [음악왕] 대형 타이틀 로고' 렌더러
+// ============================================================================
+function renderPixelLogo(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = false;
+
+  // 140x76 도트 그리드 캔버스 -> 각 도트를 칼각 정사각형 블록으로 렌더링!
+  const gw = 140;
+  const gh = 76;
+  const pCanvas = document.createElement("canvas");
+  pCanvas.width = gw;
+  pCanvas.height = gh;
+  const pCtx = pCanvas.getContext("2d");
+  pCtx.imageSmoothingEnabled = false;
+
+  // 1) 고해상도 아케이드 도트 스테이지 배경 (밤하늘 + 네온 스테이지 + 골드 프레임)
+  pCtx.fillStyle = "#17153b";
+  pCtx.fillRect(0, 0, gw, gh);
+  pCtx.fillStyle = "#2e236c";
+  pCtx.fillRect(3, 3, gw - 6, gh - 6);
+  pCtx.fillStyle = "#433d8b";
+  pCtx.fillRect(6, 6, gw - 12, gh - 12);
+
+  // 배경 도트 스트라이프 패턴
+  pCtx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  for (let y = 8; y < gh - 8; y += 4) {
+    pCtx.fillRect(6, y, gw - 12, 2);
+  }
+
+  // 황금 도트 테두리 + 코너 루비 보석
+  pCtx.fillStyle = "#090d16";
+  pCtx.fillRect(0, 0, gw, 2);
+  pCtx.fillRect(0, gh - 2, gw, 2);
+  pCtx.fillRect(0, 0, 2, gh);
+  pCtx.fillRect(gw - 2, 0, 2, gh);
+
+  pCtx.fillStyle = "#facc15";
+  pCtx.fillRect(2, 2, gw - 4, 2);
+  pCtx.fillRect(2, gh - 4, gw - 4, 2);
+  pCtx.fillRect(2, 2, 2, gh - 4);
+  pCtx.fillRect(gw - 4, 2, 2, gh - 4);
+
+  const corners = [[4, 4], [gw - 8, 4], [4, gh - 8], [gw - 8, gh - 8]];
+  corners.forEach(([cx, cy]) => {
+    pCtx.fillStyle = "#090d16";
+    pCtx.fillRect(cx - 1, cy - 1, 6, 6);
+    pCtx.fillStyle = "#f43f5e";
+    pCtx.fillRect(cx, cy, 4, 4);
+    pCtx.fillStyle = "#fda4af";
+    pCtx.fillRect(cx, cy, 2, 2);
+  });
+
+  // 반짝이는 도트 별 & 음표 픽셀
+  const stars = [[14, 13], [26, 9], [114, 11], [124, 18], [13, 56], [125, 54], [44, 10], [96, 10]];
+  stars.forEach(([sx, sy]) => {
+    pCtx.fillStyle = "#fde047";
+    pCtx.fillRect(sx - 1, sy, 3, 1);
+    pCtx.fillRect(sx, sy - 1, 1, 3);
+    pCtx.fillStyle = "#ffffff";
+    pCtx.fillRect(sx, sy, 1, 1);
+  });
+
+  // 2) 상단 중앙 대형 도트 왕관 (👑)
+  pCtx.fillStyle = "#090d16";
+  pCtx.fillRect(55, 6, 30, 13);
+  pCtx.fillStyle = "#f59e0b";
+  pCtx.fillRect(57, 10, 26, 7);
+  pCtx.fillStyle = "#fde047";
+  pCtx.fillRect(57, 7, 4, 4);
+  pCtx.fillRect(68, 5, 4, 6);
+  pCtx.fillRect(79, 7, 4, 4);
+  pCtx.fillRect(58, 11, 24, 4);
+  pCtx.fillStyle = "#ef4444";
+  pCtx.fillRect(68, 11, 4, 3);
+  pCtx.fillStyle = "#38bdf8";
+  pCtx.fillRect(60, 12, 3, 2);
+  pCtx.fillRect(77, 12, 3, 2);
+
+  // 3) '음악왕' 초고해상도 칼각 도트 비트맵 생성 (안티앨리어싱을 100% 제거한 순수 도트 타일화!)
+  const maskCanvas = document.createElement("canvas");
+  maskCanvas.width = gw;
+  maskCanvas.height = gh;
+  const mCtx = maskCanvas.getContext("2d");
+  mCtx.fillStyle = "#ffffff";
+  mCtx.font = "900 38px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
+  mCtx.textAlign = "center";
+  mCtx.textBaseline = "middle";
+  mCtx.fillText("음악왕", gw / 2, 41);
+
+  const imgData = mCtx.getImageData(0, 0, gw, gh).data;
+  const isOn = (x, y) => {
+    if (x < 0 || x >= gw || y < 0 || y >= gh) return false;
+    return imgData[(y * gw + x) * 4 + 3] > 115;
+  };
+
+  // (A) 3D 딥 블랙 도트 아웃라인 + 입체 그림자 블록
+  for (let y = 16; y < 66; y++) {
+    for (let x = 6; x < gw - 6; x++) {
+      if (isOn(x, y)) {
+        // 외곽 테두리 + 하단 4픽셀 입체 블록
+        for (let dy = -2; dy <= 4; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            pCtx.fillStyle = "#090d16";
+            pCtx.fillRect(x + dx, y + dy, 1, 1);
+          }
+        }
+      }
+    }
+  }
+
+  // (B) 3D 오렌지/앰버 하단 입체 베벨 도트
+  for (let y = 16; y < 66; y++) {
+    for (let x = 6; x < gw - 6; x++) {
+      if (isOn(x, y)) {
+        pCtx.fillStyle = "#b45309";
+        pCtx.fillRect(x, y + 2, 1, 1);
+        pCtx.fillStyle = "#ea580c";
+        pCtx.fillRect(x, y + 1, 1, 1);
+      }
+    }
+  }
+
+  // (C) 메인 골드/옐로우/화이트 도트 바디 + 상단 하이라이트 도트
+  for (let y = 16; y < 66; y++) {
+    for (let x = 6; x < gw - 6; x++) {
+      if (isOn(x, y)) {
+        if (!isOn(x, y - 1)) {
+          pCtx.fillStyle = "#ffffff"; // 최상단 엣지 하이라이트 도트
+        } else if (y < 34) {
+          pCtx.fillStyle = "#fef08a";
+        } else if (y < 44) {
+          pCtx.fillStyle = "#facc15";
+        } else {
+          pCtx.fillStyle = "#f59e0b";
+        }
+        pCtx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  // 4) 메인 고해상도 캔버스(W x H)에 Nearest-Neighbor로 꽉 차게 도트 확대 출력!
+  ctx.drawImage(pCanvas, 0, 0, W, H);
+  ctx.restore();
+}
+
+

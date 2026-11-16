@@ -12,61 +12,42 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=7.1" />
+  <link rel="stylesheet" href="style.css?v=8.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
-    <!-- ==================== 0. 전용 로그인 & 최초 가입 성별 선택 화면 ==================== -->
+    <!-- ==================== 0. 전용 로그인 화면 (고해상도 도트 디자인 '음악왕' 로고가 꽉 차게 배치) ==================== -->
     <section id="loginScreen" class="screen-view">
-      <div class="home-hero" style="justify-content:center; gap:10px;">
+      <div class="home-hero" style="justify-content:center; gap:14px;">
         <span class="hero-badge">👑 K-POP QUIZ & ONLINE ARENA</span>
 
-        <div class="home-wide-stage" style="max-width:340px;">
-          <canvas id="loginCharPreview" width="680" height="320" style="width:100%; height:140px; display:block;"></canvas>
-        </div>
-
-        <div style="width:100%; max-width:280px;">
-          <div style="display:flex; gap:6px; margin-bottom:4px;">
-            <button class="option-chip active" data-signup-gender="male" onclick="selectSignupGender('male')" style="flex:1; padding:6px;">
-              <span class="chip-title">👦 남자 캐릭터</span>
-            </button>
-            <button class="option-chip" data-signup-gender="female" onclick="selectSignupGender('female')" style="flex:1; padding:6px;">
-              <span class="chip-title">👧 여자 캐릭터</span>
-            </button>
-          </div>
-          <p style="font-size:0.7rem; color:var(--text-sub);">※ 가입 후 성별 변경 시 상점 [성별 변경권 1,000 CD] 필요</p>
+        <!-- 고해상도 도트 디자인 '음악왕' 대형 타이틀 로고 캔버스 -->
+        <div class="home-wide-stage" style="max-width:380px; background:#17153b;">
+          <canvas id="loginLogoCanvas" width="700" height="380" style="width:100%; height:205px; display:block; image-rendering:pixelated;"></canvas>
         </div>
 
         <div>
-          <h1 style="font-size:1.48rem;">대한민국 음악왕</h1>
-          <p style="font-size:0.8rem;">닉네임과 비밀번호로 바로 접속하세요!</p>
+          <p style="font-size:0.86rem; font-weight:800; color:var(--text-sub);">닉네임과 비밀번호로 바로 접속하세요!</p>
         </div>
 
-        <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:7px;">
+        <div style="width:100%; max-width:340px; display:flex; flex-direction:column; gap:8px;">
           <input type="text" id="authNicknameInput" class="text-input" placeholder="닉네임 (2글자 이상)" autocomplete="off" />
-          <input type="password" id="authPasswordInput" class="text-input" placeholder="비밀번호 (6자리 이상)" autocomplete="off" />
-          <div class="action-row" style="margin-top:2px;">
-            <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1; padding:11px;">로그인</button>
-            <button class="btn btn-gold" onclick="handleAuthSubmit('signup')" style="flex:1; padding:11px;">회원가입</button>
+          <input type="password" id="authPasswordInput" class="text-input" placeholder="비밀번호 (6자리 이상)" autocomplete="off" onkeydown="if(event.key==='Enter') handleAuthSubmit('login')" />
+          <div class="action-row" style="margin-top:4px;">
+            <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1; padding:13px; font-size:0.95rem;">로그인</button>
+            <button class="btn btn-gold" onclick="openSignupGenderStep()" style="flex:1; padding:13px; font-size:0.95rem;">회원가입</button>
           </div>
-          <button class="btn" onclick="continueAsGuest()" style="width:100%; padding:9px; font-size:0.82rem; color:var(--text-sub);">
-            게스트로 바로 플레이 ➔
-          </button>
         </div>
       </div>
     </section>
 
-    <!-- ==================== 상단 헤더 (좌측 상단: 내 아바타 + 내 닉네임 -> 클릭 시 전적/프로필) ==================== -->
+    <!-- ==================== 상단 헤더 (좌측: 아웃라인·도형 없이 닉네임 최대 5자+.. / 우측: 로그아웃 버튼 제거) ==================== -->
     <header id="topHeader" class="top-header hidden">
-      <div class="user-profile-trigger" id="headerMyProfileTrigger" onclick="openMyProfileModal()" title="내 프로필 및 전적/랭킹 보기">
-        <canvas id="headerMiniAvatar" width="480" height="480" style="width:34px; height:34px; border-radius:8px; border:2px solid #1e1b18;"></canvas>
-        <div class="user-nick-wrap">
-          <span class="user-nick-name" id="headerTopMyNick">도전자</span>
-          <span class="user-nick-sub">📊 프로필 · 전적</span>
-        </div>
-      </div>
+      <button type="button" class="user-profile-trigger" id="headerMyProfileTrigger" onclick="openMyProfileModal()" title="내 프로필 및 전적/랭킹 보기">
+        <span class="user-nick-name" id="headerTopMyNick">도전자</span>
+      </button>
       <div class="header-right">
         <div class="cd-pill" id="headerCdBtn" title="보유 CD 코인" style="cursor:pointer;">
           <span>💿</span>
@@ -74,7 +55,6 @@
         </div>
         <button class="header-btn" id="openPatchBtn" onclick="openModal('patchNotesModal')" title="업데이트 내역">📢</button>
         <button class="header-btn" id="openSettingsBtn" onclick="openModal('settingsModal')" title="설정">⚙️</button>
-        <button class="header-btn" onclick="handleLogout()" title="로그아웃" style="color:var(--danger);">🚪</button>
       </div>
     </header>
 
@@ -85,7 +65,7 @@
 
         <!-- 와이드 파노라마 배경 + 정중앙 캐릭터 -->
         <div class="home-wide-stage">
-          <canvas id="homeHeroAvatar" width="760" height="360" style="width:100%; height:195px; display:block;"></canvas>
+          <canvas id="homeHeroAvatar" width="760" height="380" style="width:100%; height:210px; display:block;"></canvas>
         </div>
 
         <div>
@@ -469,6 +449,35 @@
     </section>
   </div>
 
+  <!-- ==================== [모달 0-A] 회원가입 전용 남/여 캐릭터 선택 모달 ==================== -->
+  <div id="signupGenderModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1.02rem;">🎉 회원가입 · 기본 캐릭터 선택</h3>
+        <button class="header-btn" onclick="closeModal('signupGenderModal')">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.82rem; color:var(--text-sub); margin-bottom:10px;">
+        시작할 캐릭터 성별을 선택해주세요!<br />
+        <span style="font-size:0.74rem; color:#b45309; font-weight:800;">※ 가입 후 성별 변경 시 상점 [성별 변경권 1,000 CD] 필요</span>
+      </p>
+      <div class="home-wide-stage" style="max-width:320px; margin:0 auto 12px;">
+        <canvas id="signupCharPreview" width="640" height="320" style="width:100%; height:155px; display:block;"></canvas>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button class="option-chip active" data-signup-gender="male" onclick="selectSignupGender('male')" style="flex:1; padding:10px;">
+          <span class="chip-title">👦 남자 캐릭터</span>
+        </button>
+        <button class="option-chip" data-signup-gender="female" onclick="selectSignupGender('female')" style="flex:1; padding:10px;">
+          <span class="chip-title">👧 여자 캐릭터</span>
+        </button>
+      </div>
+      <div class="action-row">
+        <button class="btn" onclick="closeModal('signupGenderModal')" style="flex:0.9;">취소</button>
+        <button class="btn btn-gold" onclick="confirmSignupWithGender()" style="flex:1.6; padding:12px;">🎉 이 캐릭터로 가입 완료</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== [모달 0] 음악왕 도전: 싱글 / 멀티 선택 모달 ==================== -->
   <div id="playModeSelectModal" class="modal-backdrop hidden">
     <div class="modal-content" style="text-align:center;">
@@ -648,9 +657,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=7.1"></script>
-  <script src="pixel_avatar.js?v=7.1"></script>
-  <script src="online.js?v=7.1"></script>
-  <script src="app.js?v=7.1"></script>
+  <script src="data.js?v=8.0"></script>
+  <script src="pixel_avatar.js?v=8.0"></script>
+  <script src="online.js?v=8.0"></script>
+  <script src="app.js?v=8.0"></script>
 </body>
 </html>

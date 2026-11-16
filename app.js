@@ -56,17 +56,23 @@ document.addEventListener(
   { passive: false }
 );
 
-// 모바일 브라우저 첫 터치 시 기본으로 상단 주소창 숨김(Fullscreen) 유도
-function tryAutoHideAddressBar() {
+// 모바일 브라우저: 버튼/화면 터치(click/touchend) 시 즉시 상단 주소창 숨김(Fullscreen) 실행
+function tryAutoHideAddressBar(e) {
   if (state.autoFullscreenTried) return;
-  state.autoFullscreenTried = true;
+  if (e && e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
+  if (isMobile && !document.fullscreenElement) {
+    const docEl = document.documentElement;
+    const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+    if (reqFs) {
+      reqFs.call(docEl, { navigationUI: "hide" }).then(() => {
+        state.autoFullscreenTried = true;
+      }).catch(() => {});
+    }
   }
-  window.scrollTo(0, 1);
 }
-document.addEventListener("pointerdown", tryAutoHideAddressBar, { once: true });
+document.addEventListener("click", tryAutoHideAddressBar, { passive: true });
+document.addEventListener("touchend", tryAutoHideAddressBar, { passive: true });
 
 // ============================================================================
 // 모바일 키보드 올라올 때 문제가 절대 가려지지 않도록 동적 뷰포트 제어
