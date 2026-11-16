@@ -16,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.7" />
+  <link rel="stylesheet" href="style.css?v=10.8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -78,22 +78,18 @@
       🔔<span id="dmNotiBadgeCount" class="noti-count-badge">0</span>
     </button>
 
-    <!-- ==================== 1. 메인 홈 화면 (상단 타이틀 + 확장된 배경/캐릭터 + 경험치 바) ==================== -->
+    <!-- ==================== 1. 메인 홈 화면 (상단 타이틀+레벨 + 정사각형 캐릭터 스테이지 + 경험치 바) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
         <div class="home-title-block">
-          <h1 style="font-size:1.48rem;">👑 대한민국 음악왕</h1>
-          <p style="font-size:0.79rem;">
-            비하인드·가사·1초 듣기 퀴즈부터 실시간 온라인 대전까지!
-          </p>
-        </div>
-
-        <!-- 와이드 파노라마 배경 + 캐릭터 머리 위 타이틀 + 정중앙 정배율 캐릭터 -->
-        <div class="home-wide-stage">
-          <button type="button" id="homeCharTitlePill" class="home-title-pill" onclick="openTitlesModal()" title="타이틀 · 레벨 도감 보기">
+          <button type="button" id="homeCharTitlePill" class="home-main-title-btn" onclick="openTitlesModal()" title="타이틀 · 레벨 도감 보기">
             Lv.1 🐣 방구석 리스너
           </button>
-          <canvas id="homeHeroAvatar" width="760" height="560" style="width:100%; height:100%; display:block;"></canvas>
+        </div>
+
+        <!-- 가로 기준 정사각형 파노라마 배경 + 정중앙 정배율 캐릭터 -->
+        <div class="home-wide-stage">
+          <canvas id="homeHeroAvatar" width="560" height="560" style="width:100%; height:100%; display:block;"></canvas>
         </div>
 
         <!-- 레벨 · 경험치 바 + 타이틀 도감 버튼 -->
@@ -1041,10 +1037,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.7"></script>
-  <script src="pixel_avatar.js?v=10.7"></script>
-  <script src="online.js?v=10.7"></script>
-  <script src="app.js?v=10.7"></script>
+  <script src="data.js?v=10.8"></script>
+  <script src="pixel_avatar.js?v=10.8"></script>
+  <script src="online.js?v=10.8"></script>
+  <script src="app.js?v=10.8"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

@@ -67,7 +67,7 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 10;
+const SHOP_CATALOG_VERSION = 11;
 
 const BASE_AVATAR_SHOP_ITEMS = {
   bg: [
@@ -82,13 +82,18 @@ const BASE_AVATAR_SHOP_ITEMS = {
   ],
   hair: [
     { id: "default", name: "바가지 머리", price: 0, grade: "C", desc: "동글동글 귀엽게 자른\n시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
+    { id: "bald", name: "반짝 민머리", price: 300, grade: "B", desc: "햇빛 받으면 눈이 부실 정도로\n매끈반짝 시원한 민머리 스타일", color: "#fffdf9", style: "bald" },
     { id: "blonde", name: "샤이닝 금발", price: 350, grade: "C", desc: "어디서나 눈에 확 띄는\n아이돌 센터 황금빛 염색", color: "#facc15", style: "bowl" },
     { id: "monkey_hood", name: "몽키 모자", price: 450, grade: "B", desc: "동글동글 큰 귀가 매력적인\n개구쟁이 원숭이 모자", color: "#6b3410", style: "monkey" },
     { id: "sprout_hat", name: "초록 새싹모자", price: 500, grade: "B", desc: "머리 위에서 광합성 중!\n귀여운 초록 새싹 모자", color: "#4ade80", style: "sprout" },
     { id: "mint_comma", name: "민트 쉼표머리", price: 550, grade: "B", desc: "상큼한 민트초코 컬러에\n멋스럽게 내린 아이돌 쉼표 헤어", color: "#2dd4bf", style: "bowl" },
     { id: "pink_twin", name: "핑크 양갈래", price: 600, grade: "A", desc: "상큼발랄 과즙미가 터지는\n핑크빛 트윈테일 스타일", color: "#f472b6", style: "twin" },
+    { id: "pigtails", name: "상큼 양갈래", price: 650, grade: "A", desc: "양옆으로 풍성하게 내려오는\n사랑스러운 다크 브라운 양갈래", color: "#451a03", style: "twin" },
+    { id: "ponytail", name: "하이 포니테일", price: 700, grade: "A", desc: "시원하게 높게 묶어 올려\n활기찬 매력이 넘치는 포니테일", color: "#1e293b", style: "ponytail" },
     { id: "rock_red", name: "불꽃 샤기컷", price: 700, grade: "A", desc: "고음이 3옥타브 더 올라가는\n정열의 레드 록스타 헤어", color: "#ef4444", style: "spiky" },
     { id: "octo_hat", name: "문어 모자", price: 750, grade: "A", desc: "동글동글 빨판이 매력적인\n엉뚱발랄 숲속 문어 모자", color: "#ea580c", style: "octo" },
+    { id: "buns", name: "동글 만두머리", price: 800, grade: "A", desc: "양쪽에 동글동글 귀여운\n경단 두 개가 올라간 만두머리", color: "#3f2e21", style: "buns" },
+    { id: "braids", name: "발랄 삐삐머리", price: 850, grade: "A", desc: "양옆으로 톡톡 튀어나온\n개성 만점 발랄한 삐삐머리", color: "#92400e", style: "braids" },
     { id: "silver_perm", name: "실버 프로듀서", price: 850, grade: "A", desc: "차도남·차도녀 느낌 물씬 나는\n백금발 실버 웨이브 헤어", color: "#cbd5e1", style: "bowl" },
     { id: "violet_twin", name: "보라빛 요정트윈", price: 1100, grade: "S", desc: "신비로운 퍼플 그라데이션이\n돋보이는 요정 양갈래 헤어", color: "#a855f7", style: "twin" }
   ],
@@ -97,19 +102,28 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "headset", name: "프로 헤드셋", price: 450, grade: "B", desc: "1초 듣기 문제가 잘 들리는\n블루투스 프로 헤드셋", color: "#0ea5e9" },
     { id: "bucket_hat", name: "힙합 버킷햇", price: 500, grade: "B", desc: "90년대 힙합 전사들이 즐겨 쓴\n감성 블랙 버킷햇 벙거지", color: "#1e293b" },
     { id: "acorn_hat", name: "도토리 모자", price: 550, grade: "B", desc: "가을 숲속 다람쥐가 탐내는\n동글동글 도토리 베레모", color: "#854d0e" },
+    { id: "propeller_cap", name: "프로펠러 모자", price: 550, grade: "B", desc: "꼭대기 프로펠러가 빙글빙글!\n개구쟁이 알록달록 캡 모자", color: "#ef4444" },
+    { id: "big_ribbon", name: "왕리본 머리핀", price: 600, grade: "B", desc: "머리 위를 화사하게 장식하는\n사랑스러운 빅 핑크 리본", color: "#f43f5e" },
     { id: "bunny_band", name: "토끼귀 머리띠", price: 600, grade: "B", desc: "팬미팅 필수 아이템!\n쫑긋쫑긋 귀여운 핑크 토끼 귀", color: "#fb7185" },
     { id: "cat_ear", name: "고양이 헤드폰", price: 650, grade: "A", desc: "냐옹~ 귀여운 고양이 귀가 달린\n인기 만점 핑크 헤드폰", color: "#f43f5e" },
     { id: "beret_art", name: "빨간 베레모", price: 700, grade: "A", desc: "작곡가 감성이 폭발하는\n세련된 파리지앵 빨간 베레모", color: "#dc2626" },
     { id: "angel", name: "천사의 링", price: 900, grade: "A", desc: "머리 위에서 둥실 빛나는\n순백의 천사 헤일로", color: "#facc15" },
+    { id: "bear_hood", name: "곰돌이 모자", price: 950, grade: "A", desc: "둥근 귀와 앙증맞은 코가 달린\n포근한 브라운 곰돌이 모자", color: "#92400e" },
     { id: "devil_horn", name: "꼬마 악마뿔", price: 950, grade: "A", desc: "강렬한 락 스피릿을 뽐내는\n귀여운 붉은 악마 뿔 머리띠", color: "#e11d48" },
+    { id: "royal_crown", name: "보석 왕관", price: 1500, grade: "S", desc: "뾰족한 끝마다 보석이 반짝이는\n화려한 클래식 골드 왕관", color: "#fbbf24" },
     { id: "crown", name: "음악왕 왕관", price: 2000, grade: "S", desc: "가요계 모든 문제를 정복한\n절대강자의 루비 황금 왕관", color: "#f59e0b" }
   ],
   face: [
     { id: "default", name: "기본 미소", price: 0, grade: "C", desc: "보기만 해도 기분 좋아지는\n동글동글 고양이 입 미소" },
+    { id: "surprised", name: "오잉? 놀람 (:o)", price: 350, grade: "B", desc: "깜짝 놀라 동그래진 눈과\n동그란 입 모양의 귀여운 표정" },
     { id: "square_glass", name: "뿔테 안경", price: 350, grade: "B", desc: "나무위키 비하인드를 꿰고 있는\n척척박사 네모 안경" },
     { id: "wink", name: "심쿵 윙크", price: 400, grade: "B", desc: "무대 엔딩요정처럼 상큼하게\n한쪽 눈을 찡긋 감은 표정" },
+    { id: "big_smile", name: "해맑은 웃음 (:D)", price: 450, grade: "B", desc: "세상 행복하게 입을 크게 벌리고\n해맑게 웃는 에너자이저 표정" },
+    { id: "cat_face", name: "고양이 입 (:3)", price: 500, grade: "B", desc: "초롱초롱한 점 눈과 앙증맞은\n고양이 입이 매력적인 표정" },
     { id: "singing", name: "열창 표정", price: 500, grade: "A", desc: "마이크가 찢어지도록 열창하는\n득음 직전의 표정" },
+    { id: "xd_laugh", name: "빵터짐 (>▽<)", price: 550, grade: "A", desc: "너무 웃겨서 눈을 찡그리고\n활짝 웃는 빵터짐 표정" },
     { id: "swirl_glass", name: "골뱅이 안경", price: 550, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 골뱅이 안경" },
+    { id: "wink_kiss", name: "쪽~ 윙크 (;3)", price: 600, grade: "A", desc: "애교 만점 윙크와 뾰족 입술로\n팬심을 사로잡는 아이돌 표정" },
     { id: "sunglass", name: "힙합 선글라스", price: 600, grade: "A", desc: "연예인 포스가 뿜어져 나오는\n블랙 다크 선글라스" },
     { id: "heart_eyes", name: "하트 뿅뿅눈", price: 750, grade: "A", desc: "좋아하는 최애 가수를 본 듯\n두 눈에 빨간 하트가 반짝!", color: "#f43f5e" },
     { id: "neon_visor", name: "사이버 고글", price: 900, grade: "S", desc: "미래에서 온 일렉트로닉 뮤지션!\n시안 네온 바이저 고글", color: "#38bdf8" },
@@ -130,9 +144,12 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "none", name: "악기 미착용", price: 0, grade: "C", desc: "손에 아무것도 들지 않은\n가벼운 기본 상태" },
     { id: "mic_silver", name: "보컬 마이크", price: 0, grade: "C", desc: "촘촘한 그릴망과 스위치가 달린\n스튜디오 표준 마이크", color: "#94a3b8" },
     { id: "tambourine", name: "별빛 탬버린", price: 350, grade: "C", desc: "노래방 분위기 메이커!\n흔들면 찰랑거리는 황금 탬버린", color: "#facc15" },
+    { id: "lollipop", name: "회오리 왕사탕", price: 400, grade: "B", desc: "알록달록 달콤한 소용돌이 무늬가\n그려진 커다란 롤리팝 막대사탕", color: "#fb7185" },
     { id: "acoustic_guitar", name: "포크 통기타", price: 650, grade: "B", desc: "감미로운 어쿠스틱 발라드에\n딱 어울리는 원목 어쿠스틱 기타", color: "#d97706" },
     { id: "lightstick", name: "하트 응원봉", price: 750, grade: "A", desc: "투명 돔 안에 하트가 빛나는\n공식 팬클럽 응원봉", color: "#ec4899" },
+    { id: "bear_doll", name: "곰돌이 인형", price: 850, grade: "A", desc: "귀여운 둥근 귀와 앙증맞은 표정의\n포근한 갈색 곰돌이 애착인형", color: "#b45309" },
     { id: "boombox", name: "마스터 붐박스", price: 900, grade: "A", desc: "듀얼 우퍼와 카세트 데크가 달린\n스트릿 힙합 대형 라디오", color: "#334155" },
+    { id: "smartphone", name: "최신 스마트폰", price: 950, grade: "A", desc: "음악왕 랭킹과 가사를 확인하는\n블링블링 최신형 스마트폰", color: "#38bdf8" },
     { id: "keytar", name: "숄더 키타", price: 950, grade: "A", desc: "어깨에 메고 건반을 연주하는\n신스팝 밴드 신디사이저", color: "#0ea5e9" },
     { id: "saxophone", name: "재즈 색소폰", price: 1150, grade: "A", desc: "매혹적인 브라스 사운드!\n곡선이 우아한 황금 색소폰", color: "#f59e0b" },
     { id: "guitar", name: "스트랫 기타", price: 1200, grade: "S", desc: "6현 줄과 픽업까지 정교한\n체리레드 커스텀 일렉기타", color: "#dc2626" },
@@ -407,6 +424,42 @@ function drawDetailedInstrument(ctx, accItem, cx, cy, scale = 1) {
     ctx.beginPath(); ctx.arc(24, -14, 11, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
     ctx.fillStyle = "#ef4444"; ctx.font = "900 18px sans-serif"; ctx.textAlign = "center";
     ctx.fillText("1", 0, -4);
+  } else if (accItem.id === "lollipop") {
+    ctx.rotate(-0.18);
+    fillRoundRect(ctx, -4, 4, 8, 52, 4, "#f8fafc", outline, 3.5);
+    ctx.fillStyle = "#fb7185"; ctx.strokeStyle = outline; ctx.lineWidth = 4.5;
+    ctx.beginPath(); ctx.arc(0, -20, 28, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#fff1f2"; ctx.lineWidth = 4.5; ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let t = 0; t < 3.6 * Math.PI; t += 0.25) {
+      const r = t * 2.1;
+      const px = Math.cos(t) * r;
+      const py = -20 + Math.sin(t) * r;
+      if (t === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  } else if (accItem.id === "bear_doll") {
+    ctx.rotate(0.1);
+    ctx.fillStyle = "#b45309"; ctx.strokeStyle = outline; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(-18, -38, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(18, -38, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    fillRoundRect(ctx, -20, -2, 40, 38, 18, "#b45309", outline, 4);
+    fillRoundRect(ctx, -11, 6, 22, 22, 10, "#fde68a");
+    ctx.fillStyle = "#b45309"; ctx.beginPath(); ctx.arc(0, -22, 23, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    fillRoundRect(ctx, -10, -20, 20, 14, 7, "#fde68a");
+    ctx.fillStyle = outline;
+    ctx.beginPath(); ctx.arc(-8, -28, 3, 0, Math.PI * 2); ctx.arc(8, -28, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -16, 4, 0, Math.PI * 2); ctx.fill();
+  } else if (accItem.id === "smartphone") {
+    ctx.rotate(-0.12);
+    fillRoundRect(ctx, -22, -38, 44, 76, 10, "#1e293b", outline, 4.5);
+    fillRoundRect(ctx, -17, -30, 34, 58, 6, "#38bdf8", "#0f172a", 2.5);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#0f172a"; ctx.font = "900 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("♪", 0, 2);
+    ctx.fillStyle = "#94a3b8";
+    ctx.beginPath(); ctx.arc(0, 33, 3, 0, Math.PI * 2); ctx.fill();
   }
 
   ctx.restore();
@@ -630,6 +683,14 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
     fillRoundRect(ctx, 112, 92, 256, 190, 92, null, outline, 10);
     ctx.strokeStyle = outline; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(232, 92); ctx.lineTo(222, 68); ctx.moveTo(246, 92); ctx.lineTo(254, 70); ctx.stroke();
+  } else if (hairItem.style === "bald") {
+    // 반짝 민머리: 머리카락 없이 매끈한 이마 + 귀여운 반짝이 하이라이트
+    ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 6; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(180, 118); ctx.quadraticCurveTo(205, 104, 232, 108);
+    ctx.stroke();
+    ctx.fillStyle = "#fde047";
+    ctx.beginPath(); ctx.arc(298, 104, 7, 0, Math.PI * 2); ctx.fill();
   } else {
     ctx.save();
     ctx.beginPath(); ctx.roundRect(112, 92, 256, 190, 92); ctx.clip();
@@ -646,6 +707,26 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
     } else if (hairItem.style === "octo") {
       fillRoundRect(ctx, 165, 42, 150, 74, 36, "#ea580c", outline, 8);
       fillRoundRect(ctx, 224, 92, 32, 24, 12, "#fed7aa", outline, 6);
+    } else if (hairItem.style === "ponytail") {
+      ctx.fillStyle = hairItem.color || "#1e293b"; ctx.strokeStyle = outline; ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.moveTo(260, 88);
+      ctx.bezierCurveTo(340, 42, 395, 95, 368, 176);
+      ctx.bezierCurveTo(342, 150, 320, 118, 256, 102);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 244, 78, 28, 18, 8, "#f43f5e", outline, 6);
+    } else if (hairItem.style === "buns") {
+      const hc = hairItem.color || "#3f2e21";
+      ctx.fillStyle = hc; ctx.strokeStyle = outline; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.arc(146, 86, 36, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(334, 86, 36, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 128, 98, 36, 14, 7, "#f43f5e", outline, 5);
+      fillRoundRect(ctx, 316, 98, 36, 14, 7, "#f43f5e", outline, 5);
+    } else if (hairItem.style === "braids") {
+      const hc = hairItem.color || "#92400e";
+      ctx.fillStyle = hc; ctx.strokeStyle = outline; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(116, 122); ctx.lineTo(44, 72); ctx.lineTo(68, 144); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(364, 122); ctx.lineTo(436, 72); ctx.lineTo(412, 144); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
   }
 
@@ -698,17 +779,25 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
       ctx.fillStyle = "#ffffff";
       ctx.beginPath(); ctx.arc(sx - 6, 188, 6, 0, Math.PI * 2); ctx.fill();
     });
-  } else if (faceItem.id === "wink") {
+  } else if (faceItem.id === "wink" || faceItem.id === "wink_kiss") {
     ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(168, 184); ctx.lineTo(208, 196); ctx.lineTo(168, 208); ctx.stroke();
     ctx.fillStyle = outline; ctx.beginPath(); ctx.arc(292, 196, 16, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(287, 190, 6, 0, Math.PI * 2); ctx.fill();
-  } else if (faceItem.id === "singing") {
+  } else if (faceItem.id === "singing" || faceItem.id === "xd_laugh") {
     ctx.lineWidth = 8;
     ctx.beginPath();
     ctx.moveTo(168, 184); ctx.lineTo(204, 196); ctx.lineTo(168, 206);
     ctx.moveTo(312, 184); ctx.lineTo(276, 196); ctx.lineTo(312, 206);
     ctx.stroke();
+  } else if (faceItem.id === "surprised" || faceItem.id === "big_smile" || faceItem.id === "cat_face") {
+    ctx.fillStyle = outline;
+    const r = faceItem.id === "cat_face" ? 11 : 15;
+    ctx.beginPath(); ctx.arc(190, 192, r, 0, Math.PI * 2); ctx.arc(290, 192, r, 0, Math.PI * 2); ctx.fill();
+    if (r >= 14) {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    }
   } else {
     ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(170, 172); ctx.lineTo(208, 172); ctx.moveTo(272, 172); ctx.lineTo(310, 172); ctx.stroke();
@@ -717,14 +806,21 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
   }
 
   // 입 모양
-  if (faceItem.id === "singing") {
+  if (faceItem.id === "singing" || faceItem.id === "big_smile" || faceItem.id === "xd_laugh") {
     fillRoundRect(ctx, 214, 218, 52, 36, 18, "#e11d48", outline, 7);
+  } else if (faceItem.id === "surprised") {
+    ctx.fillStyle = "#e11d48"; ctx.strokeStyle = outline; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.ellipse(240, 234, 15, 19, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else if (faceItem.id === "wink_kiss") {
+    ctx.strokeStyle = outline; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(240, 224, 10, -Math.PI * 0.4, Math.PI * 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(240, 240, 10, -Math.PI * 0.4, Math.PI * 0.4); ctx.stroke();
   } else {
     ctx.strokeStyle = outline; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.arc(226, 224, 14, 0, Math.PI); ctx.arc(254, 224, 14, 0, Math.PI); ctx.stroke();
   }
 
-  // 모자 / 헤드셋 / 왕관 / 버킷햇 / 토끼귀 / 베레모 / 악마뿔
+  // 모자 / 헤드셋 / 왕관 / 버킷햇 / 토끼귀 / 베레모 / 악마뿔 / 프로펠러 / 리본 / 곰돌이
   if (hatItem.id === "headset" || hatItem.id === "cat_ear") {
     const hc = hatItem.color || "#0ea5e9";
     ctx.strokeStyle = hc; ctx.lineWidth = 14;
@@ -738,6 +834,25 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
   } else if (hatItem.id === "bucket_hat") {
     fillRoundRect(ctx, 140, 42, 200, 62, 22, "#1e293b", outline, 8);
     fillRoundRect(ctx, 102, 88, 276, 28, 14, "#334155", outline, 8);
+  } else if (hatItem.id === "propeller_cap") {
+    fillRoundRect(ctx, 148, 46, 184, 58, 28, "#ef4444", outline, 8);
+    fillRoundRect(ctx, 202, 48, 76, 54, 18, "#facc15", outline, 6);
+    fillRoundRect(ctx, 178, 86, 178, 22, 11, "#2563eb", outline, 7);
+    fillRoundRect(ctx, 234, 24, 12, 24, 5, "#475569", outline, 5);
+    fillRoundRect(ctx, 186, 18, 108, 14, 7, "#38bdf8", outline, 6);
+  } else if (hatItem.id === "big_ribbon") {
+    ctx.fillStyle = "#f43f5e"; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(234, 74); ctx.lineTo(154, 34); ctx.lineTo(164, 102); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(246, 74); ctx.lineTo(326, 34); ctx.lineTo(316, 102); ctx.closePath(); ctx.fill(); ctx.stroke();
+    fillRoundRect(ctx, 220, 56, 40, 36, 14, "#fb7185", outline, 8);
+  } else if (hatItem.id === "bear_hood") {
+    ctx.fillStyle = "#92400e"; ctx.strokeStyle = outline; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(154, 54, 32, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(326, 54, 32, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    fillRoundRect(ctx, 148, 42, 184, 62, 30, "#92400e", outline, 9);
+    fillRoundRect(ctx, 214, 66, 52, 30, 14, "#fde68a", outline, 5);
+    ctx.fillStyle = outline;
+    ctx.beginPath(); ctx.arc(240, 78, 7, 0, Math.PI * 2); ctx.fill();
   } else if (hatItem.id === "bunny_band") {
     fillRoundRect(ctx, 152, 12, 42, 86, 21, "#fb7185", outline, 8);
     fillRoundRect(ctx, 286, 12, 42, 86, 21, "#fb7185", outline, 8);
@@ -756,6 +871,15 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
     ctx.fillStyle = "#e11d48"; ctx.strokeStyle = outline; ctx.lineWidth = 8;
     [[168, 92, 142, 30, 198, 78], [312, 92, 338, 30, 282, 78]].forEach(([x1, y1, x2, y2, x3, y3]) => {
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    });
+  } else if (hatItem.id === "royal_crown") {
+    ctx.fillStyle = "#fbbf24"; ctx.strokeStyle = outline; ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(154, 96); ctx.lineTo(154, 42); ctx.lineTo(196, 72); ctx.lineTo(240, 32);
+    ctx.lineTo(284, 72); ctx.lineTo(326, 42); ctx.lineTo(326, 96); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    [[154, 42, "#38bdf8"], [240, 32, "#ef4444"], [326, 42, "#38bdf8"]].forEach(([jx, jy, jc]) => {
+      ctx.fillStyle = jc; ctx.beginPath(); ctx.arc(jx, jy, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     });
   } else if (hatItem.id === "crown") {
     fillRoundRect(ctx, 156, 34, 168, 64, 14, "#facc15", outline, 9);
@@ -795,6 +919,11 @@ function renderItemThumbnail(canvas, category, item) {
       fillRoundRect(ctx, 178, 95, 42, 48, 21, "#ffffff", outline, 9);
       fillRoundRect(ctx, 48, 52, 144, 136, 65, "#6b3410", outline, 9);
       fillRoundRect(ctx, 64, 96, 112, 88, 45, "#ffffff", outline, 7);
+    } else if (item.style === "bald") {
+      fillRoundRect(ctx, 56, 62, 128, 116, 58, "#fffdf9", outline, 8);
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 6; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(86, 92); ctx.quadraticCurveTo(106, 78, 126, 84); ctx.stroke();
+      ctx.fillStyle = "#fde047"; ctx.beginPath(); ctx.arc(154, 88, 7, 0, Math.PI * 2); ctx.fill();
     } else if (item.style === "sprout") {
       fillRoundRect(ctx, 112, 95, 16, 65, 8, "#16a34a", outline, 8);
       fillRoundRect(ctx, 60, 65, 62, 38, 19, "#4ade80", outline, 8);
@@ -802,6 +931,24 @@ function renderItemThumbnail(canvas, category, item) {
     } else if (item.style === "octo") {
       fillRoundRect(ctx, 56, 60, 128, 110, 54, "#ea580c", outline, 9);
       fillRoundRect(ctx, 102, 126, 36, 32, 16, "#fed7aa", outline, 7);
+    } else if (item.style === "buns") {
+      const hc = item.color || "#3f2e21";
+      ctx.fillStyle = hc; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(68, 76, 30, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(172, 76, 30, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 56, 92, 128, 78, 38, hc, outline, 8);
+    } else if (item.style === "ponytail") {
+      const hc = item.color || "#1e293b";
+      ctx.fillStyle = hc; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(132, 82); ctx.bezierCurveTo(186, 48, 212, 96, 190, 162); ctx.bezierCurveTo(170, 140, 152, 110, 128, 98); ctx.closePath(); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 56, 86, 114, 78, 38, hc, outline, 8);
+      fillRoundRect(ctx, 118, 74, 24, 16, 7, "#f43f5e", outline, 5);
+    } else if (item.style === "braids") {
+      const hc = item.color || "#92400e";
+      ctx.fillStyle = hc; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(64, 122); ctx.lineTo(20, 74); ctx.lineTo(38, 138); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(176, 122); ctx.lineTo(220, 74); ctx.lineTo(202, 138); ctx.closePath(); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 58, 84, 124, 78, 38, hc, outline, 8);
     } else {
       ctx.fillStyle = item.color || "#27272a"; ctx.strokeStyle = outline; ctx.lineWidth = 9;
       ctx.beginPath();
@@ -831,6 +978,26 @@ function renderItemThumbnail(canvas, category, item) {
     } else if (item.id === "star_eyes") {
       ctx.fillStyle = "#facc15"; ctx.font = "900 54px sans-serif"; ctx.textAlign = "center";
       ctx.fillText("⭐", 120, 138);
+    } else if (item.id === "surprised" || item.id === "big_smile" || item.id === "xd_laugh" || item.id === "wink_kiss" || item.id === "cat_face") {
+      fillRoundRect(ctx, 52, 62, 136, 116, 56, "#fffdf9", outline, 8);
+      ctx.fillStyle = outline; ctx.strokeStyle = outline; ctx.lineWidth = 7; ctx.lineCap = "round";
+      if (item.id === "xd_laugh") {
+        ctx.beginPath(); ctx.moveTo(78, 102); ctx.lineTo(98, 112); ctx.lineTo(78, 122);
+        ctx.moveTo(162, 102); ctx.lineTo(142, 112); ctx.lineTo(162, 122); ctx.stroke();
+      } else if (item.id === "wink_kiss") {
+        ctx.beginPath(); ctx.moveTo(78, 102); ctx.lineTo(98, 112); ctx.lineTo(78, 122); ctx.stroke();
+        ctx.beginPath(); ctx.arc(148, 112, 9, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(92, 110, 9, 0, Math.PI * 2); ctx.arc(148, 110, 9, 0, Math.PI * 2); ctx.fill();
+      }
+      if (item.id === "surprised") {
+        ctx.fillStyle = "#e11d48";
+        ctx.beginPath(); ctx.ellipse(120, 144, 11, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else if (item.id === "big_smile" || item.id === "xd_laugh") {
+        fillRoundRect(ctx, 100, 132, 40, 26, 12, "#e11d48", outline, 6);
+      } else {
+        ctx.beginPath(); ctx.arc(108, 138, 10, 0, Math.PI); ctx.arc(132, 138, 10, 0, Math.PI); ctx.stroke();
+      }
     } else {
       fillRoundRect(ctx, 52, 62, 136, 116, 56, "#fffdf9", outline, 8);
       ctx.strokeStyle = outline; ctx.lineWidth = 8;
@@ -840,6 +1007,33 @@ function renderItemThumbnail(canvas, category, item) {
     if (item.id === "crown") {
       fillRoundRect(ctx, 48, 72, 144, 92, 18, "#facc15", outline, 9);
       fillRoundRect(ctx, 104, 98, 32, 32, 10, "#ef4444", outline, 6);
+    } else if (item.id === "royal_crown") {
+      ctx.fillStyle = "#fbbf24"; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(48, 158); ctx.lineTo(48, 86); ctx.lineTo(86, 118); ctx.lineTo(120, 68);
+      ctx.lineTo(154, 118); ctx.lineTo(192, 86); ctx.lineTo(192, 158); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      [[48, 86, "#38bdf8"], [120, 68, "#ef4444"], [192, 86, "#38bdf8"]].forEach(([jx, jy, jc]) => {
+        ctx.fillStyle = jc; ctx.beginPath(); ctx.arc(jx, jy, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+    } else if (item.id === "propeller_cap") {
+      fillRoundRect(ctx, 54, 86, 132, 60, 28, "#ef4444", outline, 8);
+      fillRoundRect(ctx, 92, 88, 56, 56, 16, "#facc15", outline, 6);
+      fillRoundRect(ctx, 84, 130, 122, 22, 11, "#2563eb", outline, 7);
+      fillRoundRect(ctx, 114, 62, 12, 26, 5, "#475569", outline, 5);
+      fillRoundRect(ctx, 72, 54, 96, 14, 7, "#38bdf8", outline, 6);
+    } else if (item.id === "big_ribbon") {
+      ctx.fillStyle = "#f43f5e"; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(114, 120); ctx.lineTo(42, 72); ctx.lineTo(52, 162); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(126, 120); ctx.lineTo(198, 72); ctx.lineTo(188, 162); ctx.closePath(); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 98, 98, 44, 44, 14, "#fb7185", outline, 8);
+    } else if (item.id === "bear_hood") {
+      ctx.fillStyle = "#92400e"; ctx.strokeStyle = outline; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(64, 76, 28, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(176, 76, 28, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 54, 74, 132, 92, 42, "#92400e", outline, 8);
+      fillRoundRect(ctx, 92, 112, 56, 38, 18, "#fde68a", outline, 5);
+      ctx.fillStyle = outline; ctx.beginPath(); ctx.arc(120, 124, 7, 0, Math.PI * 2); ctx.fill();
     } else if (item.id === "bucket_hat") {
       fillRoundRect(ctx, 64, 64, 112, 62, 18, "#1e293b", outline, 8);
       fillRoundRect(ctx, 34, 116, 172, 28, 14, "#334155", outline, 8);
