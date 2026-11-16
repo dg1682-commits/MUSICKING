@@ -414,11 +414,17 @@ window.confirmExitSingleGame = function () {
 };
 
 // ============================================================================
-// 배경음악(BGM) 컨트롤 & 우측 하단 플로팅 음소거 버튼
+// 배경음악(BGM) & 모든 버튼 클릭 효과음(bgm/click.wav) 컨트롤
 // ============================================================================
 const bgmState = {
   mainAudio: new Audio("./bgm/main.mp3"),
   shopAudio: new Audio("./bgm/shop.mp3"),
+  clickPool: Array.from({ length: 4 }, () => {
+    const a = new Audio("./bgm/click.wav");
+    a.volume = 0.45;
+    return a;
+  }),
+  clickIdx: 0,
   muted: localStorage.getItem("mk_bgm_muted") === "true",
   currentType: "none"
 };
@@ -426,6 +432,30 @@ bgmState.mainAudio.loop = true;
 bgmState.mainAudio.volume = 0.22;
 bgmState.shopAudio.loop = true;
 bgmState.shopAudio.volume = 0.22;
+
+window.playClickSfx = function () {
+  if (bgmState.muted) return;
+  try {
+    const sfx = bgmState.clickPool[bgmState.clickIdx];
+    bgmState.clickIdx = (bgmState.clickIdx + 1) % bgmState.clickPool.length;
+    sfx.currentTime = 0;
+    sfx.play().catch(() => {});
+  } catch (e) {}
+};
+
+// 모든 버튼·탭·칩·리스트 클릭 시 즉시 bgm/click.wav 재생
+document.addEventListener(
+  "click",
+  e => {
+    const clickable = e.target.closest(
+      "button, .btn, .header-btn, .option-chip, .apf-tab, .apf-tile, .apf-back-circle, .rank-chip, .pixel-list-item, .toggle-banner, .user-profile-trigger, .home-title-pill, .floating-sound-btn, .hint-btn, .auth-check-label"
+    );
+    if (clickable) {
+      playClickSfx();
+    }
+  },
+  true
+);
 
 function syncFloatingSoundBtn(screenId) {
   const btn = document.getElementById("floatingSoundBtn");

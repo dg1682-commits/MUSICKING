@@ -368,30 +368,38 @@ body {
 }
 
 .apf-tab-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px;
   padding: 0 6px;
   background: transparent;
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.apf-tab-bar::-webkit-scrollbar { display: none; }
 
 .apf-tab {
-  flex: 1 0 auto;
-  min-width: 52px;
-  padding: 7px 4px;
+  min-width: 0;
+  padding: 5px 1px 4px;
   border-radius: 10px 10px 0 0;
   background: #3f8a08;
   border: 2.5px solid var(--game-border);
   border-bottom: none;
   color: #d9f99d;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 900;
+  line-height: 1.15;
   text-align: center;
   cursor: pointer;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.apf-tab .tab-ico {
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .apf-tab.active {

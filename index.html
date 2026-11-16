@@ -15,7 +15,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.0" />
+  <link rel="stylesheet" href="style.css?v=10.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -148,15 +148,15 @@
           </div>
         </div>
 
-        <!-- 중단 탭 바 (배경 포함 7개 카테고리 한 줄 표시) -->
+        <!-- 중단 탭 바 (배경 포함 7개 카테고리 전부 화면에 쏙 들어가게 2줄 아이콘+텍스트 스택!) -->
         <div class="apf-tab-bar">
-          <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')">🏞️ 배경</div>
-          <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')">💇 헤어</div>
-          <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')">🎧 모자</div>
-          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')">👓 표정</div>
-          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')">🎸 악기</div>
-          <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')">👕 의상</div>
-          <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')">🎫 변경권</div>
+          <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="tab-ico">🏞️</span><span>배경</span></div>
+          <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="tab-ico">💇</span><span>헤어</span></div>
+          <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="tab-ico">🎧</span><span>모자</span></div>
+          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>표정</span></div>
+          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="tab-ico">🎸</span><span>악기</span></div>
+          <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="tab-ico">👕</span><span>의상</span></div>
+          <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')"><span class="tab-ico">🎫</span><span>변경권</span></div>
         </div>
 
         <div class="apf-shop-bottom">
@@ -867,9 +867,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.0"></script>
-  <script src="pixel_avatar.js?v=10.0"></script>
-  <script src="online.js?v=10.0"></script>
-  <script src="app.js?v=10.0"></script>
+  <script src="data.js?v=10.1"></script>
+  <script src="pixel_avatar.js?v=10.1"></script>
+  <script src="online.js?v=10.1"></script>
+  <script src="app.js?v=10.1"></script>
 </body>
 </html>

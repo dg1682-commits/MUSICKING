@@ -5,16 +5,17 @@
 // - Supabase / iTunes / 외부 CDN: 실시간 통신 보장을 위해 캐시하지 않고 네트워크 직통
 // ============================================================================
 
-const CACHE_NAME = "musicking-pwa-v10.0";
+const CACHE_NAME = "musicking-pwa-v10.1";
 const APP_SHELL_FILES = [
   "./",
   "./index.html",
-  "./style.css?v=10.0",
-  "./data.js?v=10.0",
-  "./pixel_avatar.js?v=10.0",
-  "./online.js?v=10.0",
-  "./app.js?v=10.0",
-  "./manifest.json"
+  "./style.css?v=10.1",
+  "./data.js?v=10.1",
+  "./pixel_avatar.js?v=10.1",
+  "./online.js?v=10.1",
+  "./app.js?v=10.1",
+  "./manifest.json",
+  "./bgm/click.wav"
 ];
 
 self.addEventListener("install", event => {
