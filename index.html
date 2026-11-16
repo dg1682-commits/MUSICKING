@@ -12,7 +12,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=6.0" />
+  <link rel="stylesheet" href="style.css?v=7.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -431,6 +431,39 @@
         </div>
       </div>
     </section>
+
+    <!-- ==================== 9. 명예의 전당 랭킹 전용 전체 화면 (#rankingScreen — 팝업 & 윈도우 드롭박스 제거!) ==================== -->
+    <section id="rankingScreen" class="screen-view hidden">
+      <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+        <!-- 상단 바 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기" style="width:36px; height:36px; font-size:1rem;">⬅</button>
+          <h3 style="font-size:1.05rem; font-weight:900;">🏆 실시간 명예의 전당 랭킹</h3>
+          <button class="header-btn" onclick="loadRankingsList()">🔄 갱신</button>
+        </div>
+
+        <!-- 커스텀 게임 필터 칩 버튼 (윈도우 기본 select 드롭박스 완전 대체!) -->
+        <div class="rank-filter-group">
+          <div class="rank-filter-row">
+            <div class="rank-chip active" data-rank-mode="ALL" onclick="setRankFilter('mode', 'ALL')">전체 모드</div>
+            <div class="rank-chip" data-rank-mode="behind" onclick="setRankFilter('mode', 'behind')">📖 비하인드</div>
+            <div class="rank-chip" data-rank-mode="lyrics" onclick="setRankFilter('mode', 'lyrics')">📝 가사</div>
+            <div class="rank-chip" data-rank-mode="onesec" onclick="setRankFilter('mode', 'onesec')">⚡ 1초듣기</div>
+          </div>
+          <div class="rank-filter-row">
+            <div class="rank-chip active" data-rank-stage="ALL" onclick="setRankFilter('stage', 'ALL')">전체 단계</div>
+            <div class="rank-chip" data-rank-stage="1" onclick="setRankFilter('stage', '1')">1단계(노래)</div>
+            <div class="rank-chip" data-rank-stage="2" onclick="setRankFilter('stage', '2')">2단계(가수)</div>
+            <div class="rank-chip" data-rank-stage="3" onclick="setRankFilter('stage', '3')">3단계(모두)</div>
+          </div>
+        </div>
+
+        <!-- 랭킹 리스트 스크롤 박스 -->
+        <div id="rankingListContainer" class="history-scroll-box" style="flex:1; min-height:0;"></div>
+
+        <button class="btn" onclick="showHome()" style="width:100%; flex-shrink:0;">⬅ 메인 화면으로 돌아가기</button>
+      </div>
+    </section>
   </div>
 
   <!-- ==================== [모달 0] 음악왕 도전: 싱글 / 멀티 선택 모달 ==================== -->
@@ -504,31 +537,6 @@
         <button class="btn btn-primary" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
         <button class="btn btn-accent" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ==================== [모달 4] 명예의 전당 랭킹 ==================== -->
-  <div id="rankingModal" class="modal-backdrop hidden">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem;">🏆 실시간 명예의 전당 랭킹</h3>
-        <button class="header-btn" onclick="closeModal('rankingModal')">닫기 ✕</button>
-      </div>
-      <div class="action-row" style="margin-bottom:8px;">
-        <select id="rankFilterMode" class="text-input" style="padding:6px;" onchange="loadRankingsList()">
-          <option value="ALL">전체 모드</option>
-          <option value="behind">📖 비하인드</option>
-          <option value="lyrics">📝 가사</option>
-          <option value="onesec">⚡ 1초 듣기</option>
-        </select>
-        <select id="rankFilterStage" class="text-input" style="padding:6px;" onchange="loadRankingsList()">
-          <option value="ALL">전체 단계</option>
-          <option value="1">1단계 (노래)</option>
-          <option value="2">2단계 (가수)</option>
-          <option value="3">3단계 (가수+노래)</option>
-        </select>
-      </div>
-      <div id="rankingListContainer" class="history-scroll-box" style="max-height:320px;"></div>
     </div>
   </div>
 
@@ -637,9 +645,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=6.0"></script>
-  <script src="pixel_avatar.js?v=6.0"></script>
-  <script src="online.js?v=6.0"></script>
-  <script src="app.js?v=6.0"></script>
+  <script src="data.js?v=7.0"></script>
+  <script src="pixel_avatar.js?v=7.0"></script>
+  <script src="online.js?v=7.0"></script>
+  <script src="app.js?v=7.0"></script>
 </body>
 </html>

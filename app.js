@@ -134,7 +134,7 @@ window.selectMultiPlay = function () {
 };
 
 window.openRankingModal = function () {
-  openModal("rankingModal");
+  switchScreen("rankingScreen");
   if (typeof loadRankingsList === "function") loadRankingsList();
 };
 
@@ -184,7 +184,7 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen"].includes(state.currentScreen)) {
+  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen"].includes(state.currentScreen)) {
     showHome();
     pushAppHistoryState();
     return;
@@ -412,10 +412,10 @@ window.switchScreen = function (targetId) {
 
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
-    headerEl.classList.toggle("hidden", ["loginScreen", "shopScreen", "battleRoomScreen"].includes(targetId));
+    headerEl.classList.toggle("hidden", ["loginScreen", "shopScreen", "battleRoomScreen", "rankingScreen"].includes(targetId));
   }
 
-  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen", "battleRoomScreen"].forEach(id => {
+  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen", "battleRoomScreen", "rankingScreen"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });

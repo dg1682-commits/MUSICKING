@@ -363,8 +363,21 @@ window.handleLogout = async function () {
 };
 
 // ============================================================================
-// 2. 점수 랭킹 시스템
+// 2. 점수 랭킹 시스템 (전용 전체화면 #rankingScreen & 커스텀 게임 필터 칩)
 // ============================================================================
+const rankFilterState = {
+  mode: "ALL",
+  stage: "ALL"
+};
+
+window.setRankFilter = function (type, val) {
+  rankFilterState[type] = val;
+  document.querySelectorAll(`[data-rank-${type}]`).forEach(el => {
+    el.classList.toggle("active", el.getAttribute(`data-rank-${type}`) === String(val));
+  });
+  loadRankingsList();
+};
+
 async function submitScoreToRanking(record) {
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
   try {
@@ -386,12 +399,12 @@ async function submitScoreToRanking(record) {
 window.loadRankingsList = async function () {
   const listEl = document.getElementById("rankingListContainer");
   if (!listEl) return;
-  listEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-sub);">랭킹 데이터를 불러오는 중...</div>`;
+  listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub); font-weight:700;">🏆 랭킹 데이터를 불러오는 중...</div>`;
 
   if (!sbClient) return;
 
-  const modeFilter = document.getElementById("rankFilterMode")?.value || "ALL";
-  const stageFilter = document.getElementById("rankFilterStage")?.value || "ALL";
+  const modeFilter = rankFilterState.mode;
+  const stageFilter = rankFilterState.stage;
 
   try {
     let query = sbClient
@@ -405,25 +418,25 @@ window.loadRankingsList = async function () {
 
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
-      listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">아직 등록된 랭킹 기록이 없습니다.<br/>첫 번째 1등에 도전해보세요!</div>`;
+      listEl.innerHTML = `<div style="text-align:center; padding:32px; color:var(--text-sub); font-weight:700;">아직 해당 조건에 등록된 랭킹 기록이 없습니다.<br/>첫 번째 1등 주인공이 되어보세요!</div>`;
       return;
     }
 
-    const modeLabel = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" };
+    const modeLabel = { behind: "📖비하인드", lyrics: "📝가사", onesec: "⚡1초듣기" };
     listEl.innerHTML = data
       .map((row, idx) => {
         const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
         return `
         <div class="pixel-list-item" onclick="inspectOtherUser('${row.user_id}', '${row.nickname}')">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-weight:900; min-width:28px; color:var(--primary);">${medal}</span>
-            <canvas class="rank-mini-canvas" width="480" height="480" style="width:42px; height:42px; border-radius:9px; border:1.5px solid #334155;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <span style="font-weight:900; min-width:30px; font-size:0.95rem; color:var(--primary-dark);">${medal}</span>
+            <canvas class="rank-mini-canvas" width="480" height="480" style="width:44px; height:44px; border-radius:10px; border:2px solid #1e1b18;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
             <div>
-              <div style="font-weight:800; font-size:0.88rem;">${row.nickname} ${row.time_attack ? "⏱️" : ""}</div>
-              <div style="font-size:0.74rem; color:var(--text-sub);">${modeLabel[row.game_mode] || row.game_mode} · ${row.stage}단계 · 정답률 ${row.accuracy}%</div>
+              <div style="font-weight:900; font-size:0.9rem;">${row.nickname} ${row.time_attack ? "⏱️" : ""}</div>
+              <div style="font-size:0.74rem; font-weight:700; color:var(--text-sub);">${modeLabel[row.game_mode] || row.game_mode} · ${row.stage}단계 · 정답률 ${row.accuracy}%</div>
             </div>
           </div>
-          <div style="font-weight:900; color:var(--primary); font-size:0.95rem;">${row.score}점</div>
+          <div style="font-weight:900; color:#b45309; font-size:0.98rem;">${row.score}점</div>
         </div>
       `;
       })
