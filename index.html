@@ -15,20 +15,20 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=8.1" />
+  <link rel="stylesheet" href="style.css?v=9.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
-    <!-- ==================== 0. 전용 로그인 화면 (고해상도 도트 디자인 '음악왕' 로고가 꽉 차게 배치) ==================== -->
+    <!-- ==================== 0. 전용 로그인 화면 (고해상도 도트 디자인 '음악왕' 로고 + 아이디 저장 / 자동로그인) ==================== -->
     <section id="loginScreen" class="screen-view">
-      <div class="home-hero" style="justify-content:center; gap:14px;">
+      <div class="home-hero" style="justify-content:center; gap:12px;">
         <span class="hero-badge">👑 K-POP QUIZ & ONLINE ARENA</span>
 
         <!-- 고해상도 도트 디자인 '음악왕' 대형 타이틀 로고 캔버스 -->
         <div class="home-wide-stage" style="max-width:380px; background:#17153b;">
-          <canvas id="loginLogoCanvas" width="700" height="380" style="width:100%; height:205px; display:block; image-rendering:pixelated;"></canvas>
+          <canvas id="loginLogoCanvas" width="700" height="380" style="width:100%; height:195px; display:block; image-rendering:pixelated;"></canvas>
         </div>
 
         <div>
@@ -38,7 +38,17 @@
         <div style="width:100%; max-width:340px; display:flex; flex-direction:column; gap:8px;">
           <input type="text" id="authNicknameInput" class="text-input" placeholder="닉네임 (2글자 이상)" autocomplete="off" />
           <input type="password" id="authPasswordInput" class="text-input" placeholder="비밀번호 (6자리 이상)" autocomplete="off" onkeydown="if(event.key==='Enter') handleAuthSubmit('login')" />
-          <div class="action-row" style="margin-top:4px;">
+          <div class="auth-check-row">
+            <label class="auth-check-label">
+              <input type="checkbox" id="saveIdCheckbox" checked onchange="saveAuthPreferences()" />
+              <span>아이디 저장</span>
+            </label>
+            <label class="auth-check-label">
+              <input type="checkbox" id="autoLoginCheckbox" checked onchange="saveAuthPreferences()" />
+              <span>자동로그인</span>
+            </label>
+          </div>
+          <div class="action-row" style="margin-top:2px;">
             <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1; padding:13px; font-size:0.95rem;">로그인</button>
             <button class="btn btn-gold" onclick="openSignupGenderStep()" style="flex:1; padding:13px; font-size:0.95rem;">회원가입</button>
           </div>
@@ -248,7 +258,7 @@
           <span id="heartsDisplay" class="hidden" style="font-size:0.78rem;"></span>
           <span id="progressText">1/10</span>
           <span id="scoreText" style="color:var(--primary-dark);">0점</span>
-          <button class="header-btn" id="backToLobbyBtn" onclick="showSetup()">⬅ 나가기</button>
+          <button class="header-btn" id="backToLobbyBtn" onclick="confirmExitSingleGame()">⬅ 나가기</button>
         </div>
       </div>
 
@@ -325,7 +335,8 @@
     <section id="resultScreen" class="screen-view hidden">
       <div class="card result-card" id="resultCaptureTarget">
         <div class="result-capture-area">
-          <div style="font-size:1.9rem; margin-bottom:2px;">🏆</div>
+          <div style="font-size:1.85rem; margin-bottom:2px;">🏆</div>
+          <div id="finalPlayerBadge" style="display:inline-block; background:#fef08a; border:2px solid #1e1b18; border-radius:999px; padding:3px 14px; font-size:0.82rem; font-weight:900; margin-bottom:5px; color:#1e1b18;">🎤 도전자: 닉네임</div>
           <h2 id="finalRankTitle" style="font-size:1.22rem; font-weight:900; margin-bottom:4px;">전설의 음악왕</h2>
           <div id="clearedSpecsBar" class="cleared-specs-bar"></div>
           <p id="finalScoreText" style="color:var(--primary-dark); font-size:0.94rem; font-weight:800; margin-bottom:2px;"></p>
@@ -372,14 +383,17 @@
       </div>
     </section>
 
-    <!-- ==================== 8. 온라인 대전 방 내부 전용 전체 화면 (#battleRoomScreen — 팝업이 아닌 전체화면!) ==================== -->
+    <!-- ==================== 8. 온라인 대전 대기방 전용 전체 화면 (#battleRoomScreen) ==================== -->
     <section id="battleRoomScreen" class="screen-view hidden">
       <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
         <!-- 상단 방 제목 & 방 나가기 -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
           <button class="header-btn" onclick="leaveBattleRoom()" style="color:var(--danger);">⬅ 방 나가기</button>
-          <h3 id="battleRoomTitle" style="font-size:0.95rem; font-weight:900;">⚔️ 온라인 대전 방</h3>
+          <h3 id="battleRoomTitle" style="font-size:0.94rem; font-weight:900;">⚔️ 온라인 대전 방</h3>
         </div>
+
+        <!-- 선택된 게임 모드/연대/단계 배지 바 -->
+        <div id="battleRoomConfigBar" style="display:flex; justify-content:center; gap:5px; flex-wrap:wrap; flex-shrink:0;"></div>
 
         <!-- 방 내부 와이드 스테이지 맵 (방에 들어온 유저들의 캐릭터가 보이고 바닥 터치 시 이동) -->
         <div class="room-stage-wrap">
@@ -389,22 +403,12 @@
         <!-- 참가자 실시간 점수판 -->
         <div id="battlePlayersBoard" class="score-rule-grid" style="flex-shrink:0;"></div>
 
-        <!-- 방장 전용 대전 시작 버튼 -->
-        <button class="btn btn-gold btn-lg hidden" id="battleHostStartBtn" onclick="hostStartOnlineBattle()" style="flex-shrink:0;">
-          🚀 대전 시작하기 (방장 전용)
+        <!-- 방장 전용 대전 시작 버튼 (누르면 전용 플레이 화면 #battlePlayScreen 으로 전환!) -->
+        <button class="btn btn-gold btn-lg hidden" id="battleHostStartBtn" onclick="hostStartOnlineBattle()" style="flex-shrink:0; padding:12px;">
+          🚀 게임 스타트 (전용 플레이 화면으로!)
         </button>
-
-        <!-- 대전 진행 시 문제 풀이 영역 -->
-        <div id="battlePlayArea" class="hidden" style="flex-shrink:0;">
-          <div style="display:flex; justify-content:space-between; font-size:0.78rem; font-weight:900; color:var(--primary-dark); margin-bottom:3px;">
-            <span id="battleQProgress">라운드 1 / 10</span>
-            <span id="battleArtistHint"></span>
-          </div>
-          <div id="battleQuestionText" class="question-content" style="margin-bottom:6px; max-height:95px; font-size:0.84rem;"></div>
-          <div class="action-row">
-            <input type="text" id="battleAnswerInput" class="text-input" placeholder="정답(노래 또는 가수) 입력!" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
-            <button class="btn btn-primary" onclick="submitOnlineBattleAnswer()">버저 정답!</button>
-          </div>
+        <div id="battleGuestWaitBanner" style="text-align:center; font-size:0.8rem; font-weight:800; color:var(--primary-dark); background:var(--primary-light); padding:8px; border-radius:10px; border:2px solid var(--primary-border); flex-shrink:0;">
+          ⏳ 방장이 게임을 시작하기를 기다리는 중...
         </div>
 
         <!-- 방 내부 실시간 채팅 로그 & 입력창 -->
@@ -414,6 +418,70 @@
             <input type="text" id="roomChatInput" class="text-input" placeholder="방 참가자들과 대화하기 (말풍선 표시)..." maxlength="40" style="padding:7px 10px; font-size:0.82rem;" onkeydown="if(event.key==='Enter') sendRoomChat()" />
             <button class="btn btn-primary" onclick="sendRoomChat()" style="padding:7px 14px; font-size:0.82rem;">전송</button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 8-B. 온라인 대전 전용 플레이 화면 (#battlePlayScreen — 전자 미디 스튜디오 테마!) ==================== -->
+    <section id="battlePlayScreen" class="screen-view hidden">
+      <div class="midi-header-strip">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="header-btn" onclick="confirmExitOnlineBattle()" style="color:#fda4af;">⬅ 나가기</button>
+          <div class="midi-eq-bars"><span></span><span></span><span></span><span></span></div>
+          <span id="battlePlayProgress" style="font-size:0.86rem; font-weight:900; color:#7dd3fc;">ROUND 1 / 10</span>
+        </div>
+        <span id="battlePlayModeBadge" class="badge primary">📖 비하인드</span>
+      </div>
+
+      <!-- 실시간 참가자 점수 HUD -->
+      <div id="battlePlayPlayersHud" class="score-rule-grid" style="flex-shrink:0;"></div>
+
+      <!-- 전자 미디 문제 디스플레이 카드 -->
+      <div class="question-card" style="flex:1; min-height:110px; max-height:none;">
+        <div class="given-info-banner" id="battlePlayHintBanner">
+          <span id="battlePlayHintText">🎤 가수 힌트</span>
+          <strong id="battlePlayYearTag">2020년</strong>
+        </div>
+        <span class="question-type-tag" id="battlePlayTypeTag">🎹 STUDIO LIVE QUIZ</span>
+
+        <div id="battlePlayQuestionText" class="question-content"></div>
+
+        <!-- 1초 듣기 모드 전용 오디오 플레이어 -->
+        <div id="battleOneSecBox" class="one-sec-player hidden">
+          <div class="vinyl-disc" id="battleVinylDisc">🎵</div>
+          <p id="battleAudioStatusText" style="margin-bottom:8px; color:#cbd5e1; font-size:0.84rem; font-weight:700;">
+            ▶ 버튼을 누르면 1초 구간이 재생됩니다!
+          </p>
+          <div style="display:flex; justify-content:center; gap:8px;">
+            <button class="btn btn-primary" onclick="playOnlineBattleAudio(0)">▶ 1초 듣기</button>
+            <button class="btn" onclick="playOnlineBattleAudio(1)">🔄 다른 구간</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 전자 미디 정답 입력 콘솔 -->
+      <div class="card answer-area" id="battlePlayInputBox">
+        <div class="input-row">
+          <div class="input-group hidden" id="battleArtistInputGroup">
+            <label for="battleArtistInput">🎤 가수 이름</label>
+            <input type="text" id="battleArtistInput" class="text-input" placeholder="가수 입력" autocomplete="off" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+          </div>
+          <div class="input-group" id="battleTitleInputGroup">
+            <label for="battleTitleInput">🎵 정답 입력</label>
+            <input type="text" id="battleTitleInput" class="text-input" placeholder="노래/정답 입력!" autocomplete="off" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-gold" onclick="submitOnlineBattleAnswer()" style="flex:2; padding:12px;">⚡ 버저 정답 외치기!</button>
+        </div>
+      </div>
+
+      <!-- 대전 종료 시 결과 및 대기방 복귀 컨트롤 -->
+      <div class="card midi-console-card hidden" id="battleFinishedActions" style="text-align:center;">
+        <p id="battleWinnerBanner" style="font-size:1.05rem; font-weight:900; color:#fde047; margin-bottom:10px;"></p>
+        <div class="action-row">
+          <button class="btn btn-primary" onclick="returnToWaitingRoomFromBattle()" style="flex:1.4; padding:11px;">🔄 대기방으로 돌아가기</button>
+          <button class="btn" onclick="leaveBattleRoom()" style="flex:1; padding:11px; color:var(--danger);">🚪 방 나가기</button>
         </div>
       </div>
     </section>
@@ -633,7 +701,7 @@
           <span>📱 전체화면(주소창 숨김) 전환</span>
           <strong style="color:var(--accent);">전환 ➔</strong>
         </div>
-        <div class="pixel-list-item" onclick="location.href='admin.html'">
+        <div class="pixel-list-item hidden" id="settingsAdminMenuBtn" onclick="location.href='admin.html'">
           <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정)</span>
           <strong style="color:#b45309;">이동 ➔</strong>
         </div>
@@ -641,6 +709,67 @@
           <span style="color:var(--danger); font-weight:800;">🚪 계정 로그아웃</span>
           <strong style="color:var(--danger);">로그아웃</strong>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 9] 멀티 방 만들기 (모드·연대·단계 선택) ==================== -->
+  <div id="createRoomModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 id="createRoomModalTitle" style="font-size:1.02rem;">⚔️ 대전 방 만들기</h3>
+        <button class="header-btn" onclick="closeModal('createRoomModal')">닫기 ✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+        <div class="input-group">
+          <label>🏠 방 제목</label>
+          <input type="text" id="createRoomTitleInput" class="text-input" maxlength="24" placeholder="방 제목을 입력하세요..." />
+        </div>
+        <div>
+          <div class="section-label"><span>📅 출제 연대</span></div>
+          <div class="option-grid cols-3" id="roomDecadeOptions">
+            <div class="option-chip active" data-room-decade="ALL" onclick="selectRoomConfig('decade', 'ALL')"><span class="chip-title">전연대</span></div>
+            <div class="option-chip" data-room-decade="1990s" onclick="selectRoomConfig('decade', '1990s')"><span class="chip-title">1990s</span></div>
+            <div class="option-chip" data-room-decade="2000s" onclick="selectRoomConfig('decade', '2000s')"><span class="chip-title">2000s</span></div>
+            <div class="option-chip" data-room-decade="2010s" onclick="selectRoomConfig('decade', '2010s')"><span class="chip-title">2010s</span></div>
+            <div class="option-chip" data-room-decade="2020s" onclick="selectRoomConfig('decade', '2020s')"><span class="chip-title">2020s</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label"><span>🎵 게임 모드</span></div>
+          <div class="option-grid cols-3" id="roomModeOptions">
+            <div class="option-chip active" data-room-mode="behind" onclick="selectRoomConfig('mode', 'behind')">
+              <span class="chip-title">📖 비하인드</span>
+            </div>
+            <div class="option-chip" data-room-mode="lyrics" onclick="selectRoomConfig('mode', 'lyrics')">
+              <span class="chip-title">📝 가사</span>
+            </div>
+            <div class="option-chip" data-room-mode="onesec" onclick="selectRoomConfig('mode', 'onesec')">
+              <span class="chip-title">⚡ 1초듣기</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label"><span>🔥 정답 단계</span></div>
+          <div class="option-grid cols-3" id="roomStageOptions">
+            <div class="option-chip active" data-room-stage="1" onclick="selectRoomConfig('stage', 1)">
+              <span class="chip-title">1단계</span>
+              <span class="chip-desc">노래 맞히기</span>
+            </div>
+            <div class="option-chip" data-room-stage="2" onclick="selectRoomConfig('stage', 2)">
+              <span class="chip-title">2단계</span>
+              <span class="chip-desc">가수 맞히기</span>
+            </div>
+            <div class="option-chip" data-room-stage="3" onclick="selectRoomConfig('stage', 3)">
+              <span class="chip-title">3단계</span>
+              <span class="chip-desc">가수+노래</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn" onclick="closeModal('createRoomModal')" style="flex:0.9;">취소</button>
+        <button class="btn btn-gold" onclick="confirmCreateOnlineRoom()" style="flex:1.6; padding:12px;">⚔️ 방 만들기 완료</button>
       </div>
     </div>
   </div>
@@ -660,9 +789,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=8.1"></script>
-  <script src="pixel_avatar.js?v=8.1"></script>
-  <script src="online.js?v=8.1"></script>
-  <script src="app.js?v=8.1"></script>
+  <script src="data.js?v=9.0"></script>
+  <script src="pixel_avatar.js?v=9.0"></script>
+  <script src="online.js?v=9.0"></script>
+  <script src="app.js?v=9.0"></script>
 </body>
 </html>

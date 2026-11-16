@@ -56,23 +56,15 @@ document.addEventListener(
   { passive: false }
 );
 
-// 모바일 브라우저: 버튼/화면 터치(click/touchend) 시 즉시 상단 주소창 숨김(Fullscreen) 실행
-function tryAutoHideAddressBar(e) {
-  if (state.autoFullscreenTried) return;
-  if (e && e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile && !document.fullscreenElement) {
-    const docEl = document.documentElement;
-    const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
-    if (reqFs) {
-      reqFs.call(docEl, { navigationUI: "hide" }).then(() => {
-        state.autoFullscreenTried = true;
-      }).catch(() => {});
-    }
-  }
+// Standalone/APK 앱 모드인지 판별 (앱 모드 및 일반 터치 시 크롬의 '전체 화면 종료 스와이프 도움말' 토스트가 강제 노출되지 않도록 자동 requestFullscreen 제거)
+function isRunningAsApp() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.navigator.standalone === true ||
+    document.referrer.includes("android-app://")
+  );
 }
-document.addEventListener("click", tryAutoHideAddressBar, { passive: true });
-document.addEventListener("touchend", tryAutoHideAddressBar, { passive: true });
 
 // ============================================================================
 // 모바일 키보드 올라올 때 문제가 절대 가려지지 않도록 동적 뷰포트 제어
@@ -177,6 +169,12 @@ window.addEventListener("popstate", () => {
     return;
   }
 
+  if (state.currentScreen === "battlePlayScreen") {
+    if (typeof confirmExitOnlineBattle === "function") confirmExitOnlineBattle();
+    pushAppHistoryState();
+    return;
+  }
+
   if (state.currentScreen === "battleRoomScreen") {
     leaveBattleRoom();
     pushAppHistoryState();
@@ -197,9 +195,7 @@ window.addEventListener("popstate", () => {
   }
 
   if (["gameScreen", "judgeScreen"].includes(state.currentScreen)) {
-    gameConfirm("진행 중인 게임을 중단하고 설정 화면으로 나갈까요?", () => {
-      showSetup();
-    });
+    confirmExitSingleGame();
     pushAppHistoryState();
     return;
   }
@@ -346,12 +342,12 @@ function startTimeAttackTimer() {
   }, 100);
 }
 
-async function playAudioSnippet(durationSec, startOffsetSec = 6) {
+async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null, customDisc = null, customStatus = null) {
   stopAudio();
-  const q = state.currentQ;
+  const q = customQ || state.currentQ;
   if (!q) return;
 
-  const statusEl = document.getElementById("audioStatusText");
+  const statusEl = customStatus || document.getElementById("audioStatusText");
   if (statusEl) statusEl.textContent = "음원 불러오는 중...";
 
   const track = await fetchItunesTrack(q);
@@ -380,7 +376,7 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6) {
     const safeOffset = Math.min(startOffsetSec, Math.max(0, (state.audioEl.duration || 29) - durationSec - 1));
     state.audioEl.currentTime = safeOffset;
 
-    const disc = document.getElementById("vinylDisc");
+    const disc = customDisc || document.getElementById("vinylDisc");
     if (disc) disc.classList.add("spinning");
     if (statusEl) statusEl.textContent = `🔊 ${durationSec}초 재생 중...`;
 
@@ -405,6 +401,16 @@ function shuffleArray(arr) {
   return copy;
 }
 
+window.confirmExitSingleGame = function () {
+  gameConfirm(
+    "지금 나가면 풀던 문제와 현재 점수가 모두 삭제됩니다.\n정말 게임을 중단하고 나가시겠습니까?",
+    () => {
+      showSetup();
+    },
+    "⚠️ 게임 중단 경고"
+  );
+};
+
 // ============================================================================
 // 화면 전환
 // ============================================================================
@@ -416,12 +422,30 @@ window.switchScreen = function (targetId) {
   state.currentScreen = targetId;
   pushAppHistoryState();
 
+  // 싱글/멀티 전용 플레이 화면일 때 전자 미디(MIDI) 다크 스튜디오 배경 활성화
+  document.body.classList.toggle("midi-play-theme", ["gameScreen", "battlePlayScreen"].includes(targetId));
+
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
-    headerEl.classList.toggle("hidden", ["loginScreen", "shopScreen", "battleRoomScreen", "rankingScreen"].includes(targetId));
+    headerEl.classList.toggle(
+      "hidden",
+      ["loginScreen", "shopScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen"].includes(targetId)
+    );
   }
 
-  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen", "battleRoomScreen", "rankingScreen"].forEach(id => {
+  [
+    "loginScreen",
+    "homeScreen",
+    "setupScreen",
+    "gameScreen",
+    "judgeScreen",
+    "resultScreen",
+    "plazaScreen",
+    "shopScreen",
+    "battleRoomScreen",
+    "battlePlayScreen",
+    "rankingScreen"
+  ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });
@@ -522,7 +546,7 @@ function initEvents() {
   });
 
   safeOn("startGameBtn", "click", startGame);
-  safeOn("backToLobbyBtn", "click", showSetup);
+  safeOn("backToLobbyBtn", "click", confirmExitSingleGame);
   safeOn("restartSameBtn", "click", startGame);
   safeOn("resultToLobbyBtn", "click", showHome);
   safeOn("shareResultBtn", "click", shareResultImage);
@@ -548,6 +572,9 @@ function initEvents() {
   window.closeAllModals();
   showLoginScreen();
 
+  if (typeof initAuthPreferences === "function") {
+    initAuthPreferences();
+  }
   if (typeof restoreSupabaseSession === "function") {
     restoreSupabaseSession();
   }
@@ -888,6 +915,7 @@ async function showFinalResult() {
   else if (accuracy >= 75) rankTitle = "🔥 가요계 척척박사";
   else if (accuracy >= 50) rankTitle = "🎶 음악 고수";
 
+  document.getElementById("finalPlayerBadge").textContent = `🎤 도전자: ${userState?.nickname || "도전자"}`;
   document.getElementById("finalRankTitle").textContent = rankTitle;
   document.getElementById("finalScoreText").textContent = `총점 ${state.score}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
 
@@ -965,8 +993,8 @@ async function shareResultImage() {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: "대한민국 음악왕 결과",
-            text: document.getElementById("finalScoreText").textContent,
+            title: `[${userState?.nickname || "도전자"}] 대한민국 음악왕 결과`,
+            text: `[${userState?.nickname || "도전자"}] ${document.getElementById("finalScoreText").textContent}`,
             files: [file]
           });
           return;

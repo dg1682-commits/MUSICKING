@@ -165,6 +165,12 @@ function updateHeaderUserUI() {
     topNickEl.textContent = rawNick.length > 5 ? rawNick.slice(0, 5) + ".." : rawNick;
   }
 
+  // 관리자 백엔드 버튼은 아이디가 "관리자"인 경우에만 노출!
+  const adminBtn = document.getElementById("settingsAdminMenuBtn");
+  if (adminBtn) {
+    adminBtn.classList.toggle("hidden", !(userState.isLoggedIn && userState.nickname === "관리자"));
+  }
+
   const homeCanvas = document.getElementById("homeHeroAvatar");
   if (homeCanvas) renderPixelAvatar(homeCanvas, userState.avatarConfig);
 
@@ -176,6 +182,44 @@ function updateHeaderUserUI() {
   const signupPreview = document.getElementById("signupCharPreview");
   if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
 }
+
+// ============================================================================
+// 아이디 저장 / 자동로그인 설정 관리
+// ============================================================================
+window.initAuthPreferences = function () {
+  const saveIdBox = document.getElementById("saveIdCheckbox");
+  const autoLoginBox = document.getElementById("autoLoginCheckbox");
+  const nickInput = document.getElementById("authNicknameInput");
+
+  const saveIdPref = localStorage.getItem("mk_save_id") !== "false";
+  const autoLoginPref = localStorage.getItem("mk_auto_login") !== "false";
+  const savedNick = localStorage.getItem("mk_saved_nick") || "";
+
+  if (saveIdBox) saveIdBox.checked = saveIdPref;
+  if (autoLoginBox) autoLoginBox.checked = autoLoginPref;
+  if (nickInput && saveIdPref && savedNick) {
+    nickInput.value = savedNick;
+  }
+};
+
+window.saveAuthPreferences = function (nickToSave = null) {
+  const saveIdBox = document.getElementById("saveIdCheckbox");
+  const autoLoginBox = document.getElementById("autoLoginCheckbox");
+  const nickInput = document.getElementById("authNicknameInput");
+
+  const saveId = saveIdBox ? saveIdBox.checked : true;
+  const autoLogin = autoLoginBox ? autoLoginBox.checked : true;
+
+  localStorage.setItem("mk_save_id", saveId ? "true" : "false");
+  localStorage.setItem("mk_auto_login", autoLogin ? "true" : "false");
+
+  const targetNick = nickToSave !== null ? nickToSave : (nickInput ? nickInput.value.trim() : "");
+  if (saveId && targetNick) {
+    localStorage.setItem("mk_saved_nick", targetNick);
+  } else if (!saveId) {
+    localStorage.removeItem("mk_saved_nick");
+  }
+};
 
 function nicknameToEmail(nick) {
   const hex = Array.from(nick.trim())
@@ -230,6 +274,9 @@ function applyServerSongsOverride(serverSongs) {
 async function restoreSupabaseSession() {
   await loadServerGlobalConfigs();
   if (!sbClient) return;
+  if (localStorage.getItem("mk_auto_login") === "false") {
+    return;
+  }
   try {
     const { data } = await sbClient.auth.getSession();
     const sessionUser = data?.session?.user;
@@ -334,6 +381,7 @@ window.handleAuthSubmit = async function (mode) {
       userState.nickname = nickInput;
       userState.cdCoins = 100;
       userState.isLoggedIn = true;
+      saveAuthPreferences(nickInput);
 
       await sbClient.from("profiles").upsert({
         id: uid,
@@ -372,6 +420,7 @@ window.handleAuthSubmit = async function (mode) {
       userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...(prof?.avatar_config || {}) };
       userState.ownedItems = prof?.owned_items || userState.ownedItems;
       userState.isLoggedIn = true;
+      saveAuthPreferences(userState.nickname);
 
       updateHeaderUserUI();
       showHome();
@@ -391,6 +440,7 @@ window.handleLogout = async function () {
     userState.nickname = "도전자";
     closeAllModals();
     showLoginScreen();
+    if (typeof initAuthPreferences === "function") initAuthPreferences();
   }, "🚪 로그아웃");
 };
 
@@ -1152,10 +1202,13 @@ window.refreshRoomsList = async function () {
     .map(room => {
       const maxP = room.room_type === "1v1" ? 2 : 4;
       const curP = room.players.length;
+      const cfg = room.game_config || { mode: "behind", stage: 1, decade: "ALL" };
+      const modeName = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[cfg.mode] || "비하인드";
       return `
       <div class="pixel-list-item">
         <div>
-          <span class="badge primary" style="margin-right:4px;">${room.room_type === "1v1" ? "1:1 선착순" : "4인 점수제"}</span>
+          <span class="badge primary" style="margin-right:4px;">${room.room_type === "1v1" ? "1:1" : "4인"}</span>
+          <span class="badge accent" style="margin-right:4px;">${modeName}·${cfg.stage || 1}단계</span>
           <strong>${room.title}</strong>
           <span style="font-size:0.76rem; color:var(--text-sub);">(${curP}/${maxP}명)</span>
         </div>
@@ -1166,50 +1219,84 @@ window.refreshRoomsList = async function () {
     .join("");
 };
 
+const createRoomState = {
+  roomType: "1v1",
+  decade: "ALL",
+  mode: "behind",
+  stage: 1
+};
+
 window.openCreateRoomModal = function (defaultType = "1v1") {
   if (!userState.isLoggedIn) {
     gameConfirm("온라인 방 만들기는 로그인 후 가능합니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
     return;
   }
-  gamePrompt(
-    `${defaultType === "1v1" ? "⚡ [1:1 선착순 대전]" : "🏆 [4인 점수제 대전]"} 방 제목을 입력해주세요:`,
-    `${userState.nickname}님의 대결방!`,
-    async title => {
-      if (!title) return;
-      const shuffledIds = shuffleArray(QUESTIONS_DB).slice(0, 10).map(q => q.id);
-      const initialPlayers = [
-        {
-          id: userState.id,
-          nickname: userState.nickname,
-          avatarConfig: userState.avatarConfig,
-          score: 0
-        }
-      ];
+  createRoomState.roomType = defaultType;
+  document.getElementById("createRoomModalTitle").textContent =
+    defaultType === "1v1" ? "⚡ 1:1 선착순 대전 방 만들기" : "🏆 4인 점수제 대전 방 만들기";
+  document.getElementById("createRoomTitleInput").value = `${userState.nickname}님의 대결방!`;
+  selectRoomConfig("decade", createRoomState.decade);
+  selectRoomConfig("mode", createRoomState.mode);
+  selectRoomConfig("stage", createRoomState.stage);
+  openModal("createRoomModal");
+};
 
-      const { data, error } = await sbClient
-        .from("rooms")
-        .insert({
-          title,
-          host_id: userState.id,
-          room_type: defaultType,
-          game_config: { mode: "behind", stage: 1 },
-          status: "waiting",
-          players: initialPlayers,
-          current_q_index: 0,
-          question_ids: shuffledIds
-        })
-        .select()
-        .single();
+window.selectRoomConfig = function (key, val) {
+  createRoomState[key] = key === "stage" ? Number(val) : val;
+  document.querySelectorAll(`[data-room-${key}]`).forEach(el => {
+    el.classList.toggle("active", el.getAttribute(`data-room-${key}`) === String(val));
+  });
+};
 
-      if (error || !data) {
-        gameAlert("방 생성 중 오류가 발생했습니다.");
-        return;
-      }
+window.confirmCreateOnlineRoom = async function () {
+  const title = document.getElementById("createRoomTitleInput").value.trim();
+  if (!title) {
+    gameAlert("방 제목을 입력해주세요!");
+    return;
+  }
 
-      joinOnlineRoom(data.id);
-    },
-    "⚔️ 방 만들기"
-  );
+  let pool =
+    createRoomState.decade === "ALL"
+      ? QUESTIONS_DB
+      : QUESTIONS_DB.filter(q => q.decade === createRoomState.decade);
+  if (pool.length < 10) pool = QUESTIONS_DB;
+  const shuffledIds = shuffleArray(pool).slice(0, 10).map(q => q.id);
+
+  const initialPlayers = [
+    {
+      id: userState.id,
+      nickname: userState.nickname,
+      avatarConfig: userState.avatarConfig,
+      score: 0
+    }
+  ];
+
+  const { data, error } = await sbClient
+    .from("rooms")
+    .insert({
+      title,
+      host_id: userState.id,
+      room_type: createRoomState.roomType,
+      game_config: {
+        decade: createRoomState.decade,
+        mode: createRoomState.mode,
+        stage: createRoomState.stage
+      },
+      status: "waiting",
+      players: initialPlayers,
+      current_q_index: 0,
+      question_ids: shuffledIds
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    gameAlert("방 생성 중 오류가 발생했습니다.");
+    return;
+  }
+
+  closeModal("createRoomModal");
+  joinOnlineRoom(data.id);
 };
 
 window.joinOnlineRoom = async function (roomId) {
@@ -1408,6 +1495,20 @@ function startRoomStageCanvasLoop() {
 function renderBattleRoomState(room) {
   document.getElementById("battleRoomTitle").textContent = `[${room.room_type === "1v1" ? "1:1 선착순" : "4인 점수제"}] ${room.title}`;
 
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
+  const decLabel = cfg.decade === "ALL" ? "전연대" : String(cfg.decade).replace("s", "년대");
+  const modeLabel = { behind: "📖 비하인드", lyrics: "📝 가사", onesec: "⚡ 1초듣기" }[cfg.mode] || "📖 비하인드";
+  const stageLabel = `${cfg.stage || 1}단계(${cfg.stage === 2 ? "가수" : cfg.stage === 3 ? "가수+노래" : "노래"})`;
+
+  const configBar = document.getElementById("battleRoomConfigBar");
+  if (configBar) {
+    configBar.innerHTML = `
+      <span class="badge">${decLabel}</span>
+      <span class="badge primary">${modeLabel}</span>
+      <span class="badge accent">${stageLabel}</span>
+    `;
+  }
+
   const playersEl = document.getElementById("battlePlayersBoard");
   playersEl.innerHTML = (room.players || [])
     .map(
@@ -1421,34 +1522,153 @@ function renderBattleRoomState(room) {
     .join("");
 
   const startBtn = document.getElementById("battleHostStartBtn");
-  const playArea = document.getElementById("battlePlayArea");
+  const waitBanner = document.getElementById("battleGuestWaitBanner");
+  const isHost = room.host_id === userState.id;
 
   if (room.status === "waiting") {
-    playArea.classList.add("hidden");
-    startBtn.classList.toggle("hidden", room.host_id !== userState.id);
-  } else if (room.status === "playing") {
-    startBtn.classList.add("hidden");
-    playArea.classList.remove("hidden");
-    const qId = (room.question_ids || [])[room.current_q_index || 0];
-    const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
-    document.getElementById("battleQProgress").textContent = `라운드 ${(room.current_q_index || 0) + 1} / ${(room.question_ids || []).length}`;
-    document.getElementById("battleArtistHint").textContent = `🎤 가수 힌트: ${q.artist} (${q.year}년)`;
-    document.getElementById("battleQuestionText").textContent = q.behindQuestion;
-  } else if (room.status === "finished") {
-    startBtn.classList.add("hidden");
-    playArea.classList.remove("hidden");
-    const sorted = [...(room.players || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
-    const winner = sorted[0];
-    document.getElementById("battleQuestionText").innerHTML = `🏆 <strong>대전 종료! 우승자: ${winner ? winner.nickname : "없음"} (${winner ? winner.score : 0}점)</strong>`;
+    if (startBtn) startBtn.classList.toggle("hidden", !isHost);
+    if (waitBanner) waitBanner.classList.toggle("hidden", isHost);
+    if (typeof state !== "undefined" && state.currentScreen === "battlePlayScreen") {
+      switchScreen("battleRoomScreen");
+      startRoomStageCanvasLoop();
+    }
+  } else if (room.status === "playing" || room.status === "finished") {
+    if (typeof state !== "undefined" && state.currentScreen !== "battlePlayScreen") {
+      switchScreen("battlePlayScreen");
+    }
+    renderBattlePlayScreen(room);
   }
 }
+
+function renderBattlePlayScreen(room) {
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
+  const mode = cfg.mode || "behind";
+  const stage = Number(cfg.stage || 1);
+
+  const hudEl = document.getElementById("battlePlayPlayersHud");
+  if (hudEl) {
+    hudEl.innerHTML = (room.players || [])
+      .map(
+        p => `
+        <div class="score-rule-item">
+          <span>${p.id === room.host_id ? "👑" : "👤"} ${p.nickname}</span>
+          <strong class="score-plus">${p.score || 0}점</strong>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  const inputBox = document.getElementById("battlePlayInputBox");
+  const finishedBox = document.getElementById("battleFinishedActions");
+  const qTextEl = document.getElementById("battlePlayQuestionText");
+  const oneSecBox = document.getElementById("battleOneSecBox");
+  const artistGroup = document.getElementById("battleArtistInputGroup");
+  const titleGroup = document.getElementById("battleTitleInputGroup");
+
+  if (room.status === "finished") {
+    if (inputBox) inputBox.classList.add("hidden");
+    if (finishedBox) finishedBox.classList.remove("hidden");
+    if (oneSecBox) oneSecBox.classList.add("hidden");
+    if (qTextEl) {
+      qTextEl.classList.remove("hidden");
+      const rankList = [...(room.players || [])]
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .map((p, i) => `${i + 1}위. ${p.nickname} (${p.score || 0}점)`)
+        .join("<br/>");
+      qTextEl.innerHTML = `<div style="text-align:center; padding:8px 0;"><strong>🎹 대결 최종 순위</strong><br/><br/>${rankList}</div>`;
+    }
+    const sorted = [...(room.players || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const winner = sorted[0];
+    document.getElementById("battleWinnerBanner").textContent =
+      `🏆 최종 우승: ${winner ? winner.nickname : "없음"} (${winner ? winner.score : 0}점)`;
+    return;
+  }
+
+  if (inputBox) inputBox.classList.remove("hidden");
+  if (finishedBox) finishedBox.classList.add("hidden");
+
+  const qId = (room.question_ids || [])[room.current_q_index || 0];
+  const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
+
+  document.getElementById("battlePlayProgress").textContent = `ROUND ${(room.current_q_index || 0) + 1} / ${(room.question_ids || []).length}`;
+  document.getElementById("battlePlayModeBadge").textContent =
+    { behind: "📖 비하인드", lyrics: "📝 가사", onesec: "⚡ 1초듣기" }[mode] || "📖 비하인드";
+  document.getElementById("battlePlayYearTag").textContent = `${q.year}년`;
+
+  const hintTextEl = document.getElementById("battlePlayHintText");
+  if (stage === 1) {
+    hintTextEl.textContent = `🎤 가수 힌트: ${q.artist}`;
+    artistGroup.classList.add("hidden");
+    titleGroup.classList.remove("hidden");
+    document.querySelector("#battleTitleInputGroup label").textContent = "🎵 노래 제목 입력";
+    document.getElementById("battleTitleInput").placeholder = "노래 제목을 입력하세요!";
+  } else if (stage === 2) {
+    hintTextEl.textContent = `🎵 노래 힌트: ${q.title}`;
+    artistGroup.classList.remove("hidden");
+    titleGroup.classList.add("hidden");
+  } else {
+    hintTextEl.textContent = "🔥 가수 + 노래 모두 맞히기!";
+    artistGroup.classList.remove("hidden");
+    titleGroup.classList.remove("hidden");
+    document.querySelector("#battleTitleInputGroup label").textContent = "🎵 노래 제목";
+    document.getElementById("battleTitleInput").placeholder = "노래 제목 입력";
+  }
+
+  if (mode === "behind") {
+    document.getElementById("battlePlayTypeTag").textContent = "🎹 STUDIO LIVE · 비하인드 퀴즈";
+    qTextEl.className = "question-content";
+    qTextEl.textContent = q.behindQuestion;
+    qTextEl.classList.remove("hidden");
+    oneSecBox.classList.add("hidden");
+  } else if (mode === "lyrics") {
+    document.getElementById("battlePlayTypeTag").textContent = "🎶 STUDIO LIVE · 하이라이트 가사";
+    qTextEl.className = "question-content lyrics-style";
+    qTextEl.innerHTML = `" ${q.lyricsQuestion.replace(/\//g, "<br>")} "`;
+    qTextEl.classList.remove("hidden");
+    oneSecBox.classList.add("hidden");
+  } else {
+    document.getElementById("battlePlayTypeTag").textContent = "⚡ STUDIO LIVE · 1초 듣기";
+    qTextEl.classList.add("hidden");
+    oneSecBox.classList.remove("hidden");
+    document.getElementById("battleAudioStatusText").textContent = "▶ 버튼을 눌러 1초 음원을 들어보세요!";
+  }
+}
+
+window.playOnlineBattleAudio = function (offsetIdx = 0) {
+  const room = plazaState.currentRoom;
+  if (!room) return;
+  const qId = (room.question_ids || [])[room.current_q_index || 0];
+  const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
+  if (typeof playAudioSnippet === "function") {
+    playAudioSnippet(
+      1.2,
+      offsetIdx === 1 ? 15 : 6,
+      q,
+      document.getElementById("battleVinylDisc"),
+      document.getElementById("battleAudioStatusText")
+    );
+  }
+};
 
 window.hostStartOnlineBattle = async function () {
   const room = plazaState.currentRoom;
   if (!room) return;
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
+  let pool = cfg.decade && cfg.decade !== "ALL" ? QUESTIONS_DB.filter(q => q.decade === cfg.decade) : QUESTIONS_DB;
+  if (pool.length < 10) pool = QUESTIONS_DB;
+  const nextIds = shuffleArray(pool).slice(0, 10).map(q => q.id);
+
   room.status = "playing";
   room.current_q_index = 0;
-  await sbClient.from("rooms").update({ status: "playing", current_q_index: 0 }).eq("id", room.id);
+  room.question_ids = nextIds;
+  room.players = (room.players || []).map(p => ({ ...p, score: 0 }));
+
+  await sbClient
+    .from("rooms")
+    .update({ status: "playing", current_q_index: 0, question_ids: nextIds, players: room.players })
+    .eq("id", room.id);
+
   plazaState.roomChannel.send({ type: "broadcast", event: "room_update", payload: room });
   renderBattleRoomState(room);
 };
@@ -1457,15 +1677,33 @@ window.submitOnlineBattleAnswer = async function () {
   const room = plazaState.currentRoom;
   if (!room || room.status !== "playing") return;
 
-  const input = document.getElementById("battleAnswerInput");
-  const val = input.value.trim();
-  if (!val) return;
+  const cfg = room.game_config || { mode: "behind", stage: 1 };
+  const stage = Number(cfg.stage || 1);
+  const artistInput = document.getElementById("battleArtistInput");
+  const titleInput = document.getElementById("battleTitleInput");
+  const artistVal = artistInput ? artistInput.value.trim() : "";
+  const titleVal = titleInput ? titleInput.value.trim() : "";
+
+  if (stage === 1 && !titleVal) return;
+  if (stage === 2 && !artistVal) return;
+  if (stage === 3 && (!artistVal || !titleVal)) {
+    gameAlert("3단계는 가수와 노래 제목을 모두 입력해주세요!");
+    return;
+  }
 
   const qId = (room.question_ids || [])[room.current_q_index || 0];
   const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
 
-  if (isTitleMatch(val, q) || isArtistMatch(val, q)) {
-    input.value = "";
+  const isCorrect =
+    stage === 1
+      ? isTitleMatch(titleVal, q)
+      : stage === 2
+      ? isArtistMatch(artistVal, q)
+      : isArtistMatch(artistVal, q) && isTitleMatch(titleVal, q);
+
+  if (isCorrect) {
+    if (artistInput) artistInput.value = "";
+    if (titleInput) titleInput.value = "";
     room.players = (room.players || []).map(p =>
       p.id === userState.id ? { ...p, score: (p.score || 0) + 100 } : p
     );
@@ -1491,6 +1729,34 @@ window.submitOnlineBattleAnswer = async function () {
   } else {
     gameAlert("❌ 오답입니다! 다시 생각해보세요!");
   }
+};
+
+window.returnToWaitingRoomFromBattle = async function () {
+  const room = plazaState.currentRoom;
+  if (!room) {
+    switchScreen("plazaScreen");
+    return;
+  }
+  if (room.host_id === userState.id && sbClient) {
+    room.status = "waiting";
+    await sbClient.from("rooms").update({ status: "waiting" }).eq("id", room.id);
+    if (plazaState.roomChannel) {
+      plazaState.roomChannel.send({ type: "broadcast", event: "room_update", payload: room });
+    }
+  }
+  switchScreen("battleRoomScreen");
+  startRoomStageCanvasLoop();
+  renderBattleRoomState(room);
+};
+
+window.confirmExitOnlineBattle = function () {
+  gameConfirm(
+    "진행 중인 온라인 대전에서 나가면 현재 점수가 초기화됩니다.\n정말 나가시겠습니까?",
+    () => {
+      leaveBattleRoom();
+    },
+    "⚠️ 대전 나가기 확인"
+  );
 };
 
 // 혼자 있는데 방 나가면(또는 마지막 남은 사람이 나가면) 방 즉시 삭제!
