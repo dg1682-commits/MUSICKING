@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.5`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.6`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
 - **앱 이름**: 대한민국 음악왕 (`MUSIC KING · K-POP QUIZ & ARENA`)
-- **현재 버전**: **v10.5**
+- **현재 버전**: **v10.6**
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **호스팅 방식**: 정적 웹앱(Vanilla HTML/CSS/JS) ➔ **GitHub Pages** (`https://dg1682-commits.github.io/...`)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -182,7 +182,7 @@
 - **Android 패키지명**: `io.github.dg1682_commits.twa` ([.well-known/assetlinks.json](file:///c:/Users/user1/Desktop/개발/음악왕/.well-known/assetlinks.json#L5))
 - **서명 SHA-256 지문**: `9C:BB:08:16:F2:E7:CC:3F:37:64:47:13:50:4A:8E:F4:44:CA:C2:BB:94:94:E0:D7:C5:DF:7C:01:CC:6C:30:27`
 - **APK 서명 키 파일 (`signing.keystore`, `signing-key-info`)**: 사용자 로컬 다운로드 폴더(`음악왕 - Google Play package`)에 보관 중. 추후 플레이스토어 업데이트나 APK 재서명 시 동일 키가 필요하므로 분실 금지!
-- **iOS Safari 설치 안내 배너 (`#ios-pwa-prompt`)**: 아이폰/아이패드 웹 접속 중 아직 홈 화면 앱(Standalone) 상태가 아닐 때만 하단 화살표 배너를 띄워 `[공유 📤] ➔ [홈 화면에 추가 ➕]`를 안내합니다(닫기 시 24시간 숨김, `.app-shell`은 `env(safe-area-inset-top/bottom)` 적용, `<meta name="apple-mobile-web-app-title" content="음악왕">`, 아이콘은 `icons/icon-192.png`).
+- **iOS + Android 통합 앱 설치 배너 (`#smart-pwa-banner`)**: 이미 APK(TWA)나 홈 화면 앱(Standalone/Fullscreen) 상태로 실행 중이면 숨겨지며, 일반 모바일 웹 접속 시 ① **iOS Safari**에는 하단 `[공유 📤] ➔ [홈 화면에 추가 ➕]` 안내를, ② **갤럭시(Android Chrome/삼성 인터넷)**에는 `beforeinstallprompt`를 가로채 **`⚡ 지금 앱 바로 설치하기`** 원클릭 OS 설치 팝업 버튼을 띄웁니다(닫기 시 24시간 숨김, `.app-shell`은 `env(safe-area-inset-top/bottom)` 적용, `<meta name="apple-mobile-web-app-title" content="음악왕">`, 아이콘은 `icons/icon-192.png`).
 - **Service Worker 전략 ([sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js))**:
   - 같은 출처 HTML/CSS/JS는 **Network-First**(온라인이면 항상 최신 GitHub Pages 버전 받아오고 실패 시에만 캐시 사용)
   - 외부 API(`supabase.co`, `itunes.apple.com`, `cdn.jsdelivr.net`)는 캐시하지 않고 네트워크 직통
