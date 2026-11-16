@@ -1,17 +1,42 @@
 {
+  "id": "./",
   "name": "대한민국 음악왕 - K-POP 퀴즈 & 온라인 대전",
   "short_name": "음악왕",
   "description": "1990s~2020s K-POP 비하인드·가사·1초 듣기 퀴즈 및 실시간 온라인 대전 게임",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",
-  "background_color": "#1a1f35",
-  "theme_color": "#4f46e5",
+  "background_color": "#5ec8f8",
+  "theme_color": "#38bdf8",
+  "lang": "ko",
+  "dir": "ltr",
+  "categories": ["games", "music", "entertainment"],
   "icons": [
     {
-      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234f46e5'/><text x='50%' y='62%' font-size='54' text-anchor='middle'>👑</text></svg>",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

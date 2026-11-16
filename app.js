@@ -990,4 +990,10 @@ async function shareResultImage() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", initEvents);
+document.addEventListener("DOMContentLoaded", () => {
+  initEvents();
+  // PWA & PWABuilder Android APK 필수 조건: Service Worker 등록
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+});
