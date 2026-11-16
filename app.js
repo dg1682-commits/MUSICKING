@@ -171,8 +171,7 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  const battleModal = document.getElementById("battleRoomModal");
-  if (battleModal && !battleModal.classList.contains("hidden")) {
+  if (state.currentScreen === "battleRoomScreen") {
     leaveBattleRoom();
     pushAppHistoryState();
     return;
@@ -413,10 +412,10 @@ window.switchScreen = function (targetId) {
 
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
-    headerEl.classList.toggle("hidden", targetId === "loginScreen" || targetId === "shopScreen");
+    headerEl.classList.toggle("hidden", ["loginScreen", "shopScreen", "battleRoomScreen"].includes(targetId));
   }
 
-  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen"].forEach(id => {
+  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen", "battleRoomScreen"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });

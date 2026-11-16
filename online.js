@@ -440,9 +440,9 @@ window.loadRankingsList = async function () {
 };
 
 // ============================================================================
-// 3. 액션퍼즐패밀리 스타일 전용 전체화면 상점 (#shopScreen)
-// - 상점 진입 시 팝업이 아닌 전체 화면 전환!
-// - 좌측 캐릭터 입어보기 + 우측 나무 보드 설명 + 하단 대형 단품 파츠 타일 그리드
+// 3. 전용 전체화면 상점 (#shopScreen)
+// - 성별은 회원가입 시 설정하며, 이후 변경은 [성별 변경권 1,000 CD] 아이템으로만 가능!
+// - [닉네임 변경권 500 CD] 아이템 판매
 // ============================================================================
 window.openShopModal = function () {
   shopPreviewState.config = { ...userState.avatarConfig };
@@ -450,20 +450,6 @@ window.openShopModal = function () {
   shopPreviewState.selectedItem = { cat: "hair", ...initItem };
   switchScreen("shopScreen");
   renderShopCategory(shopPreviewState.selectedCat || "hair");
-  updateShopPreviewCanvas();
-};
-
-window.changeShopGenderPreview = function (gender) {
-  shopPreviewState.config.gender = gender;
-  shopPreviewState.selectedItem = {
-    cat: "gender",
-    id: gender,
-    name: gender === "male" ? "남자 아쿠 (기본)" : "여자 아쿠 (기본)",
-    grade: "C",
-    desc: gender === "male" ? "씩씩하고 귀여운\n음악왕 기본 남자 캐릭터" : "상큼발랄 리본이 매력적인\n음악왕 기본 여자 캐릭터",
-    price: 0
-  };
-  renderShopCategory("gender");
   updateShopPreviewCanvas();
 };
 
@@ -486,9 +472,17 @@ function updateShopPreviewCanvas() {
   descEl.textContent = sel.desc || "아이템을 눌러 먼저 입어보세요!";
 
   if (sel.cat === "special" && sel.id === "nickname_ticket") {
-    confirmBtn.textContent = `🛍️ ${sel.price} CD 구매·닉변`;
+    confirmBtn.textContent = `🛍️ ${sel.price} CD로 닉네임 변경`;
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseNicknameTicket;
+    return;
+  }
+
+  if (sel.cat === "special" && sel.id === "gender_ticket") {
+    const nextGenderLabel = userState.avatarConfig.gender === "female" ? "남자 캐릭터로" : "여자 캐릭터로";
+    confirmBtn.textContent = `🛍️ ${sel.price} CD로 ${nextGenderLabel} 변경`;
+    confirmBtn.className = "btn btn-gold";
+    confirmBtn.onclick = purchaseGenderTicket;
     return;
   }
 
@@ -549,7 +543,7 @@ async function purchaseAndEquipPreviewItem(sel) {
 
 function purchaseNicknameTicket() {
   const item = getItemById("special", "nickname_ticket");
-  const price = item ? item.price : 100;
+  const price = item ? item.price : 500;
 
   if (!userState.isLoggedIn) {
     gameAlert("닉네임 변경권은 로그인한 계정에서 사용할 수 있습니다!");
@@ -589,6 +583,28 @@ function purchaseNicknameTicket() {
   }, "🎫 닉네임 변경권 사용");
 }
 
+function purchaseGenderTicket() {
+  const item = getItemById("special", "gender_ticket");
+  const price = item ? item.price : 1000;
+
+  if (userState.cdCoins < price) {
+    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price} CD)`);
+    return;
+  }
+
+  const nextGender = userState.avatarConfig.gender === "female" ? "male" : "female";
+  const nextLabel = nextGender === "female" ? "👧 여자 캐릭터" : "👦 남자 캐릭터";
+
+  gameConfirm(`⚧️ 성별 변경권 (${price} CD)을 구매하여\n내 기본 캐릭터를 [${nextLabel}]로 변경하시겠습니까?`, async () => {
+    userState.cdCoins -= price;
+    userState.avatarConfig.gender = nextGender;
+    shopPreviewState.config.gender = nextGender;
+    await syncProfileToServer();
+    updateShopPreviewCanvas();
+    gameAlert(`✨ 캐릭터 성별이 [${nextLabel}]로 변경되었습니다!`, "⚧️ 성별 변경 완료");
+  }, "⚧️ 성별 변경권 사용");
+}
+
 window.renderShopCategory = function (cat) {
   shopPreviewState.selectedCat = cat;
   document.querySelectorAll("[data-shop-cat]").forEach(btn => {
@@ -597,33 +613,6 @@ window.renderShopCategory = function (cat) {
 
   const grid = document.getElementById("shopItemsGrid");
   if (!grid) return;
-
-  // 'gender' 탭일 때는 남자 캐릭터 / 여자 캐릭터 선택 타일 표시
-  if (cat === "gender") {
-    const gList = [
-      { id: "male", name: "남자 아쿠", grade: "C" },
-      { id: "female", name: "여자 아쿠", grade: "C" }
-    ];
-    grid.innerHTML = gList
-      .map(g => {
-        const selected = shopPreviewState.config.gender === g.id;
-        return `
-        <div class="apf-tile owned-tile ${selected ? "preview-selected" : ""}" onclick="changeShopGenderPreview('${g.id}')">
-          ${selected ? `<div class="apf-tile-check">✔</div>` : ""}
-          <canvas id="shopGenderThumb_${g.id}" width="240" height="240" style="width:58px; height:58px;"></canvas>
-          <span class="apf-tile-name">${g.name}</span>
-          <div class="apf-tile-grade grade-C">C</div>
-        </div>
-      `;
-      })
-      .join("");
-
-    gList.forEach(g => {
-      const cv = document.getElementById(`shopGenderThumb_${g.id}`);
-      if (cv) renderPixelAvatar(cv, { ...DEFAULT_AVATAR_CONFIG, gender: g.id }, { transparentBg: true });
-    });
-    return;
-  }
 
   const items = AVATAR_SHOP_ITEMS[cat] || [];
   grid.innerHTML = items
@@ -657,6 +646,9 @@ window.previewShopItem = function (cat, itemId) {
   shopPreviewState.selectedItem = { cat, ...item };
   if (cat !== "special") {
     shopPreviewState.config[cat] = itemId;
+  } else if (itemId === "gender_ticket") {
+    // 성별 변경권 선택 시 피팅룸에서 반대 성별 미리보기 제공
+    shopPreviewState.config.gender = userState.avatarConfig.gender === "female" ? "male" : "female";
   }
   renderShopCategory(cat);
   updateShopPreviewCanvas();
@@ -1206,13 +1198,13 @@ window.joinOnlineRoom = async function (roomId) {
   subscribeToBattleRoom(room);
 };
 
-// 방 내부 입장: 방 안에서만 맵 캐릭터(480x480)가 보이고 방 채팅이 작동!
+// 방 내부 입장: 팝업이 아닌 전용 전체화면(#battleRoomScreen)으로 전환!
 function subscribeToBattleRoom(room) {
   if (plazaState.roomChannel) {
     sbClient.removeChannel(plazaState.roomChannel);
   }
 
-  openModal("battleRoomModal");
+  switchScreen("battleRoomScreen");
   renderBattleRoomState(room);
   startRoomStageCanvasLoop();
 
@@ -1304,7 +1296,8 @@ function startRoomStageCanvasLoop() {
   offscreen.height = 480;
 
   const loop = () => {
-    if (document.getElementById("battleRoomModal").classList.contains("hidden")) {
+    const roomScreen = document.getElementById("battleRoomScreen");
+    if (!roomScreen || roomScreen.classList.contains("hidden")) {
       return;
     }
 
@@ -1482,6 +1475,6 @@ window.leaveBattleRoom = async function () {
     plazaState.roomChannel = null;
   }
   plazaState.currentRoom = null;
-  closeModal("battleRoomModal");
+  switchScreen("plazaScreen");
   refreshRoomsList();
 };

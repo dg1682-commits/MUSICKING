@@ -252,7 +252,7 @@ body {
   gap: 8px;
 }
 
-/* ==================== 2. 액션퍼즐패밀리 스타일 전용 상점 전체 화면 (#shopScreen) ==================== */
+/* ==================== 2. 음악왕 오리지널 전체화면 상점 (#shopScreen) ==================== */
 .apf-shop-wrapper {
   flex: 1;
   min-height: 0;
@@ -262,15 +262,14 @@ body {
   border-radius: 24px;
   overflow: hidden;
   box-shadow: var(--shadow-game);
-  background: var(--apf-green);
+  background: #1e293b;
 }
 
-/* 상점 상단부: 초원 배경 + 좌측 캐릭터 + 우측 나무 보드 (첨부 이미지 그대로!) */
 .apf-shop-top {
   position: relative;
   height: 235px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #5ec8f8 0%, #aee4ff 58%, #76d32d 58%, #65c91c 100%);
+  background: linear-gradient(180deg, #38bdf8 0%, #bae6fd 58%, #4ade80 58%, #16a34a 100%);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
@@ -288,7 +287,7 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #1d4ed8;
+  background: #2563eb;
   border: 3px solid #ffffff;
   outline: 2.5px solid var(--game-border);
   color: #ffffff;
@@ -318,78 +317,75 @@ body {
   justify-content: center;
 }
 
-/* 우측 나무 안내 보드 (첨부 사진의 '몽키매직' 보드 그대로 구현!) */
 .apf-info-board {
   flex: 1.25;
-  background: var(--apf-wood);
-  border: 3px solid var(--apf-wood-dark);
-  border-radius: 14px;
-  padding: 7px;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+  background: #334155;
+  border: 3px solid var(--game-border);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .apf-info-paper {
-  background: #fffdf7;
-  border: 2px solid #d97706;
-  border-radius: 9px;
+  background: #ffffff;
+  border: 2px solid #94a3b8;
+  border-radius: 10px;
   padding: 8px 6px;
   text-align: center;
 }
 
 .apf-info-title {
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 900;
-  color: #1e1b18;
+  color: #0f172a;
   margin-bottom: 3px;
 }
 
 .apf-info-desc {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #57534e;
+  color: #475569;
   line-height: 1.35;
   min-height: 32px;
   white-space: pre-line;
 }
 
-/* 상점 중단 폴더형 탭 바 (캐릭터 / 모자·헤어 / 안경·표정 / 의상·악기 / 닉변권) */
 .apf-tab-bar {
   display: flex;
   gap: 4px;
-  padding: 0 10px;
-  background: transparent;
+  padding: 0 8px;
+  background: #0f172a;
+  padding-top: 6px;
   flex-shrink: 0;
 }
 
 .apf-tab {
   flex: 1;
-  padding: 8px 4px;
-  border-radius: 12px 12px 0 0;
-  background: #3f8a08;
-  border: 2.5px solid var(--game-border);
+  padding: 8px 2px;
+  border-radius: 11px 11px 0 0;
+  background: #334155;
+  border: 2px solid var(--game-border);
   border-bottom: none;
-  color: #d9f99d;
-  font-size: 0.78rem;
+  color: #cbd5e1;
+  font-size: 0.75rem;
   font-weight: 900;
   text-align: center;
   cursor: pointer;
 }
 
 .apf-tab.active {
-  background: var(--apf-green);
-  color: #ffffff;
-  text-shadow: 0 1.5px 0 var(--game-border);
+  background: #f1f5f9;
+  color: #0f172a;
   transform: translateY(2px);
 }
 
-/* 상점 하단 대형 타일 그리드 (큼직하게 누를 수 있는 정사각형 코스튬 타일!) */
 .apf-shop-bottom {
   flex: 1;
   min-height: 0;
-  background: var(--apf-green);
+  background: #f1f5f9;
   border-top: 2.5px solid var(--game-border);
   padding: 10px;
   display: flex;
@@ -404,7 +400,7 @@ body {
   scrollbar-width: none;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 96px;
+  grid-auto-rows: 98px;
   gap: 8px;
 }
 
@@ -412,8 +408,8 @@ body {
 
 .apf-tile {
   position: relative;
-  background: var(--apf-green-tile);
-  border: 2.5px solid #367a07;
+  background: #e2e8f0;
+  border: 2.5px solid #94a3b8;
   border-radius: 14px;
   padding: 6px;
   display: flex;
@@ -421,7 +417,6 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
   transition: transform 0.1s ease;
 }
 
@@ -429,7 +424,6 @@ body {
   transform: scale(0.95);
 }
 
-/* 보유한 아이템은 흰색 타일, 현재 입어보는(선택된) 아이템은 핑크 테두리 + 체크 표시! */
 .apf-tile.owned-tile {
   background: #ffffff;
   border-color: var(--game-border);
@@ -437,8 +431,8 @@ body {
 
 .apf-tile.preview-selected {
   background: #ffffff;
-  border: 3.5px solid #f43f5e;
-  box-shadow: 0 0 0 2px #ffe4e6;
+  border: 3.5px solid #4f46e5;
+  box-shadow: 0 0 0 2px #e0e7ff;
 }
 
 .apf-tile-check {
@@ -448,7 +442,7 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: #f43f5e;
+  background: #4f46e5;
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 900;

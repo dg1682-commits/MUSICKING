@@ -6,39 +6,42 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#5ec8f8" />
+  <meta name="theme-color" content="#38bdf8" />
   <link rel="manifest" href="manifest.json" />
   <title>대한민국 음악왕</title>
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=5.0" />
+  <link rel="stylesheet" href="style.css?v=6.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
-    <!-- ==================== 0. 전용 로그인 & 액퍼 스타일 캐릭터 선택 화면 ==================== -->
+    <!-- ==================== 0. 전용 로그인 & 최초 가입 성별 선택 화면 ==================== -->
     <section id="loginScreen" class="screen-view">
-      <div class="home-hero" style="justify-content:center; gap:12px;">
+      <div class="home-hero" style="justify-content:center; gap:10px;">
         <span class="hero-badge">👑 K-POP QUIZ & ONLINE ARENA</span>
 
         <div class="home-wide-stage" style="max-width:340px;">
-          <canvas id="loginCharPreview" width="680" height="320" style="width:100%; height:145px; display:block;"></canvas>
+          <canvas id="loginCharPreview" width="680" height="320" style="width:100%; height:140px; display:block;"></canvas>
         </div>
 
-        <div style="display:flex; gap:6px; width:100%; max-width:260px;">
-          <button class="option-chip active" data-signup-gender="male" onclick="selectSignupGender('male')" style="flex:1; padding:6px;">
-            <span class="chip-title">👦 남자 아쿠</span>
-          </button>
-          <button class="option-chip" data-signup-gender="female" onclick="selectSignupGender('female')" style="flex:1; padding:6px;">
-            <span class="chip-title">👧 여자 아쿠</span>
-          </button>
+        <div style="width:100%; max-width:280px;">
+          <div style="display:flex; gap:6px; margin-bottom:4px;">
+            <button class="option-chip active" data-signup-gender="male" onclick="selectSignupGender('male')" style="flex:1; padding:6px;">
+              <span class="chip-title">👦 남자 캐릭터</span>
+            </button>
+            <button class="option-chip" data-signup-gender="female" onclick="selectSignupGender('female')" style="flex:1; padding:6px;">
+              <span class="chip-title">👧 여자 캐릭터</span>
+            </button>
+          </div>
+          <p style="font-size:0.7rem; color:var(--text-sub);">※ 가입 후 성별 변경 시 상점 [성별 변경권 1,000 CD] 필요</p>
         </div>
 
         <div>
-          <h1 style="font-size:1.5rem;">대한민국 음악왕</h1>
-          <p style="font-size:0.82rem;">닉네임과 비밀번호로 바로 접속하세요!</p>
+          <h1 style="font-size:1.48rem;">대한민국 음악왕</h1>
+          <p style="font-size:0.8rem;">닉네임과 비밀번호로 바로 접속하세요!</p>
         </div>
 
         <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:7px;">
@@ -78,9 +81,9 @@
     <!-- ==================== 1. 메인 홈 화면 (와이드 파노라마 배경 + 정중앙 캐릭터) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
-        <span class="hero-badge">✨ ACTION MUSIC FAMILY · SEASON 5</span>
+        <span class="hero-badge">✨ MUSIC KING · K-POP QUIZ & ARENA</span>
 
-        <!-- 와이드 파노라마 배경 + 정중앙 캐릭터 (클릭 시 상점 안 열림) -->
+        <!-- 와이드 파노라마 배경 + 정중앙 캐릭터 -->
         <div class="home-wide-stage">
           <canvas id="homeHeroAvatar" width="760" height="360" style="width:100%; height:195px; display:block;"></canvas>
         </div>
@@ -93,12 +96,10 @@
           </p>
         </div>
 
-        <!-- 음악왕 도전 버튼: 클릭 시 싱글 / 멀티(대기실) 선택 -->
         <button class="btn btn-primary btn-lg" id="enterSetupBtn" onclick="openPlayModeSelect()" style="font-size:1.12rem; padding:15px;">
           🚀 음악왕 도전
         </button>
 
-        <!-- 하단 3버튼 독 바 -->
         <div class="home-dock-grid">
           <button class="btn btn-gold" onclick="openShopModal()">👗 상점 · 옷장</button>
           <button class="btn btn-accent" onclick="openRankingModal()">🏆 랭킹</button>
@@ -107,10 +108,9 @@
       </div>
     </main>
 
-    <!-- ==================== 2. 액션퍼즐패밀리 스타일 전용 전체화면 상점 (#shopScreen) ==================== -->
+    <!-- ==================== 2. 전용 전체화면 상점 (#shopScreen) ==================== -->
     <section id="shopScreen" class="screen-view hidden">
       <div class="apf-shop-wrapper">
-        <!-- 상단 야외 스테이지 (좌측 캐릭터 + 우측 나무 보드) -->
         <div class="apf-shop-top">
           <div class="apf-shop-topbar">
             <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기">⬅</button>
@@ -121,17 +121,14 @@
           </div>
 
           <div class="apf-shop-stage-row">
-            <!-- 좌측: 내 캐릭터 실시간 피팅 프리뷰 -->
             <div class="apf-char-zone">
               <canvas id="shopAvatarCanvas" width="480" height="480" style="width:142px; height:142px; display:block;"></canvas>
             </div>
 
-            <!-- 우측: 나무 설명 보드 + 구매/장착 버튼 -->
             <div class="apf-info-board">
               <div class="apf-info-paper">
-                <div id="shopBoardTitle" class="apf-info-title">몽키매직</div>
-                <div id="shopBoardDesc" class="apf-info-desc">끼루끼루 끼끼루~
-개구쟁이 원숭이 모자</div>
+                <div id="shopBoardTitle" class="apf-info-title">내추럴 다크브라운</div>
+                <div id="shopBoardDesc" class="apf-info-desc">아이템을 눌러 먼저 입어보세요!</div>
               </div>
               <div style="display:flex; gap:4px;">
                 <button class="btn" onclick="resetShopPreview()" style="flex:0.9; padding:7px 4px; font-size:0.75rem;">🔄 원래옷</button>
@@ -141,17 +138,16 @@
           </div>
         </div>
 
-        <!-- 중단 폴더형 탭 바 -->
+        <!-- 중단 탭 바 (성별 변경은 변경권 탭에서 1,000 CD로 구매) -->
         <div class="apf-tab-bar">
-          <div class="apf-tab" data-shop-cat="gender" onclick="renderShopCategory('gender')">👦 캐릭터</div>
-          <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')">🎩 머리·모자</div>
+          <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')">💇 헤어</div>
+          <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')">🎧 모자</div>
           <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')">👓 안경·표정</div>
-          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')">🎸 손 소품</div>
+          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')">🎸 악기</div>
           <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')">👕 의상</div>
-          <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')">🎫 닉변권</div>
+          <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')">🎫 변경권</div>
         </div>
 
-        <!-- 하단 대형 정사각형 코스튬 타일 그리드 -->
         <div class="apf-shop-bottom">
           <div id="shopItemsGrid" class="apf-tile-grid"></div>
         </div>
@@ -253,7 +249,7 @@
       </div>
     </section>
 
-    <!-- ==================== 4. 인게임 화면 (모바일 키보드 올라와도 문제 안 가려짐) ==================== -->
+    <!-- ==================== 4. 인게임 화면 ==================== -->
     <section id="gameScreen" class="screen-view hidden">
       <div class="game-statusbar">
         <div class="badge-group">
@@ -389,6 +385,52 @@
         </div>
       </div>
     </section>
+
+    <!-- ==================== 8. 온라인 대전 방 내부 전용 전체 화면 (#battleRoomScreen — 팝업이 아닌 전체화면!) ==================== -->
+    <section id="battleRoomScreen" class="screen-view hidden">
+      <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+        <!-- 상단 방 제목 & 방 나가기 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+          <button class="header-btn" onclick="leaveBattleRoom()" style="color:var(--danger);">⬅ 방 나가기</button>
+          <h3 id="battleRoomTitle" style="font-size:0.95rem; font-weight:900;">⚔️ 온라인 대전 방</h3>
+        </div>
+
+        <!-- 방 내부 와이드 스테이지 맵 (방에 들어온 유저들의 캐릭터가 보이고 바닥 터치 시 이동) -->
+        <div class="room-stage-wrap">
+          <canvas id="roomStageCanvas" width="460" height="145" style="width:100%; height:145px; display:block;"></canvas>
+        </div>
+
+        <!-- 참가자 실시간 점수판 -->
+        <div id="battlePlayersBoard" class="score-rule-grid" style="flex-shrink:0;"></div>
+
+        <!-- 방장 전용 대전 시작 버튼 -->
+        <button class="btn btn-gold btn-lg hidden" id="battleHostStartBtn" onclick="hostStartOnlineBattle()" style="flex-shrink:0;">
+          🚀 대전 시작하기 (방장 전용)
+        </button>
+
+        <!-- 대전 진행 시 문제 풀이 영역 -->
+        <div id="battlePlayArea" class="hidden" style="flex-shrink:0;">
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem; font-weight:900; color:var(--primary-dark); margin-bottom:3px;">
+            <span id="battleQProgress">라운드 1 / 10</span>
+            <span id="battleArtistHint"></span>
+          </div>
+          <div id="battleQuestionText" class="question-content" style="margin-bottom:6px; max-height:95px; font-size:0.84rem;"></div>
+          <div class="action-row">
+            <input type="text" id="battleAnswerInput" class="text-input" placeholder="정답(노래 또는 가수) 입력!" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+            <button class="btn btn-primary" onclick="submitOnlineBattleAnswer()">버저 정답!</button>
+          </div>
+        </div>
+
+        <!-- 방 내부 실시간 채팅 로그 & 입력창 -->
+        <div style="flex:1; min-height:60px; display:flex; flex-direction:column; gap:5px;">
+          <div id="roomChatLog" style="flex:1; min-height:0; overflow-y:auto; background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:10px; padding:6px 10px;"></div>
+          <div class="action-row" style="flex-shrink:0;">
+            <input type="text" id="roomChatInput" class="text-input" placeholder="방 참가자들과 대화하기 (말풍선 표시)..." maxlength="40" style="padding:7px 10px; font-size:0.82rem;" onkeydown="if(event.key==='Enter') sendRoomChat()" />
+            <button class="btn btn-primary" onclick="sendRoomChat()" style="padding:7px 14px; font-size:0.82rem;">전송</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- ==================== [모달 0] 음악왕 도전: 싱글 / 멀티 선택 모달 ==================== -->
@@ -440,7 +482,7 @@
       </div>
       <div class="action-row">
         <button class="btn btn-primary" onclick="saveMyBio()" style="flex:1.6;">소개글 저장</button>
-        <button class="btn" onclick="closeModal('profileModal'); openShopModal(); renderShopCategory('special');" style="flex:1.2;">🎫 닉변권</button>
+        <button class="btn" onclick="closeModal('profileModal'); openShopModal(); renderShopCategory('special');" style="flex:1.2;">🎫 변경권</button>
         <button class="btn" onclick="handleLogout()" style="flex:1; color:var(--danger);">🚪 로그아웃</button>
       </div>
     </div>
@@ -490,7 +532,7 @@
     </div>
   </div>
 
-  <!-- ==================== [모달 5] 상용 게임 스타일 친구창 & 1:1 DM ==================== -->
+  <!-- ==================== [모달 5] 소셜 센터 (친구 · 요청 · DM) ==================== -->
   <div id="socialModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -530,44 +572,6 @@
     </div>
   </div>
 
-  <!-- ==================== [모달 6] 온라인 대전 방 내부 ==================== -->
-  <div id="battleRoomModal" class="modal-backdrop hidden">
-    <div class="modal-content" style="max-width:480px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <h3 id="battleRoomTitle" style="font-size:0.95rem;">⚔️ 온라인 대전 방</h3>
-        <button class="header-btn" onclick="leaveBattleRoom()" style="color:var(--danger);">⬅ 방 나가기</button>
-      </div>
-
-      <div class="room-stage-wrap">
-        <canvas id="roomStageCanvas" width="440" height="125" style="width:100%; height:125px; display:block;"></canvas>
-      </div>
-
-      <div id="battlePlayersBoard" class="score-rule-grid" style="margin-bottom:6px;"></div>
-
-      <div id="roomChatLog" style="height:56px; overflow-y:auto; background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:8px; padding:5px 8px; margin-bottom:6px;"></div>
-      <div class="action-row" style="margin-bottom:8px;">
-        <input type="text" id="roomChatInput" class="text-input" placeholder="방 참가자들과 대화하기..." maxlength="40" style="padding:6px 10px; font-size:0.8rem;" onkeydown="if(event.key==='Enter') sendRoomChat()" />
-        <button class="btn" onclick="sendRoomChat()" style="padding:6px 12px; font-size:0.8rem;">채팅</button>
-      </div>
-
-      <button class="btn btn-gold btn-lg hidden" id="battleHostStartBtn" onclick="hostStartOnlineBattle()" style="margin-bottom:8px;">
-        🚀 대전 시작하기 (방장 전용)
-      </button>
-
-      <div id="battlePlayArea" class="hidden">
-        <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:800; color:var(--primary-dark); margin-bottom:4px;">
-          <span id="battleQProgress">라운드 1 / 10</span>
-          <span id="battleArtistHint"></span>
-        </div>
-        <div id="battleQuestionText" class="question-content" style="margin-bottom:8px; max-height:110px; font-size:0.86rem;"></div>
-        <div class="action-row">
-          <input type="text" id="battleAnswerInput" class="text-input" placeholder="정답(노래 또는 가수) 입력!" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
-          <button class="btn btn-primary" onclick="submitOnlineBattleAnswer()">버저 정답!</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- ==================== [모달 7] 업데이트 내역 ==================== -->
   <div id="patchNotesModal" class="modal-backdrop hidden">
     <div class="modal-content">
@@ -576,11 +580,11 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:340px;">
-        <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🌟 v5.0 액션퍼즐패밀리 스타일 대개편</p>
+        <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🌟 v6.0 오리지널 캐릭터 & 초정밀 악기 & 전체화면 대전룸</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
-          <li><strong>액퍼(아쿠) 스타일 캐릭터 & 단품 코스튬</strong>: 몽키매직, 뿔테/골뱅이 안경, 새싹/문어 모자, 바나나 등 유쾌한 코스튬 및 C~S 등급 적용</li>
-          <li><strong>전용 전체화면 상점</strong>: 좌측 캐릭터 피팅 + 우측 나무 보드 설명 + 하단 대형 코스튬 타일 그리드</li>
-          <li><strong>메인 와이드 스테이지 & 안쪽 버튼 여백</strong>: 넓게 펼쳐진 배경 정중앙 캐릭터 배치 및 한 손 조작 최적화 여백</li>
+          <li><strong>오리지널 K-POP 캐릭터 & 정밀 악기 일러스트</strong>: 그릴망 마이크, 6현·픽업·헤드머신 일렉기타, 숄더 키타, 하트 응원봉, 듀얼 우퍼 붐박스 등 고해상도 정밀 렌더링</li>
+          <li><strong>멀티 대전방 전체화면화</strong>: 방 생성/입장 시 팝업이 아닌 전용 전체화면(`#battleRoomScreen`)으로 전환</li>
+          <li><strong>변경권 시스템</strong>: 닉네임 변경권(500 CD) 및 성별 변경권(1,000 CD) 상점 판매</li>
         </ul>
       </div>
     </div>
@@ -633,9 +637,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=5.0"></script>
-  <script src="pixel_avatar.js?v=5.0"></script>
-  <script src="online.js?v=5.0"></script>
-  <script src="app.js?v=5.0"></script>
+  <script src="data.js?v=6.0"></script>
+  <script src="pixel_avatar.js?v=6.0"></script>
+  <script src="online.js?v=6.0"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>
