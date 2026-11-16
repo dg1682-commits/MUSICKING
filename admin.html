@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>음악왕 - 관리자 백엔드 대시보드</title>
+  <style>
+    .hidden, [hidden] { display: none !important; }
+  </style>
+  <link rel="stylesheet" href="style.css?v=3.0" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    html, body {
+      overflow-y: auto;
+      height: auto;
+      min-height: 100dvh;
+    }
+    .admin-container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      background: #ffffff;
+    }
+    .admin-table th, .admin-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: left;
+    }
+    .admin-table th {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 900;
+      position: sticky;
+      top: 0;
+    }
+    .admin-table tr:hover {
+      background: #f1f5f9;
+      cursor: pointer;
+    }
+    .table-scroll {
+      max-height: 62dvh;
+      overflow-y: auto;
+      border: 2px solid var(--pixel-border);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <!-- 상단 바 -->
+    <header class="top-header" style="margin-bottom:14px;">
+      <div class="brand" onclick="location.href='index.html'">
+        <span style="font-size:1.3rem;">🛠️</span>
+        <span class="brand-title">음악왕 관리자 백엔드 센터 (Supabase 연동)</span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-primary" onclick="location.href='index.html'" style="padding:6px 12px; font-size:0.8rem;">
+          🎮 게임 화면으로 돌아가기
+        </button>
+      </div>
+    </header>
+
+    <!-- 탭 메뉴 -->
+    <div class="option-grid cols-3" style="margin-bottom:14px;">
+      <div class="option-chip active" id="tabBtnSongs" onclick="switchAdminTab('songs')">
+        <span class="chip-title">🎵 음악 리스트 관리 (더블클릭 수정)</span>
+      </div>
+      <div class="option-chip" id="tabBtnItems" onclick="switchAdminTab('items')">
+        <span class="chip-title">👗 상점 아이템 추가/가격 설정</span>
+      </div>
+      <div class="option-chip" id="tabBtnUsers" onclick="switchAdminTab('users')">
+        <span class="chip-title">👥 계정 정보 및 초기화 관리</span>
+      </div>
+    </div>
+
+    <!-- ==================== 탭 1: 음악 리스트 관리 ==================== -->
+    <section id="adminSongsSection" class="card">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
+        <div>
+          <h3 style="font-size:1rem;">🎵 전체 음악 문제 리스트 (<span id="adminSongTotalCount">0</span>곡)</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">💡 항목을 <strong>더블클릭</strong>(또는 우측 [수정] 클릭)하면 내용·정답·힌트를 즉시 수정하고 수파베이스에 저장합니다.</p>
+        </div>
+        <button class="btn btn-gold" onclick="openSongEditModal(null)">➕ 새 음악 문제 추가</button>
+      </div>
+
+      <div class="action-row" style="margin-bottom:10px;">
+        <select id="adminDecadeFilter" class="text-input" style="max-width:150px;" onchange="renderAdminSongsTable()">
+          <option value="ALL">전체 연대</option>
+          <option value="1990s">1990년대</option>
+          <option value="2000s">2000년대</option>
+          <option value="2010s">2010년대</option>
+          <option value="2020s">2020년대</option>
+        </select>
+        <input type="text" id="adminSongSearch" class="text-input" placeholder="가수명, 노래 제목, 비하인드 키워드 검색..." oninput="renderAdminSongsTable()" />
+      </div>
+
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width:70px;">연도</th>
+              <th style="width:150px;">가수 (동의어)</th>
+              <th style="width:180px;">노래 제목</th>
+              <th>비하인드 문제 지문</th>
+              <th style="width:80px;">관리</th>
+            </tr>
+          </thead>
+          <tbody id="adminSongsTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 2: 상점 아이템 관리 ==================== -->
+    <section id="adminItemsSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="font-size:1rem;">👗 상점 아이템 추가 / 수정 / 가격(CD) 설정</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">가격이나 이름을 변경하고 [☁️ 서버 저장]을 누르면 모든 유저의 상점에 즉시 반영됩니다.</p>
+        </div>
+        <button class="btn btn-gold" onclick="openAddItemModal()">➕ 새 아이템 추가</button>
+      </div>
+
+      <div class="option-grid cols-4" style="margin-bottom:10px;">
+        <div class="option-chip active" data-admin-cat="hair" onclick="selectAdminItemCat('hair')"><span class="chip-title">💇 헤어</span></div>
+        <div class="option-chip" data-admin-cat="hat" onclick="selectAdminItemCat('hat')"><span class="chip-title">🎧 모자</span></div>
+        <div class="option-chip" data-admin-cat="face" onclick="selectAdminItemCat('face')"><span class="chip-title">😎 표정</span></div>
+        <div class="option-chip" data-admin-cat="outfit" onclick="selectAdminItemCat('outfit')"><span class="chip-title">👕 의상</span></div>
+        <div class="option-chip" data-admin-cat="acc" onclick="selectAdminItemCat('acc')"><span class="chip-title">🎸 악기</span></div>
+        <div class="option-chip" data-admin-cat="bg" onclick="selectAdminItemCat('bg')"><span class="chip-title">🏞️ 배경</span></div>
+        <div class="option-chip" data-admin-cat="special" onclick="selectAdminItemCat('special')" style="grid-column:span 2;"><span class="chip-title">🎫 스페셜(닉변권)</span></div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>아이템 ID</th>
+              <th>아이템 이름</th>
+              <th style="width:130px;">가격 (CD)</th>
+              <th style="width:120px;">메인 색상</th>
+              <th style="width:140px;">저장 / 삭제</th>
+            </tr>
+          </thead>
+          <tbody id="adminItemsTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 3: 계정 정보 및 초기화 관리 ==================== -->
+    <section id="adminUsersSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="font-size:1rem;">👥 전체 유저 계정 정보 및 초기화 관리</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">유저의 보유 CD를 조정하거나 계정/비밀번호 재가입 초기화를 진행할 수 있습니다.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadAdminUsers()">🔄 목록 새로고침</button>
+      </div>
+
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>닉네임</th>
+              <th>성별</th>
+              <th>한줄 소개</th>
+              <th>보유 CD</th>
+              <th>최근 접속일</th>
+              <th style="width:220px;">계정 관리</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersTbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ==================== [모달] 음악 문제 상세 수정/추가 ==================== -->
+  <div id="songEditModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="max-width:560px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 id="songModalTitle" style="font-size:1rem;">🎵 음악 문제 수정</h3>
+        <button class="header-btn" onclick="document.getElementById('songEditModal').classList.add('hidden')">닫기 ✕</button>
+      </div>
+      <input type="hidden" id="editSongId" />
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <div class="input-row">
+          <div class="input-group">
+            <label>🎤 가수 이름 (정답)</label>
+            <input type="text" id="editSongArtist" class="text-input" />
+          </div>
+          <div class="input-group">
+            <label>🎵 노래 제목 (정답)</label>
+            <input type="text" id="editSongTitle" class="text-input" />
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>👥 가수 복수정답 동의어 (쉼표 구분)</label>
+            <input type="text" id="editSongArtistAliases" class="text-input" placeholder="예: 하현우, Guckkasten" />
+          </div>
+          <div class="input-group">
+            <label>🎶 노래 복수정답 동의어 (쉼표 구분)</label>
+            <input type="text" id="editSongTitleAliases" class="text-input" placeholder="예: 러브다이브, Love Dive" />
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>📅 발매 연도 (예: 2005)</label>
+            <input type="number" id="editSongYear" class="text-input" />
+          </div>
+          <div class="input-group">
+            <label>🔥 하드모드 포함 여부</label>
+            <select id="editSongHardMode" class="text-input">
+              <option value="true">포함 (ON)</option>
+              <option value="false">미포함 (OFF)</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>🔑 포인트 단어 힌트</label>
+          <input type="text" id="editSongKeyword" class="text-input" />
+        </div>
+        <div class="input-group">
+          <label>📝 하이라이트 가사 문제</label>
+          <textarea id="editSongLyrics" class="text-input" rows="2"></textarea>
+        </div>
+        <div class="input-group">
+          <label>📖 비하인드 스토리 문제 지문</label>
+          <textarea id="editSongBehind" class="text-input" rows="4"></textarea>
+        </div>
+        <div class="input-group">
+          <label>💡 정답 공개 시 해설 노트</label>
+          <textarea id="editSongNote" class="text-input" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="saveSongFromModal()" style="flex:2;">☁️ 수파베이스 서버에 저장</button>
+        <button class="btn" onclick="deleteSongFromModal()" style="flex:1; color:var(--danger);">🗑️ 삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [커스텀 알림 모달] ==================== -->
+  <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
+    <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
+      <h3 id="dialogTitle" style="font-size:1.02rem; font-weight:900; color:var(--primary); margin-bottom:8px;">🛠️ 관리자 알림</h3>
+      <p id="dialogMessage" style="font-size:0.88rem; color:var(--text-main); line-height:1.55; margin-bottom:14px; word-break:keep-all;"></p>
+      <div id="dialogInputWrap" class="hidden" style="margin-bottom:12px;">
+        <input type="text" id="dialogPromptInput" class="text-input" autocomplete="off" />
+      </div>
+      <div class="action-row">
+        <button class="btn hidden" id="dialogCancelBtn" style="flex:1;">취소</button>
+        <button class="btn btn-primary" id="dialogConfirmBtn" style="flex:1.4;">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js?v=3.0"></script>
+  <script src="pixel_avatar.js?v=3.0"></script>
+  <script src="online.js?v=3.0"></script>
+  <script>
+    let adminOverridesList = [];
+    let currentAdminItemCat = "hair";
+    let adminConfigRowId = null;
+
+    async function initAdminPage() {
+      await fetchAdminConfigFromServer();
+      renderAdminSongsTable();
+      renderAdminItemsTable();
+      loadAdminUsers();
+    }
+
+    async function fetchAdminConfigFromServer() {
+      if (!sbClient) return;
+      const { data } = await sbClient
+        .from("profiles")
+        .select("*")
+        .eq("nickname", "__ADMIN_CONFIG__")
+        .maybeSingle();
+
+      if (data) {
+        adminConfigRowId = data.id;
+        if (data.avatar_config && data.avatar_config.shopCatalog) {
+          applyServerShopCatalog(data.avatar_config.shopCatalog);
+        }
+        if (Array.isArray(data.owned_items)) {
+          adminOverridesList = data.owned_items;
+          applyServerSongsOverride(adminOverridesList);
+        }
+      }
+    }
+
+    async function persistAdminConfigToServer() {
+      if (!sbClient) return;
+      try {
+        if (!adminConfigRowId) {
+          // 관리자 설정 저장용 계정 생성 또는 조회
+          const email = "admin_system_config@musicking.com";
+          let uid = null;
+          const signInRes = await sbClient.auth.signInWithPassword({ email, password: "AdminConfigPassword123!" });
+          if (signInRes.data?.user) {
+            uid = signInRes.data.user.id;
+          } else {
+            const signUpRes = await sbClient.auth.signUp({ email, password: "AdminConfigPassword123!" });
+            uid = signUpRes.data?.user?.id;
+          }
+          adminConfigRowId = uid;
+        }
+
+        if (adminConfigRowId) {
+          await sbClient.from("profiles").upsert({
+            id: adminConfigRowId,
+            nickname: "__ADMIN_CONFIG__",
+            bio: "시스템 글로벌 설정 데이터",
+            cd_coins: 0,
+            avatar_config: { shopCatalog: AVATAR_SHOP_ITEMS },
+            owned_items: adminOverridesList,
+            updated_at: new Date().toISOString()
+          });
+        }
+      } catch (e) {}
+    }
+
+    function switchAdminTab(tab) {
+      document.getElementById("tabBtnSongs").classList.toggle("active", tab === "songs");
+      document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
+      document.getElementById("tabBtnUsers").classList.toggle("active", tab === "users");
+
+      document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
+      document.getElementById("adminItemsSection").classList.toggle("hidden", tab !== "items");
+      document.getElementById("adminUsersSection").classList.toggle("hidden", tab !== "users");
+    }
+
+    // ==================== 1. 음악 리스트 렌더링 & 더블클릭 수정 ====================
+    function renderAdminSongsTable() {
+      const dec = document.getElementById("adminDecadeFilter").value;
+      const kw = document.getElementById("adminSongSearch").value.trim().toLowerCase();
+
+      const filtered = QUESTIONS_DB.filter(q => {
+        if (dec !== "ALL" && q.decade !== dec) return false;
+        if (!kw) return true;
+        return (
+          q.artist.toLowerCase().includes(kw) ||
+          q.title.toLowerCase().includes(kw) ||
+          (q.behindQuestion || "").toLowerCase().includes(kw) ||
+          (q.keywordHint || "").toLowerCase().includes(kw)
+        );
+      });
+
+      document.getElementById("adminSongTotalCount").textContent = filtered.length;
+      const tbody = document.getElementById("adminSongsTbody");
+
+      tbody.innerHTML = filtered
+        .map(
+          q => `
+        <tr ondblclick="openSongEditModal('${q.id}')" title="더블클릭하여 수정">
+          <td><strong>${q.year}</strong><br/><span style="font-size:0.72rem; color:var(--text-sub);">${q.decade}</span></td>
+          <td><strong>${q.artist}</strong><br/><span style="font-size:0.72rem; color:var(--text-sub);">${(q.artistAliases || []).join(", ")}</span></td>
+          <td><strong>${q.title}</strong> ${q.hardMode ? "🔥" : ""}</td>
+          <td style="font-size:0.78rem; color:var(--text-sub);">${(q.behindQuestion || "").slice(0, 75)}...</td>
+          <td><button class="btn btn-primary" style="padding:4px 8px; font-size:0.74rem;" onclick="openSongEditModal('${q.id}')">수정</button></td>
+        </tr>
+      `
+        )
+        .join("");
+    }
+
+    window.openSongEditModal = function (songId) {
+      const modal = document.getElementById("songEditModal");
+      if (!songId) {
+        document.getElementById("songModalTitle").textContent = "➕ 새 음악 문제 추가";
+        document.getElementById("editSongId").value = `custom_${Date.now()}`;
+        document.getElementById("editSongArtist").value = "";
+        document.getElementById("editSongTitle").value = "";
+        document.getElementById("editSongArtistAliases").value = "";
+        document.getElementById("editSongTitleAliases").value = "";
+        document.getElementById("editSongYear").value = 2024;
+        document.getElementById("editSongHardMode").value = "false";
+        document.getElementById("editSongKeyword").value = "";
+        document.getElementById("editSongLyrics").value = "";
+        document.getElementById("editSongBehind").value = "";
+        document.getElementById("editSongNote").value = "";
+      } else {
+        const q = QUESTIONS_DB.find(item => item.id === songId);
+        if (!q) return;
+        document.getElementById("songModalTitle").textContent = `🎵 [${q.artist} - ${q.title}] 수정`;
+        document.getElementById("editSongId").value = q.id;
+        document.getElementById("editSongArtist").value = q.artist;
+        document.getElementById("editSongTitle").value = q.title;
+        document.getElementById("editSongArtistAliases").value = (q.artistAliases || []).join(", ");
+        document.getElementById("editSongTitleAliases").value = (q.titleAliases || []).join(", ");
+        document.getElementById("editSongYear").value = q.year;
+        document.getElementById("editSongHardMode").value = q.hardMode ? "true" : "false";
+        document.getElementById("editSongKeyword").value = q.keywordHint || "";
+        document.getElementById("editSongLyrics").value = q.lyricsQuestion || "";
+        document.getElementById("editSongBehind").value = q.behindQuestion || "";
+        document.getElementById("editSongNote").value = q.behindAnswerNote || "";
+      }
+      modal.classList.remove("hidden");
+    };
+
+    window.saveSongFromModal = async function () {
+      const id = document.getElementById("editSongId").value;
+      const artist = document.getElementById("editSongArtist").value.trim();
+      const title = document.getElementById("editSongTitle").value.trim();
+      const year = Number(document.getElementById("editSongYear").value) || 2020;
+
+      if (!artist || !title) {
+        gameAlert("가수 이름과 노래 제목은 필수입니다!");
+        return;
+      }
+
+      let decade = "2020s";
+      if (year < 2000) decade = "1990s";
+      else if (year < 2010) decade = "2000s";
+      else if (year < 2020) decade = "2010s";
+
+      const updatedObj = {
+        id,
+        decade,
+        year,
+        artist,
+        artistAliases: document.getElementById("editSongArtistAliases").value.split(",").map(s => s.trim()).filter(Boolean),
+        title,
+        titleAliases: document.getElementById("editSongTitleAliases").value.split(",").map(s => s.trim()).filter(Boolean),
+        hardMode: document.getElementById("editSongHardMode").value === "true",
+        keywordHint: document.getElementById("editSongKeyword").value.trim(),
+        lyricsQuestion: document.getElementById("editSongLyrics").value.trim(),
+        behindQuestion: document.getElementById("editSongBehind").value.trim(),
+        behindAnswerNote: document.getElementById("editSongNote").value.trim(),
+        itunesQuery: `${artist} ${title}`
+      };
+
+      const existIdx = QUESTIONS_DB.findIndex(q => q.id === id);
+      if (existIdx !== -1) {
+        QUESTIONS_DB[existIdx] = updatedObj;
+      } else {
+        QUESTIONS_DB.unshift(updatedObj);
+      }
+
+      const ovIdx = adminOverridesList.findIndex(q => q.id === id);
+      if (ovIdx !== -1) adminOverridesList[ovIdx] = updatedObj;
+      else adminOverridesList.push(updatedObj);
+
+      await persistAdminConfigToServer();
+      document.getElementById("songEditModal").classList.add("hidden");
+      renderAdminSongsTable();
+      gameAlert(`✅ [${artist} - ${title}] 정보가 수파베이스 서버에 저장되었습니다!`);
+    };
+
+    window.deleteSongFromModal = function () {
+      const id = document.getElementById("editSongId").value;
+      gameConfirm("정말 이 음악 문제를 리스트에서 삭제하시겠습니까?", async () => {
+        const idx = QUESTIONS_DB.findIndex(q => q.id === id);
+        if (idx !== -1) QUESTIONS_DB.splice(idx, 1);
+        adminOverridesList.push({ id, _deleted: true });
+        await persistAdminConfigToServer();
+        document.getElementById("songEditModal").classList.add("hidden");
+        renderAdminSongsTable();
+        gameAlert("🗑️ 삭제 완료 및 수파베이스 반영 완료!");
+      });
+    };
+
+    // ==================== 2. 상점 아이템 관리 ====================
+    window.selectAdminItemCat = function (cat) {
+      currentAdminItemCat = cat;
+      document.querySelectorAll("[data-admin-cat]").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-admin-cat") === cat);
+      });
+      renderAdminItemsTable();
+    };
+
+    function renderAdminItemsTable() {
+      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat] || [];
+      const tbody = document.getElementById("adminItemsTbody");
+      tbody.innerHTML = list
+        .map(
+          (item, idx) => `
+        <tr>
+          <td><code>${item.id}</code></td>
+          <td><input type="text" class="text-input" id="itemName_${idx}" value="${item.name}" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td><input type="number" class="text-input" id="itemPrice_${idx}" value="${item.price}" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td><input type="text" class="text-input" id="itemColor_${idx}" value="${item.color || item.main || ""}" placeholder="#hex" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td>
+            <button class="btn btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="saveAdminItemRow(${idx})">☁️ 저장</button>
+            <button class="btn" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="deleteAdminItemRow(${idx})">삭제</button>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+    }
+
+    window.saveAdminItemRow = async function (idx) {
+      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      if (!list || !list[idx]) return;
+      list[idx].name = document.getElementById(`itemName_${idx}`).value.trim();
+      list[idx].price = Number(document.getElementById(`itemPrice_${idx}`).value) || 0;
+      const col = document.getElementById(`itemColor_${idx}`).value.trim();
+      if (col) {
+        if (list[idx].main !== undefined) list[idx].main = col;
+        else list[idx].color = col;
+      }
+      await persistAdminConfigToServer();
+      gameAlert(`✅ [${list[idx].name}] 아이템 가격/설정이 수파베이스에 저장되었습니다!`);
+    };
+
+    window.deleteAdminItemRow = function (idx) {
+      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      if (!list || !list[idx]) return;
+      gameConfirm(`[${list[idx].name}] 아이템을 상점에서 삭제할까요?`, async () => {
+        list.splice(idx, 1);
+        await persistAdminConfigToServer();
+        renderAdminItemsTable();
+      });
+    };
+
+    window.openAddItemModal = function () {
+      gamePrompt(`[${currentAdminItemCat}] 카테고리에 추가할 새 아이템 이름을 입력하세요:`, "신규 한정판 파츠", name => {
+        if (!name) return;
+        gamePrompt("아이템 가격(CD)을 입력하세요:", "80", async priceStr => {
+          const price = Number(priceStr) || 50;
+          const newItem = {
+            id: `item_${Date.now().toString(36)}`,
+            name,
+            price,
+            color: "#6366f1",
+            main: "#6366f1",
+            sub: "#fde047"
+          };
+          AVATAR_SHOP_ITEMS[currentAdminItemCat].push(newItem);
+          await persistAdminConfigToServer();
+          renderAdminItemsTable();
+          gameAlert(`🎉 [${name} (${price} CD)] 아이템이 추가되어 서버에 반영되었습니다!`);
+        });
+      });
+    };
+
+    // ==================== 3. 계정 정보 및 초기화 관리 ====================
+    async function loadAdminUsers() {
+      const tbody = document.getElementById("adminUsersTbody");
+      if (!sbClient) return;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">계정 목록 불러오는 중...</td></tr>`;
+
+      const { data: users } = await sbClient
+        .from("profiles")
+        .select("*")
+        .neq("nickname", "__ADMIN_CONFIG__")
+        .order("updated_at", { ascending: false });
+
+      if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">가입된 유저 계정이 없습니다.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users
+        .map(
+          u => `
+        <tr>
+          <td><strong>${u.nickname}</strong></td>
+          <td>${u.avatar_config?.gender === "female" ? "👧 여자" : "👦 남자"}</td>
+          <td style="font-size:0.78rem; color:var(--text-sub);">${u.bio || ""}</td>
+          <td><strong style="color:#b45309;">💿 ${u.cd_coins ?? 0}</strong></td>
+          <td style="font-size:0.75rem; color:var(--text-sub);">${u.updated_at ? new Date(u.updated_at).toLocaleString() : "-"}</td>
+          <td>
+            <button class="btn btn-gold" style="padding:4px 7px; font-size:0.72rem;" onclick="adminGiveCd('${u.id}', '${u.nickname}', ${u.cd_coins || 0})">💿 CD설정</button>
+            <button class="btn" style="padding:4px 7px; font-size:0.72rem; color:var(--danger);" onclick="adminResetAccount('${u.id}', '${u.nickname}')">🔄 계정초기화</button>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+    }
+
+    window.adminGiveCd = function (uid, nick, curCd) {
+      gamePrompt(`[${nick}] 유저의 보유 CD를 몇 개로 설정할까요?`, String(curCd), async val => {
+        const nextCd = Number(val);
+        if (isNaN(nextCd)) return;
+        await sbClient.from("profiles").update({ cd_coins: nextCd }).eq("id", uid);
+        loadAdminUsers();
+        gameAlert(`✅ [${nick}]님의 보유 CD가 ${nextCd}개로 변경되었습니다!`);
+      });
+    };
+
+    window.adminResetAccount = function (uid, nick) {
+      gameConfirm(
+        `[${nick}] 계정을 초기화하시겠습니까?\n(초기화 시 해당 닉네임의 프로필이 리셋되어 유저가 새 비밀번호로 다시 가입할 수 있게 됩니다.)`,
+        async () => {
+          await sbClient.from("profiles").delete().eq("id", uid);
+          loadAdminUsers();
+          gameAlert(`🔄 [${nick}] 계정이 초기화되었습니다. 이제 해당 닉네임으로 새 비밀번호 재가입이 가능합니다!`);
+        },
+        "🔄 계정 및 패스워드 재설정 초기화"
+      );
+    };
+
+    document.addEventListener("DOMContentLoaded", initAdminPage);
+  </script>
+</body>
+</html>

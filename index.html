@@ -3,65 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>음악왕 - K-POP 도트 퀴즈 & 온라인 대전</title>
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="manifest" href="manifest.json" />
+  <title>대한민국 음악왕</title>
   <style>
-    /* 브라우저 캐시와 무관하게 숨김 요소 즉시 차단 */
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=2.2" />
+  <link rel="stylesheet" href="style.css?v=3.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
-    <!-- ==================== 0. 전용 로그인 화면 (로그인 화면에서는 오직 로그인만 표시) ==================== -->
+    <!-- ==================== 0. 전용 로그인 & 기본 캐릭터 선택 화면 ==================== -->
     <section id="loginScreen" class="screen-view">
-      <div class="home-hero" style="justify-content:center; gap:16px;">
-        <span class="hero-badge">👑 K-POP PIXEL QUIZ</span>
-        <div style="font-size:3rem;">🎵</div>
-        <div>
-          <h1>대한민국 음악왕</h1>
-          <p style="margin-bottom:4px;">닉네임과 비밀번호로 바로 로그인하거나 회원가입하세요!</p>
+      <div class="home-hero" style="justify-content:center; gap:12px;">
+        <span class="hero-badge">👑 K-POP PIXEL QUIZ GAME</span>
+
+        <!-- 48x48 고밀도 도트 캐릭터 미리보기 + 남/여 선택 -->
+        <div class="hero-avatar-stage">
+          <canvas id="loginCharPreview" width="110" height="110"></canvas>
         </div>
 
-        <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:6px; width:100%; max-width:240px;">
+          <button class="option-chip active" data-signup-gender="male" onclick="selectSignupGender('male')" style="flex:1; padding:6px;">
+            <span class="chip-title">👦 남자 캐릭터</span>
+          </button>
+          <button class="option-chip" data-signup-gender="female" onclick="selectSignupGender('female')" style="flex:1; padding:6px;">
+            <span class="chip-title">👧 여자 캐릭터</span>
+          </button>
+        </div>
+
+        <div>
+          <h1 style="font-size:1.5rem;">대한민국 음악왕</h1>
+          <p style="font-size:0.82rem;">닉네임과 비밀번호로 바로 접속하세요!</p>
+        </div>
+
+        <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:7px;">
           <input type="text" id="authNicknameInput" class="text-input" placeholder="닉네임 (2글자 이상)" autocomplete="off" />
           <input type="password" id="authPasswordInput" class="text-input" placeholder="비밀번호 (6자리 이상)" autocomplete="off" />
-          <div class="action-row" style="margin-top:4px;">
-            <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1; padding:12px;">로그인</button>
-            <button class="btn btn-gold" onclick="handleAuthSubmit('signup')" style="flex:1; padding:12px;">회원가입</button>
+          <div class="action-row" style="margin-top:2px;">
+            <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1; padding:11px;">로그인</button>
+            <button class="btn btn-gold" onclick="handleAuthSubmit('signup')" style="flex:1; padding:11px;">회원가입</button>
           </div>
-          <button class="btn" onclick="continueAsGuest()" style="width:100%; margin-top:4px; font-size:0.82rem; color:var(--text-sub);">
-            게스트로 먼저 둘러보기 ➔
+          <button class="btn" onclick="continueAsGuest()" style="width:100%; padding:9px; font-size:0.82rem; color:var(--text-sub);">
+            게스트로 바로 플레이 ➔
           </button>
         </div>
       </div>
     </section>
 
-    <!-- ==================== 상단 도트 헤더 (로그인 후 메인부터 표시) ==================== -->
+    <!-- ==================== 상단 상용 게임풍 상태 헤더 ==================== -->
     <header id="topHeader" class="top-header hidden">
-      <div class="brand" id="brandHome">
-        <canvas id="headerMiniAvatar" width="28" height="28" style="border-radius:6px; border:1.5px solid #334155;"></canvas>
+      <div class="brand" id="brandHome" onclick="showHome()">
+        <canvas id="headerMiniAvatar" width="32" height="32" style="border-radius:8px; border:1.5px solid #334155;"></canvas>
         <span class="brand-title">음악왕</span>
       </div>
       <div class="header-right">
-        <div class="cd-pill" id="headerCdBtn" title="보유 CD 코인 (클릭 시 상점)">
+        <div class="cd-pill" id="headerCdBtn" onclick="openShopModal()" title="CD 상점 열기">
           <span>💿</span>
           <span id="headerCdCount">100</span>
         </div>
-        <button class="header-btn" id="headerProfileBtn">👤 <span id="headerUserNick">프로필</span></button>
-        <button class="header-btn" id="openPatchBtn" title="업데이트 내역">📢</button>
-        <button class="header-btn" id="openSettingsBtn" title="설정">⚙️</button>
+        <button class="header-btn" id="headerProfileBtn" onclick="openMyProfileModal()">👤 <span id="headerUserNick">프로필</span></button>
+        <button class="header-btn" id="openPatchBtn" onclick="openModal('patchNotesModal')" title="업데이트 내역">📢</button>
+        <button class="header-btn" id="openSettingsBtn" onclick="openModal('settingsModal')" title="설정">⚙️</button>
+        <button class="header-btn" onclick="handleLogout()" title="로그아웃" style="color:var(--danger); border-color:#fecdd3;">🚪</button>
       </div>
     </header>
 
     <!-- ==================== 1. 메인 홈 화면 ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
-        <span class="hero-badge">✨ v2.2 메이플 도트 & 온라인 대전</span>
+        <span class="hero-badge">✨ SEASON 3 · HD PIXEL & ONLINE ARENA</span>
 
-        <div class="hero-avatar-stage" onclick="openShopModal()" title="클릭하여 캐릭터 꾸미기">
-          <canvas id="homeHeroAvatar" width="120" height="120"></canvas>
+        <div class="hero-avatar-stage" onclick="openShopModal()" title="터치하여 옷장/상점 열기">
+          <canvas id="homeHeroAvatar" width="136" height="136"></canvas>
         </div>
 
         <div>
@@ -72,20 +91,21 @@
           </p>
         </div>
 
-        <button class="btn btn-primary btn-lg" id="enterSetupBtn" style="font-size:1.05rem; padding:14px;">
+        <!-- 음악왕 도전 버튼: 클릭 시 싱글/멀티 선택 모달 즉시 오픈 -->
+        <button class="btn btn-primary btn-lg" id="enterSetupBtn" onclick="openPlayModeSelect()" style="font-size:1.08rem; padding:14px;">
           🚀 음악왕 도전
         </button>
 
         <div class="home-menu-grid">
-          <button class="btn btn-gold" onclick="enterPlazaScreen()">🏟️ 대기실 · 온라인대전</button>
+          <button class="btn btn-gold" onclick="enterPlazaScreen()">🏟️ 대기실 · 멀티대전</button>
           <button class="btn btn-accent" onclick="openRankingModal()">🏆 랭킹 명예의 전당</button>
-          <button class="btn" onclick="openShopModal()">👗 CD 상점 · 옷장</button>
+          <button class="btn" onclick="openShopModal()">👗 옷장 · CD 상점</button>
           <button class="btn" onclick="openSocialModal('friends')">👥 친구 · DM 쪽지</button>
         </div>
       </div>
-    </section>
+    </main>
 
-    <!-- ==================== 2. 게임 설정 화면 ==================== -->
+    <!-- ==================== 2. 싱글 플레이 게임 설정 화면 ==================== -->
     <section id="setupScreen" class="screen-view hidden">
       <div class="card setup-card">
         <div>
@@ -174,8 +194,8 @@
         </div>
 
         <div class="action-row" style="margin-top:4px; flex-shrink:0;">
-          <button class="btn" id="setupBackHomeBtn" style="flex:1;">이전</button>
-          <button class="btn btn-primary" id="startGameBtn" style="flex:2.5; padding:11px;">게임 시작 ➔</button>
+          <button class="btn" id="setupBackHomeBtn" onclick="showHome()" style="flex:1;">⬅ 뒤로가기</button>
+          <button class="btn btn-primary" id="startGameBtn" onclick="startGame()" style="flex:2.3; padding:11px;">게임 시작 ➔</button>
         </div>
       </div>
     </section>
@@ -193,7 +213,7 @@
           <span id="heartsDisplay" class="hidden" style="font-size:0.78rem;"></span>
           <span id="progressText">1/10</span>
           <span id="scoreText" style="color:var(--primary);">0점</span>
-          <button class="header-btn" id="backToLobbyBtn">나가기</button>
+          <button class="header-btn" id="backToLobbyBtn" onclick="showSetup()">⬅ 나가기</button>
         </div>
       </div>
 
@@ -282,24 +302,25 @@
         <div class="action-row" id="resultBottomActions" style="flex-shrink:0; margin-top:8px;">
           <button class="btn btn-gold" id="shareResultBtn" style="flex:1.2; padding:11px;">📸 결과 공유</button>
           <button class="btn btn-primary" id="restartSameBtn" style="flex:1.2; padding:11px;">🔄 다시 도전</button>
-          <button class="btn" id="resultToLobbyBtn" style="flex:0.9; padding:11px;">🏠 홈</button>
+          <button class="btn" id="resultToLobbyBtn" onclick="showHome()" style="flex:0.9; padding:11px;">🏠 홈</button>
         </div>
       </div>
     </section>
 
-    <!-- ==================== 6. 대기실 광장 & 온라인 대전 화면 ==================== -->
+    <!-- ==================== 6. 대기실 광장 & 온라인 대전 화면 (상·하단 뒤로가기 및 방만들기) ==================== -->
     <section id="plazaScreen" class="screen-view hidden">
       <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
           <div class="section-label">
-            <span>🏟️ 음악왕 도트 광장 (바닥 클릭 시 이동)</span>
+            <button class="header-btn" onclick="showHome()">⬅ 뒤로가기</button>
+            <span>🏟️ 음악왕 대기실 광장</span>
             <span id="plazaOnlineCount" class="badge primary">접속 1명</span>
           </div>
           <div class="plaza-canvas-wrap">
             <canvas id="plazaStageCanvas" width="460" height="145" style="width:100%; height:145px; display:block;"></canvas>
           </div>
           <div class="action-row" style="margin-bottom:8px;">
-            <input type="text" id="plazaChatInput" class="text-input" placeholder="광장 말풍선 채팅 입력..." maxlength="30" style="padding:7px 10px; font-size:0.82rem;" />
+            <input type="text" id="plazaChatInput" class="text-input" placeholder="광장 말풍선 채팅 입력..." maxlength="30" style="padding:7px 10px; font-size:0.82rem;" onkeydown="if(event.key==='Enter') sendPlazaChat()" />
             <button class="btn btn-primary" onclick="sendPlazaChat()" style="padding:7px 12px;">말하기</button>
           </div>
         </div>
@@ -313,43 +334,85 @@
         </div>
 
         <div class="action-row" style="flex-shrink:0;">
-          <button class="btn btn-primary" onclick="createOnlineRoom('1v1')" style="flex:1.3;">⚡ 1:1 선착순 방 생성</button>
-          <button class="btn btn-gold" onclick="createOnlineRoom('4p')" style="flex:1.3;">🏆 4인 점수제 방 생성</button>
-          <button class="btn" onclick="showHome()" style="flex:0.7;">나가기</button>
+          <button class="btn" onclick="showHome()" style="flex:0.8;">⬅ 뒤로</button>
+          <button class="btn btn-primary" onclick="openCreateRoomModal('1v1')" style="flex:1.3;">⚡ 1:1 방 만들기</button>
+          <button class="btn btn-gold" onclick="openCreateRoomModal('4p')" style="flex:1.3;">🏆 4인 방 만들기</button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- ==================== 팝업 모달들 (클릭 시에만 단일 오픈) ==================== -->
+  <!-- ==================== [모달 0] 음악왕 도전: 싱글 / 멀티 선택 모달 ==================== -->
+  <div id="playModeSelectModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:1.05rem;">🚀 플레이 모드 선택</h3>
+        <button class="header-btn" onclick="closeModal('playModeSelectModal')">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.84rem; color:var(--text-sub); margin-bottom:14px;">
+        혼자서 기록과 CD를 모으거나, 대기실에서 다른 유저와 대결하세요!
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-primary btn-lg" onclick="selectSinglePlay()" style="padding:16px; flex-direction:column; gap:3px;">
+          <span style="font-size:1.05rem;">🎯 싱글 플레이 (혼자 도전)</span>
+          <span style="font-size:0.76rem; font-weight:500; opacity:0.9;">연대·모드·난이도별 퀴즈 풀고 랭킹 & CD 획득</span>
+        </button>
+        <button class="btn btn-gold btn-lg" onclick="selectMultiPlay()" style="padding:16px; flex-direction:column; gap:3px;">
+          <span style="font-size:1.05rem;">⚔️ 멀티 플레이 (대기실 · 온라인 대전)</span>
+          <span style="font-size:0.76rem; font-weight:500; opacity:0.95;">광장 대기실 입장 · 1:1 선착순 & 4인 점수제 방 만들기</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 1] CD 상점 & 옷장 (입어보기 프리뷰 -> 구매 분리) ==================== -->
   <div id="shopModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="font-size:1rem;">👗 도트 캐릭터 옷장 & CD 상점</h3>
         <button class="header-btn" onclick="closeModal('shopModal')">닫기 ✕</button>
       </div>
-      <div style="display:flex; align-items:center; gap:12px; background:var(--bg-subtle); padding:10px; border-radius:12px; border:1.5px solid var(--border-color); margin-bottom:10px;">
-        <canvas id="shopAvatarCanvas" width="96" height="96" style="border-radius:10px; border:2px solid var(--pixel-border);"></canvas>
-        <div>
-          <div style="font-weight:900; font-size:0.95rem; margin-bottom:4px;">내 음악왕 아바타</div>
-          <div class="cd-pill" style="margin-bottom:6px;">보유: <strong id="shopCdBalance">100 CD</strong></div>
-          <p style="font-size:0.75rem; color:var(--text-sub);">퀴즈를 풀고 얻은 CD로 도트 파츠를 구매·장착해보세요!</p>
+
+      <!-- 상단 피팅룸(입어보기 프리뷰) 영역 -->
+      <div style="display:flex; align-items:center; gap:12px; background:var(--bg-subtle); padding:10px; border-radius:12px; border:1.5px solid var(--border-color); margin-bottom:8px;">
+        <canvas id="shopAvatarCanvas" width="104" height="104" style="border-radius:12px; border:2px solid var(--pixel-border); flex-shrink:0;"></canvas>
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <span style="font-weight:900; font-size:0.9rem;">피팅룸 (입어보기)</span>
+            <span class="cd-pill">💿 <strong id="shopCdBalance">100 CD</strong></span>
+          </div>
+          <!-- 남/여 기본 체형 전환 -->
+          <div style="display:flex; gap:4px; margin-bottom:6px;">
+            <button class="option-chip" data-shop-gender="male" onclick="changeShopGenderPreview('male')" style="flex:1; padding:4px; font-size:0.74rem;">👦 남자</button>
+            <button class="option-chip" data-shop-gender="female" onclick="changeShopGenderPreview('female')" style="flex:1; padding:4px; font-size:0.74rem;">👧 여자</button>
+          </div>
+          <p id="shopPreviewStatusText" style="font-size:0.75rem; color:var(--primary); font-weight:800;">
+            💡 아이템을 터치하면 먼저 입어볼 수 있습니다!
+          </p>
         </div>
       </div>
 
-      <div class="option-grid cols-3" style="margin-bottom:8px;">
+      <!-- 입어본 후 구매/장착 결정 액션 바 -->
+      <div id="shopPreviewActionBar" class="action-row" style="margin-bottom:8px;">
+        <button class="btn" onclick="resetShopPreview()" style="flex:1; padding:8px; font-size:0.8rem;">🔄 원래 옷으로</button>
+        <button class="btn btn-primary" id="shopConfirmActionBtn" style="flex:1.8; padding:8px; font-size:0.82rem;">✅ 현재 모습 저장</button>
+      </div>
+
+      <div class="option-grid cols-4" style="margin-bottom:8px;">
         <div class="option-chip active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="chip-title">💇 헤어</span></div>
-        <div class="option-chip" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="chip-title">🎧 모자/헤드셋</span></div>
-        <div class="option-chip" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="chip-title">😎 표정/안경</span></div>
+        <div class="option-chip" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="chip-title">🎧 모자</span></div>
+        <div class="option-chip" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="chip-title">😎 표정</span></div>
         <div class="option-chip" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="chip-title">👕 의상</span></div>
-        <div class="option-chip" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="chip-title">🎸 손 악기</span></div>
+        <div class="option-chip" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="chip-title">🎸 악기</span></div>
         <div class="option-chip" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="chip-title">🏞️ 배경</span></div>
+        <div class="option-chip" data-shop-cat="special" onclick="renderShopCategory('special')" style="grid-column: span 2;"><span class="chip-title">🎫 스페셜(닉변권)</span></div>
       </div>
 
       <div id="shopItemsGrid" class="shop-grid"></div>
     </div>
   </div>
 
+  <!-- ==================== [모달 2] 내 프로필 ==================== -->
   <div id="profileModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -357,7 +420,7 @@
         <button class="header-btn" onclick="closeModal('profileModal')">닫기 ✕</button>
       </div>
       <div style="text-align:center; margin-bottom:10px;">
-        <canvas id="profileAvatarCanvas" width="96" height="96" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
+        <canvas id="profileAvatarCanvas" width="104" height="104" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
         <h4 id="profileNickDisplay" style="font-size:1.1rem; font-weight:900;">닉네임</h4>
         <p id="profileCdDisplay" style="font-size:0.84rem; color:#b45309; font-weight:800;"></p>
       </div>
@@ -366,12 +429,14 @@
         <input type="text" id="profileBioInput" class="text-input" maxlength="50" />
       </div>
       <div class="action-row">
-        <button class="btn btn-primary" onclick="saveMyBio()" style="flex:2;">소개글 저장</button>
-        <button class="btn" onclick="handleLogout()" style="flex:1;">로그아웃</button>
+        <button class="btn btn-primary" onclick="saveMyBio()" style="flex:1.6;">소개글 저장</button>
+        <button class="btn" onclick="closeModal('profileModal'); openShopModal(); renderShopCategory('special');" style="flex:1.2;">🎫 닉변권</button>
+        <button class="btn" onclick="handleLogout()" style="flex:1; color:var(--danger);">🚪 로그아웃</button>
       </div>
     </div>
   </div>
 
+  <!-- ==================== [모달 3] 타 유저 프로필 보기 ==================== -->
   <div id="userInspectModal" class="modal-backdrop hidden">
     <div class="modal-content" style="text-align:center;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -379,7 +444,7 @@
         <button class="header-btn" onclick="closeModal('userInspectModal')">닫기 ✕</button>
       </div>
       <input type="hidden" id="inspectTargetId" />
-      <canvas id="inspectAvatarCanvas" width="96" height="96" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
+      <canvas id="inspectAvatarCanvas" width="104" height="104" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
       <h4 id="inspectNick" style="font-size:1.1rem; font-weight:900; margin-bottom:4px;"></h4>
       <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:8px; border-radius:8px; margin-bottom:12px;"></p>
       <div class="action-row">
@@ -389,6 +454,7 @@
     </div>
   </div>
 
+  <!-- ==================== [모달 4] 명예의 전당 랭킹 ==================== -->
   <div id="rankingModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -413,6 +479,7 @@
     </div>
   </div>
 
+  <!-- ==================== [모달 5] 친구 추가 & 1:1 DM 쪽지함 ==================== -->
   <div id="socialModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -446,11 +513,12 @@
     </div>
   </div>
 
+  <!-- ==================== [모달 6] 실시간 온라인 대전 룸 ==================== -->
   <div id="battleRoomModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 id="battleRoomTitle" style="font-size:0.95rem;">⚔️ 온라인 대전</h3>
-        <button class="header-btn" onclick="leaveBattleRoom()">방 나가기</button>
+        <button class="header-btn" onclick="leaveBattleRoom()">⬅ 방 나가기</button>
       </div>
       <div id="battlePlayersBoard" class="score-rule-grid" style="margin-bottom:10px;"></div>
 
@@ -472,6 +540,7 @@
     </div>
   </div>
 
+  <!-- ==================== [모달 7] 업데이트 내역 ==================== -->
   <div id="patchNotesModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -479,25 +548,25 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:340px;">
-        <p style="font-weight:900; color:var(--primary); margin-bottom:4px;">🌟 v2.2 대규모 도트 & 온라인 업데이트</p>
+        <p style="font-weight:900; color:var(--primary); margin-bottom:4px;">🌟 v3.0 상용화 에디션 업데이트</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
-          <li><strong>전용 로그인 화면 분리</strong>: 시작 시 로그인 화면만 단독 표시</li>
-          <li><strong>도트 아바타 옷장 & CD 상점</strong>: 6부위 34종 도트 파츠 장착 및 CD 코인 보상</li>
-          <li><strong>실시간 광장 대기실 & 온라인 대전</strong>: 1:1 선착순 및 4인 점수제 대전</li>
-          <li><strong>소셜 & 랭킹</strong>: 모드별 랭킹, 친구 추가, 1:1 DM 쪽지함</li>
-          <li><strong>타임어택(×2) & 찐팬 하드모드</strong>: 15초 제한 시간 2배 점수 및 코요태·쿨·버즈 등 다곡 하드모드</li>
+          <li><strong>48x48 고해상도 스무스 도트 캐릭터</strong>: 남/여 캐릭터 선택 및 4배 정밀해진 도트 그래픽</li>
+          <li><strong>피팅룸(입어보기) & 닉네임 변경권</strong>: 상점에서 먼저 입어보고 구매 결정, 닉변권 아이템 출시</li>
+          <li><strong>싱글/멀티 선택 & 뒤로가기 보호</strong>: 도전 시 싱글/멀티 선택 및 모바일 뒤로가기 종료 방지</li>
+          <li><strong>관리자용 백엔드 페이지(admin.html)</strong>: 음악 더블클릭 수정, 상점 아이템 가격/추가, 유저 계정 관리</li>
         </ul>
       </div>
     </div>
   </div>
 
+  <!-- ==================== [모달 8] 환경 설정 ==================== -->
   <div id="settingsModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h3 style="font-size:1rem;">⚙️ 게임 환경 설정</h3>
         <button class="header-btn" onclick="closeModal('settingsModal')">닫기 ✕</button>
       </div>
-      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
         <div class="pixel-list-item" style="cursor:default;">
           <span>🔊 음원 미리듣기 볼륨</span>
           <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.85" style="width:130px;" />
@@ -506,13 +575,40 @@
           <span>🔤 도트 픽셀 폰트 사용</span>
           <strong id="fontStyleStatus" style="color:var(--primary);">ON</strong>
         </div>
+        <div class="pixel-list-item" onclick="toggleFullscreenMode()">
+          <span>📱 전체화면(주소창 숨김) 전환</span>
+          <strong style="color:var(--accent);">전환 ➔</strong>
+        </div>
+        <div class="pixel-list-item" onclick="location.href='admin.html'">
+          <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정)</span>
+          <strong style="color:#b45309;">이동 ➔</strong>
+        </div>
+        <div class="pixel-list-item" onclick="handleLogout()" style="border-color:#fecdd3; background:#fff1f2;">
+          <span style="color:var(--danger); font-weight:800;">🚪 계정 로그아웃</span>
+          <strong style="color:var(--danger);">로그아웃</strong>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="data.js?v=2.2"></script>
-  <script src="pixel_avatar.js?v=2.2"></script>
-  <script src="online.js?v=2.2"></script>
-  <script src="app.js?v=2.2"></script>
+  <!-- ==================== [커스텀 시스템 팝업 모달] (alert/confirm/prompt 완전 대체) ==================== -->
+  <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
+    <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
+      <h3 id="dialogTitle" style="font-size:1.02rem; font-weight:900; color:var(--primary); margin-bottom:8px;">👑 음악왕 알림</h3>
+      <p id="dialogMessage" style="font-size:0.88rem; color:var(--text-main); line-height:1.55; margin-bottom:14px; word-break:keep-all;"></p>
+      <div id="dialogInputWrap" class="hidden" style="margin-bottom:12px;">
+        <input type="text" id="dialogPromptInput" class="text-input" autocomplete="off" />
+      </div>
+      <div class="action-row">
+        <button class="btn hidden" id="dialogCancelBtn" style="flex:1;">취소</button>
+        <button class="btn btn-primary" id="dialogConfirmBtn" style="flex:1.4;">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js?v=3.0"></script>
+  <script src="pixel_avatar.js?v=3.0"></script>
+  <script src="online.js?v=3.0"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>

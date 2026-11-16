@@ -1,7 +1,7 @@
 // ============================================================================
-// [음악왕 v2.0] 메인 게임 엔진 (app.js)
-// - 타임어택(×2), 찐팬 하드모드, 클리어 정보 배지, html2canvas 결과 캡처 공유
-// - CD 재화 변환, 설정, 패치노트, 온라인 랭킹 자동 등록 통합
+// [음악왕 v3.0] 메인 게임 엔진 (app.js)
+// - 싱글/멀티 선택, 뒤로가기 앱 종료 방지(History Trap), 커스텀 모달 완벽 적용
+// - 모든 버튼 이벤트 안전 바인딩(오류 제로 보장)
 // ============================================================================
 
 const state = {
@@ -9,8 +9,8 @@ const state = {
   mode: "behind",      // 'behind' | 'lyrics' | 'onesec'
   stage: 1,            // 1: 노래 | 2: 가수 | 3: 가수+노래
   questionLimit: 10,   // 10 | 20 | 50 | 'infinite'
-  timeAttack: false,   // 타임어택 ON/OFF (점수 2배)
-  hardMode: false,     // 하드모드 (코요태, 쿨, 버즈 등 다곡 가수 집중 출제)
+  timeAttack: false,
+  hardMode: false,
 
   pool: [],
   currentIndex: 0,
@@ -25,7 +25,6 @@ const state = {
   usedHintAudio: false,
   questionEnded: false,
 
-  // 타임어택 타이머
   timerInterval: null,
   timeLeftMs: 15000,
   maxTimeMs: 15000,
@@ -33,7 +32,8 @@ const state = {
   audioEl: new Audio(),
   audioStopTimer: null,
   itunesCache: new Map(),
-  oneSecOffsetIndex: 0
+  oneSecOffsetIndex: 0,
+  currentScreen: "loginScreen"
 };
 
 state.audioEl.crossOrigin = "anonymous";
@@ -54,20 +54,44 @@ document.addEventListener(
   { passive: false }
 );
 
-// 모달 열기/닫기 전역 함수 (동시에 1개의 모달만 열리도록 보장)
+// 안전한 이벤트 바인딩 헬퍼 (요소가 없어도 절대 에러 발생 안 함)
+function safeOn(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+// 모달 열기/닫기 전역 함수 (커스텀 다이얼로그는 별도 레이어로 유지)
 window.closeAllModals = function () {
-  document.querySelectorAll(".modal-backdrop").forEach(m => m.classList.add("hidden"));
+  document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
 };
 
 window.openModal = function (id) {
   window.closeAllModals();
   const el = document.getElementById(id);
-  if (el) el.classList.remove("hidden");
+  if (el) {
+    el.classList.remove("hidden");
+    pushAppHistoryState();
+  }
 };
 
 window.closeModal = function (id) {
   const el = document.getElementById(id);
   if (el) el.classList.add("hidden");
+};
+
+// 음악왕 도전 버튼 -> 싱글/멀티 선택 모달 오픈
+window.openPlayModeSelect = function () {
+  openModal("playModeSelectModal");
+};
+
+window.selectSinglePlay = function () {
+  closeModal("playModeSelectModal");
+  showSetup();
+};
+
+window.selectMultiPlay = function () {
+  closeModal("playModeSelectModal");
+  enterPlazaScreen();
 };
 
 window.openRankingModal = function () {
@@ -82,23 +106,72 @@ window.toggleFontStyle = function () {
   if (statusEl) statusEl.textContent = isPixel ? "ON" : "OFF (기본 고딕)";
 };
 
-function getCustomQuestions() {
-  try {
-    const raw = localStorage.getItem("music_king_custom_q");
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
+window.toggleFullscreenMode = function () {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  } else {
+    document.exitFullscreen?.().catch(() => {});
   }
-}
+};
 
-function saveCustomQuestions(list) {
+// ============================================================================
+// 모바일 물리 '뒤로가기' 버튼 앱 종료 방지 트랩 (항목 12)
+// ============================================================================
+function pushAppHistoryState() {
   try {
-    localStorage.setItem("music_king_custom_q", JSON.stringify(list));
+    history.pushState({ mkScreen: state.currentScreen, ts: Date.now() }, "");
   } catch (e) {}
 }
 
+window.addEventListener("popstate", () => {
+  // 1. 커스텀 알림창이 열려 있으면 닫기
+  const dialog = document.getElementById("customDialogModal");
+  if (dialog && !dialog.classList.contains("hidden")) {
+    dialog.classList.add("hidden");
+    pushAppHistoryState();
+    return;
+  }
+
+  // 2. 일반 모달이 열려 있으면 모달만 닫기
+  const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
+  if (openModals.length > 0) {
+    window.closeAllModals();
+    pushAppHistoryState();
+    return;
+  }
+
+  // 3. 서브 화면(설정, 대기실, 인게임, 결과)에 있으면 메인 홈으로 이동
+  if (["setupScreen", "plazaScreen", "resultScreen"].includes(state.currentScreen)) {
+    showHome();
+    pushAppHistoryState();
+    return;
+  }
+
+  if (["gameScreen", "judgeScreen"].includes(state.currentScreen)) {
+    gameConfirm("진행 중인 게임을 중단하고 설정 화면으로 나갈까요?", () => {
+      showSetup();
+    });
+    pushAppHistoryState();
+    return;
+  }
+
+  // 4. 메인 홈 화면에서 뒤로가기 누르면 바로 앱이 꺼지지 않고 확인 모달 표시
+  if (state.currentScreen === "homeScreen") {
+    pushAppHistoryState();
+    gameConfirm("로그아웃하고 로그인 화면으로 돌아가시겠습니까?", () => {
+      showLoginScreen();
+    }, "👑 음악왕 종료/로그아웃");
+    return;
+  }
+
+  pushAppHistoryState();
+});
+
+// ============================================================================
+// 문제 데이터 및 정답 판정
+// ============================================================================
 function getAllQuestions() {
-  return [...QUESTIONS_DB, ...getCustomQuestions()];
+  return QUESTIONS_DB;
 }
 
 function getFilteredQuestions() {
@@ -236,7 +309,7 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6) {
   const track = await fetchItunesTrack(q);
   if (!track || !track.previewUrl) {
     if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
-    alert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
+    gameAlert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
     return;
   }
 
@@ -287,10 +360,13 @@ function shuffleArray(arr) {
 // ============================================================================
 // 화면 전환
 // ============================================================================
-function switchScreen(targetId) {
+window.switchScreen = function (targetId) {
   stopAudio();
   stopTimeAttackTimer();
   window.closeAllModals();
+
+  state.currentScreen = targetId;
+  pushAppHistoryState();
 
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
@@ -301,47 +377,46 @@ function switchScreen(targetId) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });
-}
+};
 
 window.showLoginScreen = function () {
   switchScreen("loginScreen");
+  updateHeaderUserUI();
 };
 
-function showHome() {
+window.showHome = function () {
   updateHeaderUserUI();
   switchScreen("homeScreen");
-}
+};
 
-function showSetup() {
+window.showSetup = function () {
   updateLobbyCounts();
   switchScreen("setupScreen");
-}
+};
 
-function updateLobbyCounts() {
+window.updateLobbyCounts = function () {
   const filtered = getFilteredQuestions();
   const countBadge = document.getElementById("availablePoolCount");
   if (countBadge) {
     countBadge.textContent = `${state.hardMode ? "🔥하드모드 " : ""}총 ${filtered.length}문제`;
   }
-}
+};
 
 function initEvents() {
+  pushAppHistoryState();
   updateHeaderUserUI();
 
-  // 헤더 액션
-  document.getElementById("brandHome").addEventListener("click", showHome);
-  document.getElementById("headerCdBtn").addEventListener("click", openShopModal);
-  document.getElementById("headerProfileBtn").addEventListener("click", openMyProfileModal);
-  document.getElementById("openPatchBtn").addEventListener("click", () => openModal("patchNotesModal"));
-  document.getElementById("openSettingsBtn").addEventListener("click", () => openModal("settingsModal"));
+  safeOn("brandHome", "click", showHome);
+  safeOn("headerCdBtn", "click", openShopModal);
+  safeOn("headerProfileBtn", "click", openMyProfileModal);
+  safeOn("openPatchBtn", "click", () => openModal("patchNotesModal"));
+  safeOn("openSettingsBtn", "click", () => openModal("settingsModal"));
+  safeOn("enterSetupBtn", "click", openPlayModeSelect);
+  safeOn("setupBackHomeBtn", "click", showHome);
 
-  document.getElementById("volumeSlider").addEventListener("input", e => {
+  safeOn("volumeSlider", "input", e => {
     state.audioEl.volume = Number(e.target.value);
   });
-
-  // 홈 -> 설정
-  document.getElementById("enterSetupBtn").addEventListener("click", showSetup);
-  document.getElementById("setupBackHomeBtn").addEventListener("click", showHome);
 
   // 연대 선택
   document.querySelectorAll("[data-decade]").forEach(el => {
@@ -385,40 +460,38 @@ function initEvents() {
     });
   });
 
-  // 타임어택 토글 (점수 ×2)
-  document.getElementById("toggleTimeAttackBtn").addEventListener("click", () => {
+  safeOn("toggleTimeAttackBtn", "click", () => {
     state.timeAttack = !state.timeAttack;
     const btn = document.getElementById("toggleTimeAttackBtn");
-    btn.classList.toggle("active-time", state.timeAttack);
-    document.getElementById("timeAttackStateText").textContent = state.timeAttack ? "ON (15초)" : "OFF";
+    if (btn) btn.classList.toggle("active-time", state.timeAttack);
+    const txt = document.getElementById("timeAttackStateText");
+    if (txt) txt.textContent = state.timeAttack ? "ON (15초)" : "OFF";
   });
 
-  // 하드모드 토글 (코요태, 쿨, 버즈 등 다곡 헷갈리는 가수 집중)
-  document.getElementById("toggleHardModeBtn").addEventListener("click", () => {
+  safeOn("toggleHardModeBtn", "click", () => {
     state.hardMode = !state.hardMode;
     const btn = document.getElementById("toggleHardModeBtn");
-    btn.classList.toggle("active-hard", state.hardMode);
-    document.getElementById("hardModeStateText").textContent = state.hardMode ? "ON" : "OFF";
+    if (btn) btn.classList.toggle("active-hard", state.hardMode);
+    const txt = document.getElementById("hardModeStateText");
+    if (txt) txt.textContent = state.hardMode ? "ON" : "OFF";
     updateLobbyCounts();
   });
 
-  document.getElementById("startGameBtn").addEventListener("click", startGame);
-  document.getElementById("backToLobbyBtn").addEventListener("click", showSetup);
-  document.getElementById("restartSameBtn").addEventListener("click", startGame);
-  document.getElementById("resultToLobbyBtn").addEventListener("click", showHome);
-  document.getElementById("shareResultBtn").addEventListener("click", shareResultImage);
+  safeOn("startGameBtn", "click", startGame);
+  safeOn("backToLobbyBtn", "click", showSetup);
+  safeOn("restartSameBtn", "click", startGame);
+  safeOn("resultToLobbyBtn", "click", showHome);
+  safeOn("shareResultBtn", "click", shareResultImage);
 
-  // 인게임 버튼
-  document.getElementById("hintLetterBtn").addEventListener("click", useLetterHint);
-  document.getElementById("hintKeywordBtn").addEventListener("click", useKeywordHint);
-  document.getElementById("hintAudioBtn").addEventListener("click", useAudioHint);
-  document.getElementById("submitAnswerBtn").addEventListener("click", checkUserAnswer);
-  document.getElementById("skipQuestionBtn").addEventListener("click", skipQuestion);
-  document.getElementById("nextQuestionBtn").addEventListener("click", nextQuestion);
+  safeOn("hintLetterBtn", "click", useLetterHint);
+  safeOn("hintKeywordBtn", "click", useKeywordHint);
+  safeOn("hintAudioBtn", "click", useAudioHint);
+  safeOn("submitAnswerBtn", "click", checkUserAnswer);
+  safeOn("skipQuestionBtn", "click", skipQuestion);
+  safeOn("nextQuestionBtn", "click", nextQuestion);
 
   ["artistInput", "titleInput"].forEach(id => {
-    const input = document.getElementById(id);
-    input.addEventListener("keydown", e => {
+    safeOn(id, "keydown", e => {
       if (e.key === "Enter") {
         e.preventDefault();
         checkUserAnswer();
@@ -429,11 +502,11 @@ function initEvents() {
   syncDecadeChips();
   updateLobbyCounts();
   window.closeAllModals();
+  showLoginScreen();
 
-  if (typeof userState !== "undefined" && userState.isLoggedIn) {
-    showHome();
-  } else {
-    showLoginScreen();
+  // Supabase 세션 및 관리자 설정 로드
+  if (typeof restoreSupabaseSession === "function") {
+    restoreSupabaseSession();
   }
 }
 
@@ -447,11 +520,11 @@ function syncDecadeChips() {
 // ============================================================================
 // 게임 시작 및 진행
 // ============================================================================
-function startGame() {
+window.startGame = function () {
   stopAudio();
   const candidates = getFilteredQuestions();
   if (candidates.length === 0) {
-    alert("선택한 조건에 해당하는 문제가 없습니다.");
+    gameAlert("선택한 조건에 해당하는 문제가 없습니다.");
     return;
   }
 
@@ -468,7 +541,7 @@ function startGame() {
   state.history = [];
 
   loadCurrentQuestion();
-}
+};
 
 function loadCurrentQuestion() {
   switchScreen("gameScreen");
@@ -646,15 +719,15 @@ function checkUserAnswer() {
   const titleVal = document.getElementById("titleInput").value.trim();
 
   if (state.stage === 1 && !titleVal) {
-    alert("노래 제목을 입력해주세요!");
+    gameAlert("노래 제목을 입력해주세요!");
     return;
   }
   if (state.stage === 2 && !artistVal) {
-    alert("가수 이름을 입력해주세요!");
+    gameAlert("가수 이름을 입력해주세요!");
     return;
   }
   if (state.stage === 3 && (!artistVal || !titleVal)) {
-    alert("3단계는 가수 이름과 노래 제목을 모두 입력해야 합니다!");
+    gameAlert("3단계는 가수 이름과 노래 제목을 모두 입력해야 합니다!");
     return;
   }
 
@@ -688,7 +761,7 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
     if (state.usedHintKeyword) gained -= 15;
     if (state.usedHintAudio) gained -= 20;
     if (state.stage === 3) gained += 20;
-    if (state.timeAttack) gained *= 2; // 타임어택 점수 2배!
+    if (state.timeAttack) gained *= 2;
     state.score += gained;
     state.streak++;
   } else {
@@ -760,9 +833,6 @@ function nextQuestion() {
   }
 }
 
-// ============================================================================
-// 최종 결과 화면 (클리어 스펙 표시, CD 지급, 랭킹 등록, 화면 캡처 공유)
-// ============================================================================
 async function showFinalResult() {
   switchScreen("resultScreen");
 
@@ -778,7 +848,6 @@ async function showFinalResult() {
   document.getElementById("finalRankTitle").textContent = rankTitle;
   document.getElementById("finalScoreText").textContent = `총점 ${state.score}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
 
-  // 1. 선택한 연대·모드·단계·문제수·타임어택·하드모드 클리어 스펙 배지 렌더링
   const decadeStr =
     state.decades.size === 4
       ? "전연대(90~20s)"
@@ -799,14 +868,12 @@ async function showFinalResult() {
     ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
   `;
 
-  // 4. 점수를 CD 재화로 변환 및 지급 (100점당 10 CD, 최소 완주 보상)
   const earnedCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
   document.getElementById("finalCdEarnedText").textContent = `💿 획득 보상: +${earnedCd} CD 지급 완료! (보유: ${userState.cdCoins + earnedCd} CD)`;
   if (earnedCd > 0) {
     await addCdCoins(earnedCd);
   }
 
-  // 3. 온라인 랭킹 자동 등록
   if (state.score > 0 && typeof submitScoreToRanking === "function") {
     await submitScoreToRanking({
       decadeFilter: decadeStr,
@@ -832,12 +899,11 @@ async function showFinalResult() {
     .join("");
 }
 
-// 2. 결과 화면 캡처 & 공유하기 (브라우저 주소창 제외 순수 결과 카드 캡처)
 async function shareResultImage() {
   const target = document.getElementById("resultCaptureTarget");
   const bottomBtns = document.getElementById("resultBottomActions");
   if (!target || typeof html2canvas === "undefined") {
-    alert("캡처 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+    gameAlert("캡처 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
     return;
   }
 
@@ -853,7 +919,6 @@ async function shareResultImage() {
       if (!blob) return;
       const file = new File([blob], "music_king_result.png", { type: "image/png" });
 
-      // 모바일 Web Share API 지원 시 바로 공유 시트 오픈
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -865,114 +930,20 @@ async function shareResultImage() {
         } catch (e) {}
       }
 
-      // PC 클립보드 이미지 복사 시도 + 파일 다운로드
       try {
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        alert("📸 결과 화면이 클립보드에 이미지로 복사되었습니다! (카톡·메신저에 바로 Ctrl+V로 붙여넣기 하세요!)");
+        gameAlert("📸 결과 화면이 클립보드에 이미지로 복사되었습니다!\n메신저 채팅창에 바로 붙여넣기(Ctrl+V) 해보세요!");
       } catch (clipErr) {
         const link = document.createElement("a");
         link.download = `음악왕_결과_${Date.now()}.png`;
         link.href = URL.createObjectURL(blob);
         link.click();
-        alert("📸 결과 화면 캡처 이미지가 저장되었습니다!");
+        gameAlert("📸 결과 화면 캡처 이미지가 저장되었습니다!");
       }
     }, "image/png");
   } catch (err) {
     bottomBtns.classList.remove("hidden");
-    alert("화면 캡처 중 오류가 발생했습니다.");
-  }
-}
-
-// ============================================================================
-// MD 파일 파서
-// ============================================================================
-function parseMarkdownToQuestions(mdText) {
-  const blocks = mdText.split(/\n---+\n|\n(?=##\s+)/g);
-  const parsed = [];
-
-  blocks.forEach((block, idx) => {
-    const getField = regex => {
-      const m = block.match(regex);
-      return m ? m[1].trim() : "";
-    };
-
-    const artist = getField(/(?:가수|아티스트|Artist)\s*[:：]\s*(.+)/i);
-    const title = getField(/(?:노래|곡명|제목|Title)\s*[:：]\s*(.+)/i);
-    if (!artist || !title) return;
-
-    const yearRaw = getField(/(?:연도|발매연도|Year)\s*[:：]\s*(\d{4})/i);
-    const year = yearRaw ? Number(yearRaw) : 2010;
-    let decade = "2010s";
-    if (year < 2000) decade = "1990s";
-    else if (year < 2010) decade = "2000s";
-    else if (year < 2020) decade = "2010s";
-    else decade = "2020s";
-
-    const aliasesRaw = getField(/(?:동의어|복수정답|별칭|Aliases)\s*[:：]\s*(.+)/i);
-    const artistAliases = aliasesRaw
-      ? aliasesRaw.split(/[,/]/).map(s => s.trim()).filter(Boolean)
-      : [];
-
-    let behind = getField(/(?:비하인드|문제|여담|Behind)\s*[:：]\s*([\s\S]+?)(?=\n(?:가사|키워드|힌트|해설|$))/i);
-    if (!behind) behind = `${year}년에 발매되어 큰 사랑을 받은 명곡입니다.`;
-
-    const maskedBehind = behind.replaceAll(artist, "[이 가수]").replaceAll(title, "[이 곡]");
-    const lyrics = getField(/(?:가사|Lyrics)\s*[:：]\s*(.+)/i) || "하이라이트 가사가 등록된 곡입니다.";
-    const keyword = getField(/(?:키워드|포인트단어|힌트|Keyword)\s*[:：]\s*(.+)/i) || `${year}년 히트곡`;
-
-    parsed.push({
-      id: `custom_${Date.now()}_${idx}`,
-      decade,
-      year,
-      artist,
-      artistAliases,
-      title,
-      titleAliases: [],
-      behindQuestion: maskedBehind,
-      behindAnswerNote: `${artist} - '${title}' (${year}). ${behind}`,
-      lyricsQuestion: lyrics,
-      keywordHint: keyword,
-      itunesQuery: `${artist} ${title}`
-    });
-  });
-
-  return parsed;
-}
-
-function handleMdFileUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    document.getElementById("mdRawTextarea").value = reader.result;
-    handleMdTextParse();
-  };
-  reader.readAsText(file, "utf-8");
-}
-
-function handleMdTextParse() {
-  const raw = document.getElementById("mdRawTextarea").value.trim();
-  if (!raw) {
-    alert("변환할 MD 텍스트를 입력하거나 파일을 선택해주세요.");
-    return;
-  }
-  const newQs = parseMarkdownToQuestions(raw);
-  if (newQs.length === 0) {
-    alert("가수: / 노래: 형식을 찾을 수 없습니다.");
-    return;
-  }
-  const existing = getCustomQuestions();
-  saveCustomQuestions([...existing, ...newQs]);
-  renderCustomQuestionCount();
-  updateLobbyCounts();
-  alert(`🎉 총 ${newQs.length}개의 문제가 추가되었습니다!`);
-}
-
-function renderCustomQuestionCount() {
-  const custom = getCustomQuestions();
-  const el = document.getElementById("customQCountText");
-  if (el) {
-    el.textContent = `기본 ${QUESTIONS_DB.length}문제 + 추가 ${custom.length}문제`;
+    gameAlert("화면 캡처 중 오류가 발생했습니다.");
   }
 }
 
