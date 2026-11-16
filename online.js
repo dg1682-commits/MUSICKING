@@ -986,30 +986,58 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
 };
 
 // ============================================================================
-// 5. 상용 게임 스타일 친구창 & 1:1 DM 시스템
+// 5. 카카오톡 스타일 전체화면 친구 목록(#socialScreen) & 1:1 DM 채팅방(#dmChatScreen)
 // ============================================================================
+const dmState = {
+  peerId: null,
+  peerNick: "",
+  peerAvatar: { ...DEFAULT_AVATAR_CONFIG },
+  channel: null,
+  pollTimer: null
+};
+
+window.stopDmRealtime = function () {
+  if (dmState.channel && sbClient) {
+    try { sbClient.removeChannel(dmState.channel); } catch (e) {}
+    dmState.channel = null;
+  }
+  if (dmState.pollTimer) {
+    clearInterval(dmState.pollTimer);
+    dmState.pollTimer = null;
+  }
+};
+
 window.openSocialModal = async function (tab = "friends") {
   if (!userState.isLoggedIn) {
     gameConfirm("친구 및 DM 기능은 로그인 후 이용하실 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
     return;
   }
-  openModal("socialModal");
-  switchSocialTab(tab);
+
+  switchScreen("socialScreen");
+
+  // 상단 내 카톡 프로필 업데이트
+  const myNickEl = document.getElementById("socialMyNickDisplay");
+  const myBioEl = document.getElementById("socialMyBioDisplay");
+  const myCv = document.getElementById("socialMyAvatarCanvas");
+  if (myNickEl) myNickEl.textContent = userState.nickname;
+  if (myBioEl) myBioEl.textContent = userState.bio || "상태 메시지가 없습니다.";
+  if (myCv) renderPixelAvatar(myCv, userState.avatarConfig);
+
+  switchSocialTab(tab === "dm" ? "friends" : tab);
 };
 
 window.switchSocialTab = async function (tab) {
-  ["friends", "requests", "dm"].forEach(t => {
-    const chip = document.getElementById(`socialTab_${t}`);
-    const pane = document.getElementById(`socialPane_${t}`);
-    if (chip) chip.classList.toggle("active", t === tab);
-    if (pane) pane.classList.toggle("hidden", t !== tab);
-  });
+  const fBtn = document.getElementById("socialTab_friends");
+  const rBtn = document.getElementById("socialTab_requests");
+  const fPane = document.getElementById("socialPane_friends");
+  const rPane = document.getElementById("socialPane_requests");
 
-  if (tab === "friends" || tab === "requests") {
-    await loadFriendsData();
-  } else {
-    await loadDirectMessages();
-  }
+  if (fBtn) fBtn.style.background = tab === "friends" ? "#fef08a" : "#ffffff";
+  if (rBtn) rBtn.style.background = tab === "requests" ? "#fef08a" : "#ffffff";
+  if (fPane) fPane.classList.toggle("hidden", tab !== "friends");
+  if (rPane) rPane.classList.toggle("hidden", tab !== "requests");
+
+  await loadFriendsData();
 };
 
 window.sendFriendRequestByNick = async function (targetNickParam) {
@@ -1017,7 +1045,8 @@ window.sendFriendRequestByNick = async function (targetNickParam) {
     showLoginScreen();
     return;
   }
-  const nick = targetNickParam || document.getElementById("friendSearchInput").value.trim();
+  const searchEl = document.getElementById("friendSearchInput");
+  const nick = targetNickParam || (searchEl ? searchEl.value.trim() : "");
   if (!nick) {
     gameAlert("친구 추가할 닉네임을 입력해주세요.");
     return;
@@ -1049,7 +1078,7 @@ window.sendFriendRequestByNick = async function (targetNickParam) {
     return;
   }
 
-  document.getElementById("friendSearchInput").value = "";
+  if (searchEl) searchEl.value = "";
   gameAlert(`💌 [${targetProf.nickname}]님에게 친구 신청을 보냈습니다!`);
   loadFriendsData();
 };
@@ -1057,6 +1086,7 @@ window.sendFriendRequestByNick = async function (targetNickParam) {
 async function loadFriendsData() {
   const acceptedBox = document.getElementById("friendsListContainer");
   const pendingBox = document.getElementById("friendRequestsContainer");
+  const countLabel = document.getElementById("kakaoFriendsCountLabel");
   if (!acceptedBox || !pendingBox || !sbClient || !userState.id) return;
 
   const { data: rels } = await sbClient
@@ -1065,8 +1095,9 @@ async function loadFriendsData() {
     .or(`requester_id.eq.${userState.id},receiver_id.eq.${userState.id}`);
 
   if (!rels || rels.length === 0) {
-    acceptedBox.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">등록된 친구가 없습니다.<br/>[친구 찾기·요청] 탭에서 친구를 추가해보세요!</div>`;
-    pendingBox.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub);">대기 중인 친구 요청이 없습니다.</div>`;
+    if (countLabel) countLabel.textContent = "친구 0";
+    acceptedBox.innerHTML = `<div style="text-align:center; padding:36px 16px; color:var(--text-sub); font-size:0.86rem;">아직 등록된 친구가 없습니다.<br/>우측 상단 <strong>[➕ 추가]</strong> 버튼으로 친구를 추가해보세요!</div>`;
+    pendingBox.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">대기 중인 친구 요청이 없습니다.</div>`;
     return;
   }
 
@@ -1077,26 +1108,29 @@ async function loadFriendsData() {
   const acceptedRels = rels.filter(r => r.status === "accepted");
   const pendingRels = rels.filter(r => r.status === "pending");
 
-  // 1) 내 친구 목록 (480x480 캐릭터 아이콘 + 닉네임 + 상태메시지 + DM/삭제 버튼)
+  if (countLabel) countLabel.textContent = `친구 ${acceptedRels.length}`;
+
+  // 1) 카카오톡 스타일 친구 목록 (행 클릭 -> 즉시 카톡 1:1 DM 채팅방 전체화면 오픈!)
   if (acceptedRels.length === 0) {
-    acceptedBox.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">아직 수락된 친구가 없습니다.</div>`;
+    acceptedBox.innerHTML = `<div style="text-align:center; padding:36px 16px; color:var(--text-sub); font-size:0.86rem;">아직 수락된 친구가 없습니다.<br/>우측 상단 <strong>[➕ 추가]</strong> 탭에서 요청을 확인해보세요!</div>`;
   } else {
     acceptedBox.innerHTML = acceptedRels
       .map(r => {
         const otherId = r.requester_id === userState.id ? r.receiver_id : r.requester_id;
-        const p = profMap.get(otherId) || { nickname: "유저", bio: "" };
+        const p = profMap.get(otherId) || { nickname: "유저", bio: "", avatar_config: DEFAULT_AVATAR_CONFIG };
+        const safeNick = String(p.nickname || "유저").replace(/'/g, "\\'");
         return `
-        <div class="pixel-list-item">
-          <div style="display:flex; align-items:center; gap:9px;" onclick="inspectOtherUser('${otherId}', '${p.nickname}')">
-            <canvas class="friend-mini-cv" width="480" height="480" style="width:42px; height:42px; border-radius:10px; border:1.5px solid #334155;" data-avatar='${JSON.stringify(p.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
-            <div>
-              <div style="font-weight:900; font-size:0.9rem;">${p.nickname}</div>
-              <div style="font-size:0.74rem; color:var(--text-sub);">${(p.bio || "상태 메시지가 없습니다.").slice(0, 22)}</div>
+        <div class="kakao-friend-row" onclick="prepareDmTo('${otherId}', '${safeNick}')">
+          <div class="kakao-friend-main">
+            <canvas class="friend-mini-cv kakao-avatar-sq" width="480" height="480" data-avatar='${JSON.stringify(p.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+            <div style="flex:1; min-width:0;">
+              <div class="kakao-friend-nick">${p.nickname}</div>
+              <div class="kakao-friend-bio">${p.bio || "상태 메시지가 없습니다."}</div>
             </div>
           </div>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-primary" style="padding:5px 9px; font-size:0.75rem;" onclick="prepareDmTo('${otherId}', '${p.nickname}')">💬 채팅</button>
-            <button class="btn" style="padding:5px 8px; font-size:0.75rem; color:var(--danger);" onclick="removeFriendship(${r.id}, '${p.nickname}')">삭제</button>
+          <div style="display:flex; gap:5px; flex-shrink:0;" onclick="event.stopPropagation()">
+            <button class="header-btn" onclick="inspectOtherUser('${otherId}', '${safeNick}')" title="프로필">🪪</button>
+            <button class="header-btn" style="color:var(--danger);" onclick="removeFriendship(${r.id}, '${safeNick}')" title="친구 삭제">✕</button>
           </div>
         </div>
       `;
@@ -1104,19 +1138,20 @@ async function loadFriendsData() {
       .join("");
   }
 
-  // 2) 받은/보낸 요청 목록
+  // 2) 받은/보낸 친구 요청 목록
   if (pendingRels.length === 0) {
-    pendingBox.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub);">받은 친구 요청이 없습니다.</div>`;
+    pendingBox.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">받은 친구 요청이 없습니다.</div>`;
   } else {
     pendingBox.innerHTML = pendingRels
       .map(r => {
         const isIncoming = r.receiver_id === userState.id;
         const otherId = isIncoming ? r.requester_id : r.receiver_id;
         const p = profMap.get(otherId) || { nickname: "유저" };
+        const safeNick = String(p.nickname || "유저").replace(/'/g, "\\'");
         return `
         <div class="pixel-list-item">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <canvas class="friend-mini-cv" width="480" height="480" style="width:38px; height:38px; border-radius:9px; border:1.5px solid #334155;" data-avatar='${JSON.stringify(p.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <canvas class="friend-mini-cv kakao-avatar-sq" width="480" height="480" style="width:40px; height:40px;" data-avatar='${JSON.stringify(p.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
             <div>
               <strong>${p.nickname}</strong>
               <div style="font-size:0.72rem; color:var(--primary);">${isIncoming ? "📩 나를 친구 추가하고 싶어합니다" : "⏳ 상대방의 수락 대기중"}</div>
@@ -1125,10 +1160,10 @@ async function loadFriendsData() {
           <div style="display:flex; gap:4px;">
             ${
               isIncoming
-                ? `<button class="btn btn-primary" style="padding:5px 9px; font-size:0.75rem;" onclick="acceptFriendRequest(${r.id})">수락</button>`
+                ? `<button class="btn btn-primary" style="padding:5px 10px; font-size:0.75rem;" onclick="acceptFriendRequest(${r.id})">수락</button>`
                 : ""
             }
-            <button class="btn" style="padding:5px 8px; font-size:0.75rem;" onclick="removeFriendship(${r.id}, '${p.nickname}')">거절/취소</button>
+            <button class="btn" style="padding:5px 8px; font-size:0.75rem;" onclick="removeFriendship(${r.id}, '${safeNick}')">거절/취소</button>
           </div>
         </div>
       `;
@@ -1155,37 +1190,144 @@ window.removeFriendship = function (friendshipId, nick) {
   });
 };
 
-window.prepareDmTo = function (receiverId, receiverNick) {
+// 친구 클릭 -> 카카오톡 스타일 1:1 채팅방 전체화면(#dmChatScreen) 입장!
+window.prepareDmTo = async function (receiverId, receiverNick) {
+  if (!userState.isLoggedIn) {
+    gameConfirm("1:1 채팅은 로그인 후 이용할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
+    return;
+  }
   closeModal("userInspectModal");
-  openModal("socialModal");
-  switchSocialTab("dm");
-  document.getElementById("dmTargetId").value = receiverId;
-  document.getElementById("dmTargetNickInput").value = receiverNick;
-  document.getElementById("dmContentInput").focus();
+  dmState.peerId = receiverId;
+  dmState.peerNick = receiverNick || "친구";
+  dmState.peerAvatar = { ...DEFAULT_AVATAR_CONFIG };
+
+  document.getElementById("dmTargetId").value = dmState.peerId;
+  document.getElementById("dmTargetNick").value = dmState.peerNick;
+  document.getElementById("dmPeerNickTitle").textContent = dmState.peerNick;
+
+  switchScreen("dmChatScreen");
+
+  // 상대 프로필 아바타 불러오기
+  if (sbClient && dmState.peerId) {
+    try {
+      const { data: peerProf } = await sbClient
+        .from("profiles")
+        .select("nickname, avatar_config")
+        .eq("id", dmState.peerId)
+        .maybeSingle();
+      if (peerProf) {
+        dmState.peerNick = peerProf.nickname || dmState.peerNick;
+        dmState.peerAvatar = peerProf.avatar_config || DEFAULT_AVATAR_CONFIG;
+        document.getElementById("dmPeerNickTitle").textContent = dmState.peerNick;
+        const peerCv = document.getElementById("dmPeerAvatarCanvas");
+        if (peerCv) renderPixelAvatar(peerCv, dmState.peerAvatar);
+      }
+    } catch (e) {}
+  }
+
+  await loadCurrentDmConversation();
+  startDmRealtime();
 };
 
-window.sendDirectMessage = async function () {
-  const targetNick = document.getElementById("dmTargetNickInput").value.trim();
-  const content = document.getElementById("dmContentInput").value.trim();
-  let targetId = document.getElementById("dmTargetId").value;
+function startDmRealtime() {
+  stopDmRealtime();
+  if (!sbClient || !userState.id || !dmState.peerId) return;
 
-  if (!targetNick || !content) {
-    gameAlert("받는 사람 닉네임과 메시지 내용을 입력해주세요.");
+  const pairKey = [userState.id, dmState.peerId].sort().join("_");
+  dmState.channel = sbClient
+    .channel(`dm_${pairKey}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, payload => {
+      const row = payload.new;
+      if (
+        row &&
+        ((row.sender_id === userState.id && row.receiver_id === dmState.peerId) ||
+          (row.sender_id === dmState.peerId && row.receiver_id === userState.id))
+      ) {
+        loadCurrentDmConversation();
+      }
+    })
+    .subscribe();
+
+  // 폴백 폴링 (Realtime 미활성 테이블 환경 대비 4초 간격)
+  dmState.pollTimer = setInterval(() => {
+    if (typeof state !== "undefined" && state.currentScreen === "dmChatScreen") {
+      loadCurrentDmConversation();
+    }
+  }, 4000);
+}
+
+window.loadCurrentDmConversation = async function () {
+  const box = document.getElementById("dmChatMessages");
+  if (!box || !sbClient || !userState.id || !dmState.peerId) return;
+
+  const { data: msgs } = await sbClient
+    .from("direct_messages")
+    .select("*")
+    .or(
+      `and(sender_id.eq.${userState.id},receiver_id.eq.${dmState.peerId}),and(sender_id.eq.${dmState.peerId},receiver_id.eq.${userState.id})`
+    )
+    .order("created_at", { ascending: true })
+    .limit(60);
+
+  if (!msgs || msgs.length === 0) {
+    box.innerHTML = `<div style="margin:auto; text-align:center; background:rgba(15,23,42,0.18); color:#ffffff; padding:8px 14px; border-radius:999px; font-size:0.78rem; font-weight:700;">💬 [${dmState.peerNick}]님과의 1:1 대화를 시작해보세요!</div>`;
     return;
   }
 
-  if (!targetId) {
-    const { data: prof } = await sbClient
-      .from("profiles")
-      .select("id")
-      .eq("nickname", targetNick)
-      .maybeSingle();
-    if (!prof) {
-      gameAlert(`[${targetNick}] 유저를 찾을 수 없습니다.`);
-      return;
-    }
-    targetId = prof.id;
-  }
+  const fmtTime = iso => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return `${h >= 12 ? "오후" : "오전"} ${h % 12 || 12}:${m}`;
+  };
+
+  const escapeHtml = str =>
+    String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  box.innerHTML = msgs
+    .map(m => {
+      const isMine = m.sender_id === userState.id;
+      const t = fmtTime(m.created_at);
+      if (isMine) {
+        return `
+          <div class="kakao-msg-row mine">
+            <span class="kakao-msg-time">${t}</span>
+            <div class="kakao-bubble mine">${escapeHtml(m.content)}</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="kakao-msg-row theirs">
+          <canvas class="dm-bubble-avatar kakao-avatar-sq" width="480" height="480" style="width:34px; height:34px; border-radius:11px;"></canvas>
+          <div class="kakao-bubble-wrap">
+            <div style="font-size:0.72rem; font-weight:800; color:#334155; margin-bottom:3px;">${escapeHtml(dmState.peerNick)}</div>
+            <div style="display:flex; align-items:flex-end; gap:5px;">
+              <div class="kakao-bubble theirs">${escapeHtml(m.content)}</div>
+              <span class="kakao-msg-time">${t}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  box.querySelectorAll(".dm-bubble-avatar").forEach(cv => {
+    renderPixelAvatar(cv, dmState.peerAvatar);
+  });
+  box.scrollTop = box.scrollHeight;
+};
+
+window.sendDirectMessage = async function () {
+  const input = document.getElementById("dmContentInput");
+  const content = input ? input.value.trim() : "";
+  const targetId = document.getElementById("dmTargetId")?.value || dmState.peerId;
+
+  if (!content || !targetId) return;
+  input.value = "";
 
   await sbClient.from("direct_messages").insert({
     sender_id: userState.id,
@@ -1193,46 +1335,8 @@ window.sendDirectMessage = async function () {
     content
   });
 
-  document.getElementById("dmContentInput").value = "";
-  loadDirectMessages();
+  await loadCurrentDmConversation();
 };
-
-async function loadDirectMessages() {
-  const box = document.getElementById("dmListContainer");
-  if (!box || !sbClient || !userState.id) return;
-
-  const { data: msgs } = await sbClient
-    .from("direct_messages")
-    .select("*")
-    .or(`sender_id.eq.${userState.id},receiver_id.eq.${userState.id}`)
-    .order("created_at", { ascending: false })
-    .limit(40);
-
-  if (!msgs || msgs.length === 0) {
-    box.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub);">주고받은 DM 메시지가 없습니다.</div>`;
-    return;
-  }
-
-  const uids = [...new Set(msgs.flatMap(m => [m.sender_id, m.receiver_id]))];
-  const { data: profs } = await sbClient.from("profiles").select("id, nickname").in("id", uids);
-  const nameMap = new Map((profs || []).map(p => [p.id, p.nickname]));
-
-  box.innerHTML = msgs
-    .map(m => {
-      const isMine = m.sender_id === userState.id;
-      const otherId = isMine ? m.receiver_id : m.sender_id;
-      const otherNick = nameMap.get(otherId) || "유저";
-      return `
-      <div class="pixel-list-item" style="flex-direction:column; align-items:flex-start; gap:3px;" onclick="prepareDmTo('${otherId}', '${otherNick}')">
-        <div style="font-size:0.74rem; color:var(--primary); font-weight:800;">
-          ${isMine ? `📤 나 ➔ ${otherNick}` : `📩 ${otherNick} ➔ 나`}
-        </div>
-        <div style="font-size:0.86rem; color:var(--text-main);">${m.content}</div>
-      </div>
-    `;
-    })
-    .join("");
-}
 
 // ============================================================================
 // 6. 대기실 로비 (방 목록 + 접속 유저 아이콘 리스트) vs 방 내부 (맵 캐릭터 + 방 채팅 + 방 삭제)

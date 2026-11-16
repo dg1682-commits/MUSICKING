@@ -15,7 +15,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.1" />
+  <link rel="stylesheet" href="style.css?v=10.2" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -533,6 +533,72 @@
         <button class="btn" onclick="showHome()" style="width:100%; flex-shrink:0;">⬅ 메인 화면으로 돌아가기</button>
       </div>
     </section>
+
+    <!-- ==================== 10. 카카오톡 스타일 전체화면 친구 목록 페이지 (#socialScreen) ==================== -->
+    <section id="socialScreen" class="screen-view hidden">
+      <div class="kakao-screen-card">
+        <div class="kakao-header">
+          <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기" style="width:36px; height:36px; font-size:1rem;">⬅</button>
+          <h3 style="font-size:1.05rem; font-weight:900;">💬 친구</h3>
+          <div style="display:flex; gap:5px;">
+            <button class="header-btn" id="socialTab_friends" onclick="switchSocialTab('friends')" style="background:#fef08a;">👥 친구</button>
+            <button class="header-btn" id="socialTab_requests" onclick="switchSocialTab('requests')">➕ 추가</button>
+          </div>
+        </div>
+
+        <!-- 친구 목록 뷰 (카카오톡 스타일: 내 프로필 + 친구 N 리스트) -->
+        <div id="socialPane_friends" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+          <div class="kakao-my-profile-box" onclick="openMyProfileModal()" style="cursor:pointer;">
+            <canvas id="socialMyAvatarCanvas" class="kakao-avatar-sq" width="480" height="480"></canvas>
+            <div style="flex:1; min-width:0;">
+              <div id="socialMyNickDisplay" class="kakao-friend-nick" style="font-size:1rem;">내 닉네임</div>
+              <div id="socialMyBioDisplay" class="kakao-friend-bio">상태 메시지</div>
+            </div>
+            <span class="badge primary">내 프로필</span>
+          </div>
+
+          <div class="kakao-section-divider" id="kakaoFriendsCountLabel">친구 0</div>
+          <div id="friendsListContainer" class="kakao-friend-list"></div>
+        </div>
+
+        <!-- 친구 찾기 & 받은/보낸 요청 뷰 -->
+        <div id="socialPane_requests" class="hidden" style="flex:1; min-height:0; display:flex; flex-direction:column; padding:12px; gap:8px;">
+          <div class="action-row" style="flex-shrink:0;">
+            <input type="text" id="friendSearchInput" class="text-input" placeholder="추가할 친구 닉네임 입력..." style="padding:8px 10px;" onkeydown="if(event.key==='Enter') sendFriendRequestByNick()" />
+            <button class="btn btn-primary" onclick="sendFriendRequestByNick()">친구 신청</button>
+          </div>
+          <div class="section-label" style="margin-bottom:0; flex-shrink:0;"><span>📩 받은 / 보낸 친구 요청</span></div>
+          <div id="friendRequestsContainer" class="history-scroll-box" style="flex:1; min-height:0;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 11. 카카오톡 스타일 전체화면 1:1 DM 채팅방 (#dmChatScreen) ==================== -->
+    <section id="dmChatScreen" class="screen-view hidden">
+      <div class="kakao-chat-room">
+        <input type="hidden" id="dmTargetId" />
+        <input type="hidden" id="dmTargetNick" />
+
+        <div class="kakao-chat-header">
+          <div style="display:flex; align-items:center; gap:9px;">
+            <button class="header-btn" onclick="switchScreen('socialScreen'); loadFriendsData();" style="padding:6px 10px;">⬅ 뒤로</button>
+            <canvas id="dmPeerAvatarCanvas" class="kakao-avatar-sq" width="480" height="480" style="width:36px; height:36px; border-radius:12px;"></canvas>
+            <strong id="dmPeerNickTitle" style="font-size:1rem; font-weight:900; color:#1e1b18;">친구</strong>
+          </div>
+          <div style="display:flex; gap:5px;">
+            <button class="header-btn" onclick="loadCurrentDmConversation()" title="새로고침">🔄</button>
+            <button class="header-btn" onclick="inspectOtherUser(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="프로필 보기">🪪</button>
+          </div>
+        </div>
+
+        <div id="dmChatMessages" class="kakao-chat-messages"></div>
+
+        <div class="kakao-chat-inputbar">
+          <input type="text" id="dmContentInput" class="text-input" placeholder="메시지 보내기..." autocomplete="off" style="flex:1; padding:9px 12px;" onkeydown="if(event.key==='Enter') sendDirectMessage()" />
+          <button type="button" class="kakao-send-btn" onclick="sendDirectMessage()">전송</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- ==================== [모달 0-A] 회원가입 전용 남/여 캐릭터 선택 모달 ==================== -->
@@ -644,46 +710,6 @@
       <div class="action-row">
         <button class="btn btn-primary" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
         <button class="btn btn-accent" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== [모달 5] 소셜 센터 (친구 · 요청 · DM) ==================== -->
-  <div id="socialModal" class="modal-backdrop hidden">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem;">👥 소셜 센터 (친구 · 요청 · DM)</h3>
-        <button class="header-btn" onclick="closeModal('socialModal')">닫기 ✕</button>
-      </div>
-      <div class="option-grid cols-3" style="margin-bottom:10px;">
-        <div class="option-chip active" id="socialTab_friends" onclick="switchSocialTab('friends')"><span class="chip-title">👥 내 친구</span></div>
-        <div class="option-chip" id="socialTab_requests" onclick="switchSocialTab('requests')"><span class="chip-title">➕ 친구 찾기·요청</span></div>
-        <div class="option-chip" id="socialTab_dm" onclick="switchSocialTab('dm')"><span class="chip-title">💬 1:1 채팅</span></div>
-      </div>
-
-      <div id="socialPane_friends">
-        <div id="friendsListContainer" class="history-scroll-box" style="max-height:290px;"></div>
-      </div>
-
-      <div id="socialPane_requests" class="hidden">
-        <div class="action-row" style="margin-bottom:8px;">
-          <input type="text" id="friendSearchInput" class="text-input" placeholder="추가할 유저 닉네임 입력..." style="padding:7px 10px;" />
-          <button class="btn btn-primary" onclick="sendFriendRequestByNick()">친구 신청</button>
-        </div>
-        <div class="section-label"><span>📩 받은/보낸 친구 요청</span></div>
-        <div id="friendRequestsContainer" class="history-scroll-box" style="max-height:230px;"></div>
-      </div>
-
-      <div id="socialPane_dm" class="hidden">
-        <input type="hidden" id="dmTargetId" />
-        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
-          <input type="text" id="dmTargetNickInput" class="text-input" placeholder="받는 사람 닉네임" style="padding:7px 10px;" />
-          <div class="action-row">
-            <input type="text" id="dmContentInput" class="text-input" placeholder="보낼 메시지 입력..." style="padding:7px 10px;" onkeydown="if(event.key==='Enter') sendDirectMessage()" />
-            <button class="btn btn-primary" onclick="sendDirectMessage()">전송</button>
-          </div>
-        </div>
-        <div id="dmListContainer" class="history-scroll-box" style="max-height:230px;"></div>
       </div>
     </div>
   </div>
@@ -867,9 +893,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.1"></script>
-  <script src="pixel_avatar.js?v=10.1"></script>
-  <script src="online.js?v=10.1"></script>
-  <script src="app.js?v=10.1"></script>
+  <script src="data.js?v=10.2"></script>
+  <script src="pixel_avatar.js?v=10.2"></script>
+  <script src="online.js?v=10.2"></script>
+  <script src="app.js?v=10.2"></script>
 </body>
 </html>

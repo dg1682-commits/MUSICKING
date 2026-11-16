@@ -47,7 +47,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, #roomChatLog, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -67,20 +67,35 @@ function isRunningAsApp() {
 }
 
 // ============================================================================
-// 모바일 키보드 올라올 때 문제가 절대 가려지지 않도록 동적 뷰포트 제어
+// 모바일 키보드 올라올 때 문제 카드와 UI가 절대 찌그러지지 않도록 동적 뷰포트 제어
 // ============================================================================
 function setupMobileKeyboardViewportHandler() {
   const shell = document.querySelector(".app-shell");
   if (!shell) return;
 
+  let baseHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
   const updateViewport = () => {
     if (window.visualViewport) {
       const vh = window.visualViewport.height;
-      const fullH = window.innerHeight;
+      if (vh > baseHeight) baseHeight = vh;
       shell.style.height = `${vh}px`;
-      // 키보드가 올라와 화면 높이가 줄어든 상태 감지
-      if (fullH - vh > 110) {
+
+      const isInputFocused =
+        document.activeElement &&
+        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+
+      if (baseHeight - vh > 110 || (isInputFocused && baseHeight - vh > 60)) {
         document.body.classList.add("keyboard-open");
+        if (isInputFocused) {
+          setTimeout(() => {
+            document.activeElement?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }, 60);
+        }
+        const dmList = document.getElementById("dmChatMessages");
+        if (dmList && state.currentScreen === "dmChatScreen") {
+          dmList.scrollTop = dmList.scrollHeight;
+        }
       } else {
         document.body.classList.remove("keyboard-open");
       }
@@ -190,7 +205,14 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen"].includes(state.currentScreen)) {
+  if (state.currentScreen === "dmChatScreen") {
+    switchScreen("socialScreen");
+    if (typeof loadFriendsData === "function") loadFriendsData();
+    pushAppHistoryState();
+    return;
+  }
+
+  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
     pushAppHistoryState();
     return;
@@ -448,7 +470,7 @@ document.addEventListener(
   "click",
   e => {
     const clickable = e.target.closest(
-      "button, .btn, .header-btn, .option-chip, .apf-tab, .apf-tile, .apf-back-circle, .rank-chip, .pixel-list-item, .toggle-banner, .user-profile-trigger, .home-title-pill, .floating-sound-btn, .hint-btn, .auth-check-label"
+      "button, .btn, .header-btn, .option-chip, .apf-tab, .apf-tile, .apf-back-circle, .rank-chip, .pixel-list-item, .kakao-friend-row, .kakao-send-btn, .toggle-banner, .user-profile-trigger, .home-title-pill, .floating-sound-btn, .hint-btn, .auth-check-label"
     );
     if (clickable) {
       playClickSfx();
@@ -528,11 +550,15 @@ window.switchScreen = function (targetId) {
   // 싱글/멀티 전용 플레이 화면일 때 전자 미디(MIDI) 다크 스튜디오 배경 활성화
   document.body.classList.toggle("midi-play-theme", ["gameScreen", "battlePlayScreen"].includes(targetId));
 
+  if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
+    stopDmRealtime();
+  }
+
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
     headerEl.classList.toggle(
       "hidden",
-      ["loginScreen", "shopScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen"].includes(targetId)
+      ["loginScreen", "shopScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
     );
   }
 
@@ -547,7 +573,9 @@ window.switchScreen = function (targetId) {
     "shopScreen",
     "battleRoomScreen",
     "battlePlayScreen",
-    "rankingScreen"
+    "rankingScreen",
+    "socialScreen",
+    "dmChatScreen"
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
