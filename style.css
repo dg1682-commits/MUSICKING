@@ -1583,3 +1583,64 @@ body.midi-play-theme .score-plus {
   cursor: pointer;
   flex-shrink: 0;
 }
+
+/* ==================== 헤더 바로 아래 좌(❓ 게임방법) · 우(🔔 DM 알림) 둥둥 버튼 ==================== */
+.floating-top-btn {
+  position: absolute;
+  top: 78px;
+  z-index: 880;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2.5px solid #1e1b18;
+  background: #ffffff;
+  color: #1e1b18;
+  font-size: 1.08rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #1e1b18, 0 6px 14px rgba(0, 0, 0, 0.16);
+}
+
+.floating-top-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #1e1b18;
+}
+
+.floating-top-btn.left-help {
+  left: 20px;
+  background: #fef08a;
+  color: #1e1b18;
+}
+
+.floating-top-btn.right-noti {
+  right: 20px;
+  background: #ffffff;
+  animation: notiPop 1.8s infinite ease-in-out;
+}
+
+.noti-count-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes notiPop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}

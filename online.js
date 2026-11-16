@@ -355,6 +355,7 @@ async function restoreSupabaseSession() {
           : ["meadow", "default", "none", "basic", "mic_silver"];
         userState.isLoggedIn = true;
         updateHeaderUserUI();
+        if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
         if (typeof showHome === "function") showHome();
       }
     }
@@ -457,6 +458,7 @@ window.handleAuthSubmit = async function (mode) {
       });
 
       updateHeaderUserUI();
+      if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
       showHome();
       gameAlert(`환영합니다, [${nickInput}]님!\n웰컴 보너스 💿 100 CD가 지급되었습니다!`, "🎉 가입 완료");
     } else {
@@ -490,6 +492,7 @@ window.handleAuthSubmit = async function (mode) {
       saveAuthPreferences(userState.nickname);
 
       updateHeaderUserUI();
+      if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
       showHome();
     }
   } catch (err) {
@@ -499,6 +502,7 @@ window.handleAuthSubmit = async function (mode) {
 
 window.handleLogout = async function () {
   gameConfirm("정말 로그아웃 하시겠습니까?", async () => {
+    if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
     if (sbClient) {
       try { await sbClient.auth.signOut(); } catch (e) {}
     }
@@ -996,6 +1000,169 @@ const dmState = {
   pollTimer: null
 };
 
+const dmNotiState = {
+  unreadList: [],
+  profileMap: new Map(),
+  channel: null,
+  pollTimer: null
+};
+
+function getSeenDmMap() {
+  if (!userState.id) return {};
+  try {
+    return JSON.parse(localStorage.getItem(`mk_dm_seen_map_${userState.id}`) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+window.markPeerDmRead = function (peerId, newestIso = null) {
+  if (!userState.id || !peerId) return;
+  const map = getSeenDmMap();
+  map[peerId] = newestIso || new Date().toISOString();
+  localStorage.setItem(`mk_dm_seen_map_${userState.id}`, JSON.stringify(map));
+  dmNotiState.unreadList = dmNotiState.unreadList.filter(m => m.sender_id !== peerId);
+  syncDmNotiBadgeUI();
+};
+
+window.markAllDmNotiRead = function () {
+  if (!userState.id) return;
+  const map = getSeenDmMap();
+  const nowIso = new Date().toISOString();
+  dmNotiState.unreadList.forEach(m => {
+    map[m.sender_id] = m.created_at > nowIso ? m.created_at : nowIso;
+  });
+  localStorage.setItem(`mk_dm_seen_map_${userState.id}`, JSON.stringify(map));
+  dmNotiState.unreadList = [];
+  syncDmNotiBadgeUI();
+};
+
+window.syncDmNotiBadgeUI = function () {
+  const btn = document.getElementById("floatingDmNotiBtn");
+  const badge = document.getElementById("dmNotiBadgeCount");
+  if (!btn || !badge) return;
+  const count = dmNotiState.unreadList.length;
+  const curScreen = typeof state !== "undefined" ? state.currentScreen : "homeScreen";
+  const allowScreen = ["homeScreen", "setupScreen", "plazaScreen", "rankingScreen", "socialScreen"].includes(curScreen);
+  btn.classList.toggle("hidden", !(userState.isLoggedIn && count > 0 && allowScreen));
+  badge.textContent = count > 99 ? "99+" : String(count);
+};
+
+window.refreshUnreadDmNotis = async function () {
+  if (!sbClient || !userState.isLoggedIn || !userState.id) {
+    dmNotiState.unreadList = [];
+    syncDmNotiBadgeUI();
+    return;
+  }
+
+  try {
+    const sinceIso = new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString();
+    const { data: msgs } = await sbClient
+      .from("direct_messages")
+      .select("*")
+      .eq("receiver_id", userState.id)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    const seenMap = getSeenDmMap();
+    const curScreen = typeof state !== "undefined" ? state.currentScreen : "";
+
+    // 현재 해당 상대와 카톡 채팅방에 이미 들어가 있는 중이면 자동 읽음 처리
+    const unread = (msgs || []).filter(m => {
+      if (curScreen === "dmChatScreen" && dmState.peerId === m.sender_id) {
+        return false;
+      }
+      const seenAt = seenMap[m.sender_id] || "";
+      return !seenAt || new Date(m.created_at).getTime() > new Date(seenAt).getTime();
+    });
+
+    dmNotiState.unreadList = unread;
+
+    const senderIds = [...new Set(unread.map(m => m.sender_id))];
+    if (senderIds.length > 0) {
+      const { data: profs } = await sbClient.from("profiles").select("id, nickname, avatar_config").in("id", senderIds);
+      (profs || []).forEach(p => dmNotiState.profileMap.set(p.id, p));
+    }
+
+    syncDmNotiBadgeUI();
+  } catch (e) {}
+};
+
+window.startGlobalDmNotiListener = function () {
+  stopGlobalDmNotiListener();
+  if (!sbClient || !userState.isLoggedIn || !userState.id) return;
+
+  refreshUnreadDmNotis();
+
+  dmNotiState.channel = sbClient
+    .channel(`global_dm_noti_${userState.id}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, payload => {
+      const row = payload.new;
+      if (row && row.receiver_id === userState.id) {
+        refreshUnreadDmNotis();
+      }
+    })
+    .subscribe();
+
+  dmNotiState.pollTimer = setInterval(() => {
+    refreshUnreadDmNotis();
+  }, 8000);
+};
+
+window.stopGlobalDmNotiListener = function () {
+  if (dmNotiState.channel && sbClient) {
+    try { sbClient.removeChannel(dmNotiState.channel); } catch (e) {}
+    dmNotiState.channel = null;
+  }
+  if (dmNotiState.pollTimer) {
+    clearInterval(dmNotiState.pollTimer);
+    dmNotiState.pollTimer = null;
+  }
+  dmNotiState.unreadList = [];
+  syncDmNotiBadgeUI();
+};
+
+window.openDmNotiModal = async function () {
+  await refreshUnreadDmNotis();
+  const listEl = document.getElementById("dmNotiPreviewList");
+  if (!listEl) return;
+
+  if (dmNotiState.unreadList.length === 0) {
+    listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">새로 도착한 메시지가 없습니다.</div>`;
+  } else {
+    listEl.innerHTML = dmNotiState.unreadList
+      .map(m => {
+        const prof = dmNotiState.profileMap.get(m.sender_id) || { nickname: "친구", avatar_config: DEFAULT_AVATAR_CONFIG };
+        const safeNick = String(prof.nickname || "친구").replace(/'/g, "\\'");
+        const d = new Date(m.created_at);
+        const timeStr = `${d.getHours() >= 12 ? "오후" : "오전"} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}`;
+        return `
+          <div class="pixel-list-item" onclick="closeModal('dmNotiModal'); prepareDmTo('${m.sender_id}', '${safeNick}')">
+            <div style="display:flex; align-items:center; gap:9px; min-width:0; flex:1;">
+              <canvas class="noti-mini-cv kakao-avatar-sq" width="480" height="480" style="width:40px; height:40px;" data-avatar='${JSON.stringify(prof.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+              <div style="min-width:0; flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="font-size:0.88rem;">${prof.nickname}</strong>
+                  <span style="font-size:0.68rem; color:var(--text-sub);">${timeStr}</span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${String(m.content || "").replace(/</g, "&lt;")}</div>
+              </div>
+            </div>
+            <span class="badge primary">답장 ➔</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    listEl.querySelectorAll(".noti-mini-cv").forEach(cv => {
+      try { renderPixelAvatar(cv, JSON.parse(cv.getAttribute("data-avatar"))); } catch (e) {}
+    });
+  }
+
+  openModal("dmNotiModal");
+};
+
 window.stopDmRealtime = function () {
   if (dmState.channel && sbClient) {
     try { sbClient.removeChannel(dmState.channel); } catch (e) {}
@@ -1226,6 +1393,7 @@ window.prepareDmTo = async function (receiverId, receiverNick) {
   }
 
   await loadCurrentDmConversation();
+  markPeerDmRead(dmState.peerId);
   startDmRealtime();
 };
 
@@ -1319,6 +1487,7 @@ window.loadCurrentDmConversation = async function () {
     renderPixelAvatar(cv, dmState.peerAvatar);
   });
   box.scrollTop = box.scrollHeight;
+  markPeerDmRead(dmState.peerId);
 };
 
 window.sendDirectMessage = async function () {

@@ -482,7 +482,7 @@ document.addEventListener(
 function syncFloatingSoundBtn(screenId) {
   const btn = document.getElementById("floatingSoundBtn");
   if (!btn) return;
-  const showBtn = ["loginScreen", "homeScreen", "rankingScreen", "shopScreen"].includes(screenId);
+  const showBtn = ["loginScreen", "homeScreen", "rankingScreen", "shopScreen", "socialScreen"].includes(screenId);
   btn.classList.toggle("hidden", !showBtn);
   btn.textContent = bgmState.muted ? "🔇" : "🔊";
   btn.classList.toggle("is-muted", bgmState.muted);
@@ -504,8 +504,8 @@ function updateBgmForScreen(screenId) {
     return;
   }
 
-  // 게임 진행 화면(1초 듣기 등 음원과 겹침 방지)은 BGM 정지
-  if (["gameScreen", "judgeScreen", "battlePlayScreen"].includes(screenId)) {
+  // 게임 진행 화면 & 결과 화면만 BGM 정지 (상점=shop.mp3, 친구목록 포함 그 외 모든 화면=main.mp3 끊김 없이 재생!)
+  if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen"].includes(screenId)) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
     bgmState.currentType = "none";
@@ -515,11 +515,15 @@ function updateBgmForScreen(screenId) {
   if (screenId === "shopScreen") {
     bgmState.mainAudio.pause();
     bgmState.currentType = "shop";
-    bgmState.shopAudio.play().catch(() => {});
+    if (bgmState.shopAudio.paused) {
+      bgmState.shopAudio.play().catch(() => {});
+    }
   } else {
     bgmState.shopAudio.pause();
     bgmState.currentType = "main";
-    bgmState.mainAudio.play().catch(() => {});
+    if (bgmState.mainAudio.paused) {
+      bgmState.mainAudio.play().catch(() => {});
+    }
   }
 }
 
@@ -580,6 +584,14 @@ window.switchScreen = function (targetId) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });
+
+  const helpBtn = document.getElementById("floatingHelpBtn");
+  if (helpBtn) {
+    helpBtn.classList.toggle("hidden", targetId !== "homeScreen");
+  }
+  if (typeof syncDmNotiBadgeUI === "function") {
+    syncDmNotiBadgeUI();
+  }
 
   updateBgmForScreen(targetId);
 
