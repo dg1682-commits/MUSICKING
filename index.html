@@ -6,6 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="음악왕" />
   <meta name="theme-color" content="#38bdf8" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
@@ -15,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.4" />
+  <link rel="stylesheet" href="style.css?v=10.5" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -944,9 +945,46 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.4"></script>
-  <script src="pixel_avatar.js?v=10.4"></script>
-  <script src="online.js?v=10.4"></script>
-  <script src="app.js?v=10.4"></script>
+  <!-- 🍎 아이폰(iOS) 전용 앱 설치 안내 배너 -->
+  <div id="ios-pwa-prompt" style="display: none; position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 90%; max-width: 380px; background: rgba(25, 25, 35, 0.96); color: #ffffff; padding: 14px 16px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.45); z-index: 99999; font-family: var(--font-main); border: 2px solid #38bdf8; backdrop-filter: blur(8px);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+      <div style="font-size: 13px; line-height: 1.5; word-break: keep-all;">
+        <div style="font-weight: 900; font-size: 14.5px; margin-bottom: 4px; color: #facc15;">
+          📲 아이폰 앱으로 설치하기 (전체화면)
+        </div>
+        Safari 하단의 <b>[공유 📤]</b> 버튼을 누른 뒤 <b>[홈 화면에 추가 ➕]</b>를 선택하면 주소창 없는 앱으로 즐길 수 있어요!
+      </div>
+      <button type="button" id="ios-pwa-close" style="background: none; border: none; color: #cbd5e1; font-size: 22px; font-weight: 900; line-height: 1; cursor: pointer; padding: 0 4px;">&times;</button>
+    </div>
+    <div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
+  </div>
+
+  <script src="data.js?v=10.5"></script>
+  <script src="pixel_avatar.js?v=10.5"></script>
+  <script src="online.js?v=10.5"></script>
+  <script src="app.js?v=10.5"></script>
+  <script>
+    (function () {
+      var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      var isStandalone = window.navigator.standalone === true ||
+                         window.matchMedia("(display-mode: standalone)").matches;
+      var dismissedTime = localStorage.getItem("musicking_ios_prompt_hide");
+      var isDismissed = dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 24 * 60 * 60 * 1000;
+
+      if (isIOS && !isStandalone && !isDismissed) {
+        var promptEl = document.getElementById("ios-pwa-prompt");
+        if (promptEl) promptEl.style.display = "block";
+      }
+
+      var closeBtn = document.getElementById("ios-pwa-close");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          document.getElementById("ios-pwa-prompt").style.display = "none";
+          localStorage.setItem("musicking_ios_prompt_hide", Date.now().toString());
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
