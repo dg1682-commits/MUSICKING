@@ -1,12 +1,16 @@
 // ============================================================================
-// [음악왕] 메인 게임 로직 (모바일 최적화 · 화이트톤 · 전용 정답/오답 화면 전환)
+// [음악왕 v2.0] 메인 게임 엔진 (app.js)
+// - 타임어택(×2), 찐팬 하드모드, 클리어 정보 배지, html2canvas 결과 캡처 공유
+// - CD 재화 변환, 설정, 패치노트, 온라인 랭킹 자동 등록 통합
 // ============================================================================
 
 const state = {
   decades: new Set(["1990s", "2000s", "2010s", "2020s"]),
   mode: "behind",      // 'behind' | 'lyrics' | 'onesec'
-  stage: 1,            // 1: 노래 맞히기 | 2: 가수 맞히기 | 3: 가수+노래 맞히기
+  stage: 1,            // 1: 노래 | 2: 가수 | 3: 가수+노래
   questionLimit: 10,   // 10 | 20 | 50 | 'infinite'
+  timeAttack: false,   // 타임어택 ON/OFF (점수 2배)
+  hardMode: false,     // 하드모드 (코요태, 쿨, 버즈 등 다곡 가수 집중 출제)
 
   pool: [],
   currentIndex: 0,
@@ -21,6 +25,11 @@ const state = {
   usedHintAudio: false,
   questionEnded: false,
 
+  // 타임어택 타이머
+  timerInterval: null,
+  timeLeftMs: 15000,
+  maxTimeMs: 15000,
+
   audioEl: new Audio(),
   audioStopTimer: null,
   itunesCache: new Map(),
@@ -28,19 +37,45 @@ const state = {
 };
 
 state.audioEl.crossOrigin = "anonymous";
+state.audioEl.volume = 0.85;
 
-// 모바일 핀치줌·더블탭 확대 및 불필요한 바디 스크롤 방지
+// 모바일 핀치줌·바디 스크롤 차단
 document.addEventListener("gesturestart", e => e.preventDefault(), { passive: false });
 document.addEventListener(
   "touchmove",
   e => {
-    const scrollable = e.target.closest(".question-content, .judge-note-box, #historyList, .modal-content, textarea");
+    const scrollable = e.target.closest(
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, textarea, input[type='range']"
+    );
     if (!scrollable) {
       e.preventDefault();
     }
   },
   { passive: false }
 );
+
+// 모달 열기/닫기 전역 함수
+window.openModal = function (id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove("hidden");
+};
+
+window.closeModal = function (id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add("hidden");
+};
+
+window.openRankingModal = function () {
+  openModal("rankingModal");
+  if (typeof loadRankingsList === "function") loadRankingsList();
+};
+
+window.toggleFontStyle = function () {
+  document.body.classList.toggle("standard-font");
+  const isPixel = !document.body.classList.contains("standard-font");
+  const statusEl = document.getElementById("fontStyleStatus");
+  if (statusEl) statusEl.textContent = isPixel ? "ON" : "OFF (기본 고딕)";
+};
 
 function getCustomQuestions() {
   try {
@@ -59,6 +94,14 @@ function saveCustomQuestions(list) {
 
 function getAllQuestions() {
   return [...QUESTIONS_DB, ...getCustomQuestions()];
+}
+
+function getFilteredQuestions() {
+  return getAllQuestions().filter(q => {
+    if (!state.decades.has(q.decade)) return false;
+    if (state.hardMode && !q.hardMode) return false;
+    return true;
+  });
 }
 
 function normalizeAnswer(str) {
@@ -141,6 +184,42 @@ function stopAudio() {
   if (disc) disc.classList.remove("spinning");
 }
 
+function stopTimeAttackTimer() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+  }
+}
+
+function startTimeAttackTimer() {
+  stopTimeAttackTimer();
+  const wrap = document.getElementById("timerBarWrap");
+  const fill = document.getElementById("timerBarFill");
+  if (!state.timeAttack) {
+    if (wrap) wrap.classList.add("hidden");
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+  state.timeLeftMs = state.maxTimeMs;
+  fill.style.width = "100%";
+
+  state.timerInterval = setInterval(() => {
+    if (state.questionEnded) {
+      stopTimeAttackTimer();
+      return;
+    }
+    state.timeLeftMs -= 100;
+    const pct = Math.max(0, (state.timeLeftMs / state.maxTimeMs) * 100);
+    fill.style.width = `${pct}%`;
+
+    if (state.timeLeftMs <= 0) {
+      stopTimeAttackTimer();
+      finalizeQuestion(false, "⏱️ 시간 초과! (타임어택 15초 경과)");
+    }
+  }, 100);
+}
+
 async function playAudioSnippet(durationSec, startOffsetSec = 6) {
   stopAudio();
   const q = state.currentQ;
@@ -151,7 +230,7 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6) {
 
   const track = await fetchItunesTrack(q);
   if (!track || !track.previewUrl) {
-    if (statusEl) statusEl.textContent = "⚠️ 이 곡의 미리듣기 음원을 찾을 수 없습니다.";
+    if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
     alert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
     return;
   }
@@ -165,7 +244,7 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6) {
           state.audioEl.removeEventListener("error", onError);
         };
         const onLoaded = () => { cleanup(); resolve(); };
-        const onError = (e) => { cleanup(); reject(e); };
+        const onError = e => { cleanup(); reject(e); };
         state.audioEl.addEventListener("loadedmetadata", onLoaded);
         state.audioEl.addEventListener("error", onError);
         state.audioEl.load();
@@ -201,17 +280,19 @@ function shuffleArray(arr) {
 }
 
 // ============================================================================
-// 화면 전환 헬퍼 (5개 화면)
+// 화면 전환
 // ============================================================================
 function switchScreen(targetId) {
   stopAudio();
-  ["homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen"].forEach(id => {
+  stopTimeAttackTimer();
+  ["homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });
 }
 
 function showHome() {
+  updateHeaderUserUI();
   switchScreen("homeScreen");
 }
 
@@ -221,19 +302,30 @@ function showSetup() {
 }
 
 function updateLobbyCounts() {
-  const all = getAllQuestions();
-  const filtered = all.filter(q => state.decades.has(q.decade));
+  const filtered = getFilteredQuestions();
   const countBadge = document.getElementById("availablePoolCount");
   if (countBadge) {
-    countBadge.textContent = `총 ${filtered.length}문제`;
+    countBadge.textContent = `${state.hardMode ? "🔥하드모드 " : ""}총 ${filtered.length}문제`;
   }
 }
 
 function initEvents() {
-  // 메인 화면 -> 설정 화면 ("음악왕 도전" 버튼)
+  updateHeaderUserUI();
+
+  // 헤더 액션
+  document.getElementById("brandHome").addEventListener("click", showHome);
+  document.getElementById("headerCdBtn").addEventListener("click", openShopModal);
+  document.getElementById("headerProfileBtn").addEventListener("click", openMyProfileModal);
+  document.getElementById("openPatchBtn").addEventListener("click", () => openModal("patchNotesModal"));
+  document.getElementById("openSettingsBtn").addEventListener("click", () => openModal("settingsModal"));
+
+  document.getElementById("volumeSlider").addEventListener("input", e => {
+    state.audioEl.volume = Number(e.target.value);
+  });
+
+  // 홈 -> 설정
   document.getElementById("enterSetupBtn").addEventListener("click", showSetup);
   document.getElementById("setupBackHomeBtn").addEventListener("click", showHome);
-  document.getElementById("brandHome").addEventListener("click", showHome);
 
   // 연대 선택
   document.querySelectorAll("[data-decade]").forEach(el => {
@@ -277,12 +369,30 @@ function initEvents() {
     });
   });
 
+  // 타임어택 토글 (점수 ×2)
+  document.getElementById("toggleTimeAttackBtn").addEventListener("click", () => {
+    state.timeAttack = !state.timeAttack;
+    const btn = document.getElementById("toggleTimeAttackBtn");
+    btn.classList.toggle("active-time", state.timeAttack);
+    document.getElementById("timeAttackStateText").textContent = state.timeAttack ? "ON (15초)" : "OFF";
+  });
+
+  // 하드모드 토글 (코요태, 쿨, 버즈 등 다곡 헷갈리는 가수 집중)
+  document.getElementById("toggleHardModeBtn").addEventListener("click", () => {
+    state.hardMode = !state.hardMode;
+    const btn = document.getElementById("toggleHardModeBtn");
+    btn.classList.toggle("active-hard", state.hardMode);
+    document.getElementById("hardModeStateText").textContent = state.hardMode ? "ON" : "OFF";
+    updateLobbyCounts();
+  });
+
   document.getElementById("startGameBtn").addEventListener("click", startGame);
   document.getElementById("backToLobbyBtn").addEventListener("click", showSetup);
   document.getElementById("restartSameBtn").addEventListener("click", startGame);
   document.getElementById("resultToLobbyBtn").addEventListener("click", showHome);
+  document.getElementById("shareResultBtn").addEventListener("click", shareResultImage);
 
-  // 힌트 및 정답 버튼
+  // 인게임 버튼
   document.getElementById("hintLetterBtn").addEventListener("click", useLetterHint);
   document.getElementById("hintKeywordBtn").addEventListener("click", useKeywordHint);
   document.getElementById("hintAudioBtn").addEventListener("click", useAudioHint);
@@ -301,13 +411,7 @@ function initEvents() {
   });
 
   // MD 모달
-  document.getElementById("openMdModalBtn").addEventListener("click", () => {
-    document.getElementById("mdModal").classList.remove("hidden");
-    renderCustomQuestionCount();
-  });
-  document.getElementById("closeMdModalBtn").addEventListener("click", () => {
-    document.getElementById("mdModal").classList.add("hidden");
-  });
+  document.getElementById("closeMdModalBtn").addEventListener("click", () => closeModal("mdModal"));
   document.getElementById("mdFileInput").addEventListener("change", handleMdFileUpload);
   document.getElementById("parseMdTextBtn").addEventListener("click", handleMdTextParse);
   document.getElementById("clearCustomBtn").addEventListener("click", () => {
@@ -330,13 +434,13 @@ function syncDecadeChips() {
 }
 
 // ============================================================================
-// 게임 시작 및 문제 로드
+// 게임 시작 및 진행
 // ============================================================================
 function startGame() {
   stopAudio();
-  const candidates = getAllQuestions().filter(q => state.decades.has(q.decade));
+  const candidates = getFilteredQuestions();
   if (candidates.length === 0) {
-    alert("선택한 연대에 문제가 없습니다.");
+    alert("선택한 조건에 해당하는 문제가 없습니다.");
     return;
   }
 
@@ -368,14 +472,14 @@ function loadCurrentQuestion() {
   fetchItunesTrack(q);
 
   const modeNames = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" };
-  const stageNames = { 1: "1단계·노래", 2: "2단계·가수", 3: "3단계·가수+노래" };
+  const stageNames = { 1: "1단계·노래", 2: "2단계·가수", 3: "3단계·모두" };
 
   document.getElementById("badgeDecade").textContent = `${q.year}년`;
   document.getElementById("badgeMode").textContent = modeNames[state.mode];
   document.getElementById("badgeStage").textContent = stageNames[state.stage];
+  document.getElementById("badgeTimeAttack").classList.toggle("hidden", !state.timeAttack);
 
-  const totalText = state.questionLimit === "infinite" ? `${state.pool.length}` : `${state.pool.length}`;
-  document.getElementById("progressText").textContent = `${state.currentIndex + 1}/${totalText}`;
+  document.getElementById("progressText").textContent = `${state.currentIndex + 1}/${state.pool.length}`;
   document.getElementById("scoreText").textContent = `${state.score}점`;
 
   const heartsEl = document.getElementById("heartsDisplay");
@@ -388,13 +492,10 @@ function loadCurrentQuestion() {
 
   const givenBanner = document.getElementById("givenInfoBanner");
   if (state.stage === 1) {
-    givenBanner.classList.remove("hidden");
     givenBanner.innerHTML = `<span>🎤 가수 힌트</span><strong>${q.artist}</strong>`;
   } else if (state.stage === 2) {
-    givenBanner.classList.remove("hidden");
     givenBanner.innerHTML = `<span>🎯 목표</span><strong>이 곡의 가수를 맞히세요!</strong>`;
   } else {
-    givenBanner.classList.remove("hidden");
     givenBanner.innerHTML = `<span>🎯 목표</span><strong>가수와 노래 제목 모두 입력</strong>`;
   }
 
@@ -403,13 +504,13 @@ function loadCurrentQuestion() {
   const qTypeTag = document.getElementById("questionTypeTag");
 
   if (state.mode === "behind") {
-    qTypeTag.textContent = "💡 비하인드 스토리 퀴즈";
+    qTypeTag.textContent = state.hardMode ? "🔥 하드모드 비하인드 퀴즈" : "💡 비하인드 스토리 퀴즈";
     qContent.className = "question-content";
     qContent.textContent = q.behindQuestion;
     qContent.classList.remove("hidden");
     oneSecBox.classList.add("hidden");
   } else if (state.mode === "lyrics") {
-    qTypeTag.textContent = "🎶 가사 보고 맞히기";
+    qTypeTag.textContent = "🎶 하이라이트 가사 보고 맞히기";
     qContent.className = "question-content lyrics-style";
     qContent.innerHTML = `" ${q.lyricsQuestion.replace(/\//g, "<br>")} "`;
     qContent.classList.remove("hidden");
@@ -421,7 +522,6 @@ function loadCurrentQuestion() {
     document.getElementById("audioStatusText").textContent = "아래 [▶ 1초 듣기] 버튼을 눌러주세요!";
   }
 
-  // 힌트 버튼 초기화 (1초 듣기 모드에서는 노래 힌트 제외)
   const btnLetter = document.getElementById("hintLetterBtn");
   const btnKeyword = document.getElementById("hintKeywordBtn");
   const btnAudio = document.getElementById("hintAudioBtn");
@@ -440,7 +540,6 @@ function loadCurrentQuestion() {
   }
 
   document.getElementById("hintsDisplay").innerHTML = "";
-  document.getElementById("partialFeedback").classList.add("hidden");
 
   const artistGroup = document.getElementById("artistInputGroup");
   const titleGroup = document.getElementById("titleInputGroup");
@@ -460,6 +559,8 @@ function loadCurrentQuestion() {
     artistGroup.classList.remove("hidden");
     titleGroup.classList.remove("hidden");
   }
+
+  startTimeAttackTimer();
 }
 
 window.playOneSecMain = function () {
@@ -514,7 +615,7 @@ function useAudioHint() {
     state.usedHintAudio = true;
     const btn = document.getElementById("hintAudioBtn");
     btn.classList.add("used");
-    appendHintBox("🎧 노래 힌트", "2.5초 하이라이트 재생됨 (버튼 클릭 시 재재생)");
+    appendHintBox("🎧 노래 힌트", "2.5초 하이라이트 재생됨");
   }
   playAudioSnippet(2.5, 8);
 }
@@ -527,16 +628,12 @@ function appendHintBox(label, htmlContent) {
   container.appendChild(box);
 }
 
-// ============================================================================
-// 정답 제출 -> 전용 정답/오답 화면(#judgeScreen)으로 즉시 전환
-// ============================================================================
 function checkUserAnswer() {
   if (state.questionEnded) return;
   const q = state.currentQ;
   const artistVal = document.getElementById("artistInput").value.trim();
   const titleVal = document.getElementById("titleInput").value.trim();
 
-  // 빈칸 실수 방지
   if (state.stage === 1 && !titleVal) {
     alert("노래 제목을 입력해주세요!");
     return;
@@ -570,6 +667,7 @@ function skipQuestion() {
 async function finalizeQuestion(isCorrect, userSubmitSummary) {
   state.questionEnded = true;
   stopAudio();
+  stopTimeAttackTimer();
   const q = state.currentQ;
 
   let gained = 0;
@@ -579,6 +677,7 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
     if (state.usedHintKeyword) gained -= 15;
     if (state.usedHintAudio) gained -= 20;
     if (state.stage === 3) gained += 20;
+    if (state.timeAttack) gained *= 2; // 타임어택 점수 2배!
     state.score += gained;
     state.streak++;
   } else {
@@ -590,7 +689,6 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
 
   state.history.push({ q, correct: isCorrect, gained });
 
-  // 전용 정답/오답 화면 구성 및 전환
   const judgeCard = document.getElementById("judgeCard");
   const statusPill = document.getElementById("judgeStatusPill");
   const submitInfo = document.getElementById("judgeUserSubmitInfo");
@@ -599,7 +697,7 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
   judgeCard.classList.toggle("is-wrong", !isCorrect);
 
   if (isCorrect) {
-    statusPill.textContent = `⭕ 정답입니다! (+${gained}점)`;
+    statusPill.textContent = `⭕ 정답입니다! (+${gained}점${state.timeAttack ? " · 타임어택×2" : ""})`;
   } else {
     statusPill.textContent =
       state.questionLimit === "infinite" && state.hearts <= 0
@@ -651,7 +749,10 @@ function nextQuestion() {
   }
 }
 
-function showFinalResult() {
+// ============================================================================
+// 최종 결과 화면 (클리어 스펙 표시, CD 지급, 랭킹 등록, 화면 캡처 공유)
+// ============================================================================
+async function showFinalResult() {
   switchScreen("resultScreen");
 
   const solvedCount = state.history.filter(h => h.correct).length;
@@ -666,6 +767,47 @@ function showFinalResult() {
   document.getElementById("finalRankTitle").textContent = rankTitle;
   document.getElementById("finalScoreText").textContent = `총점 ${state.score}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
 
+  // 1. 선택한 연대·모드·단계·문제수·타임어택·하드모드 클리어 스펙 배지 렌더링
+  const decadeStr =
+    state.decades.size === 4
+      ? "전연대(90~20s)"
+      : Array.from(state.decades)
+          .map(d => d.replace("s", "년대"))
+          .join("·");
+  const modeStr = { behind: "📖비하인드", lyrics: "📝가사", onesec: "⚡1초듣기" }[state.mode];
+  const stageStr = `${state.stage}단계(${state.stage === 1 ? "노래" : state.stage === 2 ? "가수" : "가수+노래"})`;
+  const limitStr = state.questionLimit === "infinite" ? "🔥무한도전" : `${state.questionLimit}문제`;
+
+  const specsBar = document.getElementById("clearedSpecsBar");
+  specsBar.innerHTML = `
+    <span class="badge primary">${decadeStr}</span>
+    <span class="badge accent">${modeStr}</span>
+    <span class="badge">${stageStr}</span>
+    <span class="badge">${limitStr}</span>
+    ${state.timeAttack ? `<span class="badge gold">⏱️타임어택×2</span>` : ""}
+    ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
+  `;
+
+  // 4. 점수를 CD 재화로 변환 및 지급 (100점당 10 CD, 최소 완주 보상)
+  const earnedCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
+  document.getElementById("finalCdEarnedText").textContent = `💿 획득 보상: +${earnedCd} CD 지급 완료! (보유: ${userState.cdCoins + earnedCd} CD)`;
+  if (earnedCd > 0) {
+    await addCdCoins(earnedCd);
+  }
+
+  // 3. 온라인 랭킹 자동 등록
+  if (state.score > 0 && typeof submitScoreToRanking === "function") {
+    await submitScoreToRanking({
+      decadeFilter: decadeStr,
+      mode: state.mode,
+      stage: state.stage,
+      limit: state.questionLimit,
+      timeAttack: state.timeAttack,
+      score: state.score,
+      accuracy
+    });
+  }
+
   const listEl = document.getElementById("historyList");
   listEl.innerHTML = state.history
     .map(
@@ -677,6 +819,57 @@ function showFinalResult() {
     `
     )
     .join("");
+}
+
+// 2. 결과 화면 캡처 & 공유하기 (브라우저 주소창 제외 순수 결과 카드 캡처)
+async function shareResultImage() {
+  const target = document.getElementById("resultCaptureTarget");
+  const bottomBtns = document.getElementById("resultBottomActions");
+  if (!target || typeof html2canvas === "undefined") {
+    alert("캡처 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+    return;
+  }
+
+  try {
+    bottomBtns.classList.add("hidden");
+    const canvas = await html2canvas(target, {
+      backgroundColor: "#ffffff",
+      scale: 2
+    });
+    bottomBtns.classList.remove("hidden");
+
+    canvas.toBlob(async blob => {
+      if (!blob) return;
+      const file = new File([blob], "music_king_result.png", { type: "image/png" });
+
+      // 모바일 Web Share API 지원 시 바로 공유 시트 오픈
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "대한민국 음악왕 결과",
+            text: document.getElementById("finalScoreText").textContent,
+            files: [file]
+          });
+          return;
+        } catch (e) {}
+      }
+
+      // PC 클립보드 이미지 복사 시도 + 파일 다운로드
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        alert("📸 결과 화면이 클립보드에 이미지로 복사되었습니다! (카톡·메신저에 바로 Ctrl+V로 붙여넣기 하세요!)");
+      } catch (clipErr) {
+        const link = document.createElement("a");
+        link.download = `음악왕_결과_${Date.now()}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        alert("📸 결과 화면 캡처 이미지가 저장되었습니다!");
+      }
+    }, "image/png");
+  } catch (err) {
+    bottomBtns.classList.remove("hidden");
+    alert("화면 캡처 중 오류가 발생했습니다.");
+  }
 }
 
 // ============================================================================

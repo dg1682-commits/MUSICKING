@@ -3,41 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>음악왕 - K-POP 퀴즈</title>
+  <title>음악왕 - K-POP 도트 퀴즈 & 온라인 대전</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Supabase & 화면 캡처(html2canvas) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
-    <!-- 상단 헤더 -->
+    <!-- ==================== 상단 도트 헤더 ==================== -->
     <header class="top-header">
       <div class="brand" id="brandHome">
-        <div class="brand-icon">🎵</div>
+        <canvas id="headerMiniAvatar" width="28" height="28" style="border-radius:6px; border:1.5px solid #334155;"></canvas>
         <span class="brand-title">음악왕</span>
       </div>
-      <div>
-        <button class="header-btn" id="openMdModalBtn">📂 MD 관리</button>
+      <div class="header-right">
+        <div class="cd-pill" id="headerCdBtn" title="보유 CD 코인 (클릭 시 상점)">
+          <span>💿</span>
+          <span id="headerCdCount">100</span>
+        </div>
+        <button class="header-btn" id="headerProfileBtn">👤 <span id="headerUserNick">로그인</span></button>
+        <button class="header-btn" id="openPatchBtn" title="업데이트 내역">📢</button>
+        <button class="header-btn" id="openSettingsBtn" title="설정">⚙️</button>
       </div>
     </header>
 
     <!-- ==================== 1. 메인 홈 화면 ==================== -->
     <main id="homeScreen" class="screen-view">
       <div class="home-hero">
-        <span class="hero-badge">1990s ~ 2020s K-POP QUIZ</span>
-        <div class="hero-emblem">👑</div>
-        <h1>대한민국 음악왕</h1>
-        <p>
-          나무위키·방송 팩트 기반 비하인드 스토리부터<br />
-          하이라이트 가사, 짜릿한 1초 듣고 맞히기까지!
-        </p>
-        <div class="feature-pills">
-          <span class="feature-pill">📖 비하인드 퀴즈</span>
-          <span class="feature-pill">📝 가사 퀴즈</span>
-          <span class="feature-pill">⚡ 1초 듣고 맞히기</span>
-          <span class="feature-pill">🎯 1~3단계 난이도</span>
+        <span class="hero-badge">✨ v2.0 메이플 도트 & 온라인 대전 업데이트</span>
+
+        <!-- 내 도트 캐릭터 스테이지 프리뷰 -->
+        <div class="hero-avatar-stage" onclick="openShopModal()" title="클릭하여 캐릭터 꾸미기">
+          <canvas id="homeHeroAvatar" width="120" height="120"></canvas>
         </div>
-        <button class="btn btn-primary btn-lg" id="enterSetupBtn" style="max-width:260px; font-size:1rem; padding:14px;">
+
+        <div>
+          <h1>👑 대한민국 음악왕</h1>
+          <p>
+            나무위키·방송 팩트 기반 비하인드 스토리부터<br />
+            가사 퀴즈, 1초 듣기, 실시간 온라인 대전까지!
+          </p>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="enterSetupBtn" style="font-size:1.05rem; padding:14px;">
           🚀 음악왕 도전
         </button>
+
+        <div class="home-menu-grid">
+          <button class="btn btn-gold" onclick="enterPlazaScreen()">🏟️ 대기실 · 온라인대전</button>
+          <button class="btn btn-accent" onclick="openRankingModal()">🏆 랭킹 명예의 전당</button>
+          <button class="btn" onclick="openShopModal()">👗 CD 상점 · 옷장</button>
+          <button class="btn" onclick="openSocialModal('friends')">👥 친구 · DM 쪽지</button>
+        </div>
       </div>
     </main>
 
@@ -49,29 +67,19 @@
           <div class="setup-group">
             <div class="section-label">
               <span>① 출제 연대 (복수 선택)</span>
-              <span id="availablePoolCount" style="font-size:0.7rem; color:var(--text-sub); font-weight:600;"></span>
+              <span id="availablePoolCount" style="font-size:0.76rem; color:var(--text-sub); font-weight:700;"></span>
             </div>
             <div class="option-grid cols-4">
-              <div class="option-chip active" data-decade="1990s">
-                <span class="chip-title">1990년대</span>
-              </div>
-              <div class="option-chip active" data-decade="2000s">
-                <span class="chip-title">2000년대</span>
-              </div>
-              <div class="option-chip active" data-decade="2010s">
-                <span class="chip-title">2010년대</span>
-              </div>
-              <div class="option-chip active" data-decade="2020s">
-                <span class="chip-title">2020년대</span>
-              </div>
+              <div class="option-chip active" data-decade="1990s"><span class="chip-title">1990년대</span></div>
+              <div class="option-chip active" data-decade="2000s"><span class="chip-title">2000년대</span></div>
+              <div class="option-chip active" data-decade="2010s"><span class="chip-title">2010년대</span></div>
+              <div class="option-chip active" data-decade="2020s"><span class="chip-title">2020년대</span></div>
             </div>
           </div>
 
           <!-- ② 게임 모드 -->
           <div class="setup-group">
-            <div class="section-label">
-              <span>② 문제 모드 선택</span>
-            </div>
+            <div class="section-label"><span>② 문제 모드 선택</span></div>
             <div class="option-grid cols-3">
               <div class="option-chip active" data-mode="behind">
                 <span class="chip-title">📖 비하인드</span>
@@ -90,9 +98,7 @@
 
           <!-- ③ 단계 선택 -->
           <div class="setup-group">
-            <div class="section-label">
-              <span>③ 단계(난이도) 선택</span>
-            </div>
+            <div class="section-label"><span>③ 단계(난이도) 선택</span></div>
             <div class="option-grid cols-3">
               <div class="option-chip active" data-stage="1">
                 <span class="chip-title">1단계</span>
@@ -111,55 +117,45 @@
 
           <!-- ④ 문제 수 선택 -->
           <div class="setup-group">
-            <div class="section-label">
-              <span>④ 도전 문제 수</span>
-            </div>
+            <div class="section-label"><span>④ 도전 문제 수</span></div>
             <div class="option-grid cols-4">
-              <div class="option-chip active" data-limit="10">
-                <span class="chip-title">10문제</span>
-              </div>
-              <div class="option-chip" data-limit="20">
-                <span class="chip-title">20문제</span>
-              </div>
-              <div class="option-chip" data-limit="50">
-                <span class="chip-title">50문제</span>
-              </div>
-              <div class="option-chip" data-limit="infinite">
-                <span class="chip-title">무한도전</span>
-              </div>
+              <div class="option-chip active" data-limit="10"><span class="chip-title">10문제</span></div>
+              <div class="option-chip" data-limit="20"><span class="chip-title">20문제</span></div>
+              <div class="option-chip" data-limit="50"><span class="chip-title">50문제</span></div>
+              <div class="option-chip" data-limit="infinite"><span class="chip-title">무한도전</span></div>
+            </div>
+          </div>
+
+          <!-- ⑤ 스페셜 옵션 (타임어택 ×2 / 하드모드) -->
+          <div class="special-toggles-row">
+            <div class="toggle-banner" id="toggleTimeAttackBtn">
+              <span>⏱️ 타임어택 (점수×2)</span>
+              <strong id="timeAttackStateText">OFF</strong>
+            </div>
+            <div class="toggle-banner" id="toggleHardModeBtn" title="코요태·쿨·버즈·SG워너비 등 다곡 가수 집중 출제">
+              <span>🔥 찐팬 하드모드</span>
+              <strong id="hardModeStateText">OFF</strong>
             </div>
           </div>
 
           <!-- 📊 중하단 점수 책정 기준 안내 박스 -->
           <div class="score-rule-box">
             <div class="score-rule-title">
-              <span>📊 점수 책정 기준 (1문제당)</span>
-              <span style="font-size:0.74rem; color:var(--text-sub); font-weight:600;">오답·패스 0점 (무한도전 ❤️-1)</span>
+              <span>📊 점수 & 💿 CD 보상 기준</span>
+              <span style="font-size:0.72rem; color:var(--text-sub);">100점당 💿 10 CD 지급!</span>
             </div>
             <div class="score-rule-grid">
-              <div class="score-rule-item">
-                <span>⭕ 기본 정답</span>
-                <strong class="score-plus">+100점</strong>
-              </div>
-              <div class="score-rule-item">
-                <span>🔥 3단계 보너스</span>
-                <strong class="score-plus">+20점</strong>
-              </div>
-              <div class="score-rule-item">
-                <span>🔤·🔑 글자/단어 힌트</span>
-                <strong class="score-minus">각 -15점</strong>
-              </div>
-              <div class="score-rule-item">
-                <span>🎧 노래 듣기 힌트</span>
-                <strong class="score-minus">-20점</strong>
-              </div>
+              <div class="score-rule-item"><span>⭕ 기본 정답</span><strong class="score-plus">+100점</strong></div>
+              <div class="score-rule-item"><span>🔥 3단계 보너스</span><strong class="score-plus">+20점</strong></div>
+              <div class="score-rule-item"><span>⏱️ 타임어택 ON</span><strong class="score-plus">점수 ×2배</strong></div>
+              <div class="score-rule-item"><span>🔤·🔑·🎧 힌트</span><strong class="score-minus">-15~20점</strong></div>
             </div>
           </div>
         </div>
 
-        <div class="action-row" style="margin-top:6px;">
+        <div class="action-row" style="margin-top:4px; flex-shrink:0;">
           <button class="btn" id="setupBackHomeBtn" style="flex:1;">이전</button>
-          <button class="btn btn-primary" id="startGameBtn" style="flex:2.5; padding:12px;">게임 시작 ➔</button>
+          <button class="btn btn-primary" id="startGameBtn" style="flex:2.5; padding:11px;">게임 시작 ➔</button>
         </div>
       </div>
     </section>
@@ -171,13 +167,19 @@
           <span class="badge primary" id="badgeDecade">2010년대</span>
           <span class="badge accent" id="badgeMode">비하인드</span>
           <span class="badge" id="badgeStage">1단계</span>
+          <span class="badge gold hidden" id="badgeTimeAttack">⏱️×2</span>
         </div>
         <div class="score-board">
-          <span id="heartsDisplay" class="hidden" style="font-size:0.74rem;"></span>
-          <span id="progressText">1 / 10</span>
+          <span id="heartsDisplay" class="hidden" style="font-size:0.78rem;"></span>
+          <span id="progressText">1/10</span>
           <span id="scoreText" style="color:var(--primary);">0점</span>
           <button class="header-btn" id="backToLobbyBtn">나가기</button>
         </div>
+      </div>
+
+      <!-- 타임어택 게이지 바 -->
+      <div id="timerBarWrap" class="timer-bar-wrap hidden">
+        <div id="timerBarFill" class="timer-bar-fill"></div>
       </div>
 
       <!-- 문제 카드 -->
@@ -190,7 +192,7 @@
         <!-- 1초 듣기 전용 UI -->
         <div id="oneSecContainer" class="one-sec-player hidden">
           <div class="vinyl-disc" id="vinylDisc">🎵</div>
-          <p id="audioStatusText" style="margin-bottom:10px; color:var(--text-sub); font-size:0.88rem;">
+          <p id="audioStatusText" style="margin-bottom:8px; color:var(--text-sub); font-size:0.84rem;">
             버튼을 누르면 정확히 1초간 재생됩니다.
           </p>
           <div style="display:flex; justify-content:center; gap:6px;">
@@ -207,32 +209,18 @@
         <button class="hint-btn" id="hintAudioBtn">🎧 노래 힌트</button>
       </div>
 
-      <!-- 열람한 힌트 표시 -->
       <div id="hintsDisplay" class="hints-display"></div>
 
       <!-- 정답 입력 카드 -->
       <div class="card answer-area">
-        <div id="partialFeedback" class="hidden" style="font-size:0.76rem; color:var(--primary); font-weight:700; text-align:center;"></div>
         <div class="input-row">
           <div class="input-group" id="artistInputGroup">
             <label for="artistInput">🎤 가수 이름</label>
-            <input
-              type="text"
-              id="artistInput"
-              class="text-input"
-              placeholder="가수 입력"
-              autocomplete="off"
-            />
+            <input type="text" id="artistInput" class="text-input" placeholder="가수 입력" autocomplete="off" />
           </div>
           <div class="input-group" id="titleInputGroup">
             <label for="titleInput">🎵 노래 제목</label>
-            <input
-              type="text"
-              id="titleInput"
-              class="text-input"
-              placeholder="노래 제목 입력"
-              autocomplete="off"
-            />
+            <input type="text" id="titleInput" class="text-input" placeholder="노래 제목 입력" autocomplete="off" />
           </div>
         </div>
 
@@ -248,7 +236,7 @@
       <div id="judgeCard" class="card judge-card is-correct">
         <div>
           <span id="judgeStatusPill" class="judge-status-pill">⭕ 정답입니다!</span>
-          <p id="judgeUserSubmitInfo" style="font-size:0.86rem; color:var(--text-sub); margin-bottom:4px;"></p>
+          <p id="judgeUserSubmitInfo" style="font-size:0.84rem; color:var(--text-sub); margin-bottom:4px;"></p>
           <img id="revealThumb" class="album-thumb" alt="앨범 커버" />
           <div id="revealTitle" class="judge-song-title">가수 - 노래</div>
           <div id="revealAliases" class="judge-song-sub">발매 연도</div>
@@ -258,43 +246,311 @@
 
         <div class="action-row">
           <button class="btn btn-accent" onclick="playFullPreviewInReveal()" style="flex:1;">🔊 노래 듣기</button>
-          <button class="btn btn-primary" id="nextQuestionBtn" style="flex:1.8; padding:12px;">다음 문제 넘어가기 ➔</button>
+          <button class="btn btn-primary" id="nextQuestionBtn" style="flex:1.8; padding:11px;">다음 문제 넘어가기 ➔</button>
         </div>
       </div>
     </section>
 
-    <!-- ==================== 5. 최종 결과 화면 ==================== -->
+    <!-- ==================== 5. 최종 결과 화면 (클리어 스펙 표시 & 캡처 공유) ==================== -->
     <section id="resultScreen" class="screen-view hidden">
-      <div class="card result-card">
-        <div class="result-top">
-          <div style="font-size:2.1rem; margin-bottom:2px;">🏆</div>
-          <h2 id="finalRankTitle" style="font-size:1.25rem; font-weight:800; margin-bottom:4px;">전설의 음악왕</h2>
-          <p id="finalScoreText" style="color:var(--primary); font-size:0.92rem; font-weight:700; margin-bottom:10px;"></p>
+      <div class="card result-card" id="resultCaptureTarget">
+        <div class="result-capture-area">
+          <div style="font-size:1.9rem; margin-bottom:2px;">🏆</div>
+          <h2 id="finalRankTitle" style="font-size:1.22rem; font-weight:900; margin-bottom:4px;">전설의 음악왕</h2>
+
+          <!-- ① 내가 깬 연대 / 모드 / 단계 / 타임어택 / 하드모드 배지 표시 -->
+          <div id="clearedSpecsBar" class="cleared-specs-bar"></div>
+
+          <p id="finalScoreText" style="color:var(--primary); font-size:0.94rem; font-weight:800; margin-bottom:2px;"></p>
+          <p id="finalCdEarnedText" style="color:#b45309; font-size:0.82rem; font-weight:800; margin-bottom:6px;"></p>
         </div>
 
         <div id="historyList" class="history-scroll-box"></div>
 
-        <div class="action-row" style="flex-shrink:0; margin-top:10px;">
-          <button class="btn btn-primary" id="restartSameBtn" style="flex:1.5; padding:12px;">🔄 다시 도전</button>
-          <button class="btn" id="resultToLobbyBtn" style="flex:1; padding:12px;">🏠 메인으로</button>
+        <div class="action-row" id="resultBottomActions" style="flex-shrink:0; margin-top:8px;">
+          <button class="btn btn-gold" id="shareResultBtn" style="flex:1.2; padding:11px;">📸 결과 공유</button>
+          <button class="btn btn-primary" id="restartSameBtn" style="flex:1.2; padding:11px;">🔄 다시 도전</button>
+          <button class="btn" id="resultToLobbyBtn" style="flex:0.9; padding:11px;">🏠 홈</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 6. 대기실 광장 & 온라인 대전 화면 ==================== -->
+    <section id="plazaScreen" class="screen-view hidden">
+      <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="section-label">
+            <span>🏟️ 음악왕 도트 광장 (바닥 클릭 시 이동)</span>
+            <span id="plazaOnlineCount" class="badge primary">접속 1명</span>
+          </div>
+          <div class="plaza-canvas-wrap">
+            <canvas id="plazaStageCanvas" width="460" height="145" style="width:100%; height:145px; display:block;"></canvas>
+          </div>
+          <div class="action-row" style="margin-bottom:8px;">
+            <input type="text" id="plazaChatInput" class="text-input" placeholder="광장 말풍선 채팅 입력..." maxlength="30" style="padding:7px 10px; font-size:0.82rem;" />
+            <button class="btn btn-primary" onclick="sendPlazaChat()" style="padding:7px 12px;">말하기</button>
+          </div>
+        </div>
+
+        <div style="flex:1; min-height:0; display:flex; flex-direction:column; margin-bottom:8px;">
+          <div class="section-label">
+            <span>⚔️ 실시간 온라인 대전 방 목록</span>
+            <button class="header-btn" onclick="refreshRoomsList()">🔄 새로고침</button>
+          </div>
+          <div id="plazaRoomsList" class="history-scroll-box"></div>
+        </div>
+
+        <div class="action-row" style="flex-shrink:0;">
+          <button class="btn btn-primary" onclick="createOnlineRoom('1v1')" style="flex:1.3;">⚡ 1:1 선착순 방 생성</button>
+          <button class="btn btn-gold" onclick="createOnlineRoom('4p')" style="flex:1.3;">🏆 4인 점수제 방 생성</button>
+          <button class="btn" onclick="showHome()" style="flex:0.7;">나가기</button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- ==================== MD 파일 자동 변환 모달 ==================== -->
+  <!-- ==================== [모달 1] 로그인 / 회원가입 ==================== -->
+  <div id="authModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1rem;">🔐 음악왕 계정 로그인 / 가입</h3>
+        <button class="header-btn" onclick="closeModal('authModal')">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px;">
+        복잡한 이메일 없이 <strong>닉네임과 비밀번호(6자 이상)</strong>만으로 3초 만에 시작하세요! (랭킹·CD·캐릭터·친구 연동)
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <input type="text" id="authNicknameInput" class="text-input" placeholder="닉네임 (2글자 이상)" />
+        <input type="password" id="authPasswordInput" class="text-input" placeholder="비밀번호 (6자리 이상)" />
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="handleAuthSubmit('login')" style="flex:1;">로그인</button>
+        <button class="btn btn-gold" onclick="handleAuthSubmit('signup')" style="flex:1;">신규 회원가입</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 2] CD 상점 & 도트 캐릭터 옷장 ==================== -->
+  <div id="shopModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">👗 도트 캐릭터 옷장 & CD 상점</h3>
+        <button class="header-btn" onclick="closeModal('shopModal')">닫기 ✕</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; background:var(--bg-subtle); padding:10px; border-radius:12px; border:1.5px solid var(--border-color); margin-bottom:10px;">
+        <canvas id="shopAvatarCanvas" width="96" height="96" style="border-radius:10px; border:2px solid var(--pixel-border);"></canvas>
+        <div>
+          <div style="font-weight:900; font-size:0.95rem; margin-bottom:4px;">내 음악왕 아바타</div>
+          <div class="cd-pill" style="margin-bottom:6px;">보유: <strong id="shopCdBalance">100 CD</strong></div>
+          <p style="font-size:0.75rem; color:var(--text-sub);">퀴즈를 풀고 얻은 CD로 도트 파츠를 구매·장착해보세요!</p>
+        </div>
+      </div>
+
+      <div class="option-grid cols-3" style="margin-bottom:8px;">
+        <div class="option-chip active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="chip-title">💇 헤어</span></div>
+        <div class="option-chip" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="chip-title">🎧 모자/헤드셋</span></div>
+        <div class="option-chip" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="chip-title">😎 표정/안경</span></div>
+        <div class="option-chip" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="chip-title">👕 의상</span></div>
+        <div class="option-chip" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="chip-title">🎸 손 악기</span></div>
+        <div class="option-chip" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="chip-title">🏞️ 배경</span></div>
+      </div>
+
+      <div id="shopItemsGrid" class="shop-grid"></div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 3] 내 프로필 ==================== -->
+  <div id="profileModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1rem;">🪪 내 프로필 카드</h3>
+        <button class="header-btn" onclick="closeModal('profileModal')">닫기 ✕</button>
+      </div>
+      <div style="text-align:center; margin-bottom:10px;">
+        <canvas id="profileAvatarCanvas" width="96" height="96" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
+        <h4 id="profileNickDisplay" style="font-size:1.1rem; font-weight:900;">닉네임</h4>
+        <p id="profileCdDisplay" style="font-size:0.84rem; color:#b45309; font-weight:800;"></p>
+      </div>
+      <div class="input-group" style="margin-bottom:10px;">
+        <label>💬 내 한줄 소개</label>
+        <input type="text" id="profileBioInput" class="text-input" maxlength="50" />
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="saveMyBio()" style="flex:2;">소개글 저장</button>
+        <button class="btn" onclick="handleLogout()" style="flex:1;">로그아웃</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 4] 타 유저 프로필 보기 ==================== -->
+  <div id="userInspectModal" class="modal-backdrop hidden">
+    <div class="modal-content" style="text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:0.95rem;">👤 유저 프로필 정보</h3>
+        <button class="header-btn" onclick="closeModal('userInspectModal')">닫기 ✕</button>
+      </div>
+      <input type="hidden" id="inspectTargetId" />
+      <canvas id="inspectAvatarCanvas" width="96" height="96" style="border-radius:12px; border:2px solid var(--pixel-border); margin-bottom:6px;"></canvas>
+      <h4 id="inspectNick" style="font-size:1.1rem; font-weight:900; margin-bottom:4px;"></h4>
+      <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:8px; border-radius:8px; margin-bottom:12px;"></p>
+      <div class="action-row">
+        <button class="btn btn-primary" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
+        <button class="btn btn-accent" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 DM 보내기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 5] 명예의 전당 랭킹 ==================== -->
+  <div id="rankingModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">🏆 실시간 명예의 전당 랭킹</h3>
+        <button class="header-btn" onclick="closeModal('rankingModal')">닫기 ✕</button>
+      </div>
+      <div class="action-row" style="margin-bottom:8px;">
+        <select id="rankFilterMode" class="text-input" style="padding:6px;" onchange="loadRankingsList()">
+          <option value="ALL">전체 모드</option>
+          <option value="behind">📖 비하인드</option>
+          <option value="lyrics">📝 가사</option>
+          <option value="onesec">⚡ 1초 듣기</option>
+        </select>
+        <select id="rankFilterStage" class="text-input" style="padding:6px;" onchange="loadRankingsList()">
+          <option value="ALL">전체 단계</option>
+          <option value="1">1단계 (노래)</option>
+          <option value="2">2단계 (가수)</option>
+          <option value="3">3단계 (가수+노래)</option>
+        </select>
+      </div>
+      <div id="rankingListContainer" class="history-scroll-box" style="max-height:320px;"></div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 6] 친구 추가 & 1:1 DM 쪽지함 ==================== -->
+  <div id="socialModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">👥 친구 & 💬 1:1 DM 쪽지함</h3>
+        <button class="header-btn" onclick="closeModal('socialModal')">닫기 ✕</button>
+      </div>
+      <div class="option-grid cols-2" style="margin-bottom:10px;">
+        <div class="option-chip active" id="socialTabFriends" onclick="switchSocialTab('friends')"><span class="chip-title">👥 친구 목록</span></div>
+        <div class="option-chip" id="socialTabDm" onclick="switchSocialTab('dm')"><span class="chip-title">💬 DM 쪽지함</span></div>
+      </div>
+
+      <!-- 친구 탭 -->
+      <div id="socialFriendsPane">
+        <div class="action-row" style="margin-bottom:8px;">
+          <input type="text" id="friendSearchInput" class="text-input" placeholder="친구 닉네임 입력..." style="padding:7px 10px;" />
+          <button class="btn btn-primary" onclick="sendFriendRequestByNick()">친구 신청</button>
+        </div>
+        <div id="friendsListContainer" class="history-scroll-box" style="max-height:260px;"></div>
+      </div>
+
+      <!-- DM 탭 -->
+      <div id="socialDmPane" class="hidden">
+        <input type="hidden" id="dmTargetId" />
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+          <input type="text" id="dmTargetNickInput" class="text-input" placeholder="받는 사람 닉네임" style="padding:7px 10px;" />
+          <div class="action-row">
+            <input type="text" id="dmContentInput" class="text-input" placeholder="보낼 쪽지 내용 입력..." style="padding:7px 10px;" />
+            <button class="btn btn-primary" onclick="sendDirectMessage()">전송</button>
+          </div>
+        </div>
+        <div id="dmListContainer" class="history-scroll-box" style="max-height:240px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 7] 실시간 온라인 대전 룸 ==================== -->
+  <div id="battleRoomModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 id="battleRoomTitle" style="font-size:0.95rem;">⚔️ 온라인 대전</h3>
+        <button class="header-btn" onclick="leaveBattleRoom()">방 나가기</button>
+      </div>
+      <div id="battlePlayersBoard" class="score-rule-grid" style="margin-bottom:10px;"></div>
+
+      <button class="btn btn-gold btn-lg hidden" id="battleHostStartBtn" onclick="hostStartOnlineBattle()" style="margin-bottom:10px;">
+        🚀 대전 시작하기 (방장 전용)
+      </button>
+
+      <div id="battlePlayArea" class="hidden">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:800; color:var(--primary); margin-bottom:4px;">
+          <span id="battleQProgress">라운드 1 / 10</span>
+          <span id="battleArtistHint"></span>
+        </div>
+        <div id="battleQuestionText" class="question-content" style="margin-bottom:10px; max-height:160px;"></div>
+        <div class="action-row">
+          <input type="text" id="battleAnswerInput" class="text-input" placeholder="정답(노래 또는 가수) 입력!" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+          <button class="btn btn-primary" onclick="submitOnlineBattleAnswer()">버저 정답!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 8] 업데이트 내역 (패치노트) ==================== -->
+  <div id="patchNotesModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">📢 음악왕 업데이트 내역 (패치노트)</h3>
+        <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
+      </div>
+      <div class="judge-note-box" style="max-height:340px;">
+        <p style="font-weight:900; color:var(--primary); margin-bottom:4px;">🌟 v2.0 대규모 메이플 도트 & 온라인 업데이트</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>고화질 도트 디자인 & 아바타 옷장</strong>: 메이플 감성 24x24 도트 캐릭터 및 6부위 파츠 상점 오픈</li>
+          <li><strong>CD 재화 시스템</strong>: 획득 점수 비례 💿 CD 코인 지급</li>
+          <li><strong>실시간 광장 대기실 & 온라인 대전</strong>: 1:1 선착순 버저비터 대전 & 4인 점수제 대전 추가</li>
+          <li><strong>온라인 소셜 & 랭킹</strong>: 닉네임 간편 로그인, 모드별 랭킹, 친구 추가, 1:1 DM 쪽지함</li>
+          <li><strong>타임어택(점수×2) & 찐팬 하드모드</strong>: 15초 제한 시간 2배 점수 모드 및 코요태·쿨·버즈·SG워너비 등 다곡 아티스트 하드모드 추가</li>
+          <li><strong>비하인드 지문 대폭 보강 & 결과 화면 캡처 공유</strong>: 힌트 없이도 추리 가능한 상세 단서 보강 및 주소창 없는 깔끔한 결과 이미지 공유</li>
+        </ul>
+        <p style="font-weight:900; color:var(--text-sub); margin-bottom:4px;">🎵 v1.0 초기 정식 출시</p>
+        <ul style="padding-left:18px; font-size:0.82rem;">
+          <li>1990s~2020s 연대별 200여 곡 비하인드/가사/1초 듣기 모드 구축</li>
+          <li>1단계(노래), 2단계(가수), 3단계(가수+노래) 및 3종 힌트 시스템 적용</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 9] 환경 설정 & MD 문제 관리 ==================== -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1rem;">⚙️ 게임 환경 설정</h3>
+        <button class="header-btn" onclick="closeModal('settingsModal')">닫기 ✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+        <div class="pixel-list-item" style="cursor:default;">
+          <span>🔊 음원 미리듣기 볼륨</span>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.85" style="width:130px;" />
+        </div>
+        <div class="pixel-list-item" onclick="toggleFontStyle()">
+          <span>🔤 도트 픽셀 폰트 사용</span>
+          <strong id="fontStyleStatus" style="color:var(--primary);">ON</strong>
+        </div>
+        <div class="pixel-list-item" onclick="closeModal('settingsModal'); openModal('mdModal'); renderCustomQuestionCount();">
+          <span>📂 사용자 MD 문제 추가/관리</span>
+          <strong>열기 ➔</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 10] MD 파일 자동 변환 모달 ==================== -->
   <div id="mdModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="font-size:0.95rem;">📂 MD 문제 자동 추가/관리</h3>
         <button class="header-btn" id="closeMdModalBtn">닫기 ✕</button>
       </div>
-      <p id="customQCountText" style="color:var(--primary); font-weight:700; font-size:0.78rem; margin-bottom:8px;"></p>
-      <input type="file" id="mdFileInput" accept=".md,.txt" class="text-input" style="margin-bottom:8px; font-size:0.76rem;" />
+      <p id="customQCountText" style="color:var(--primary); font-weight:800; font-size:0.8rem; margin-bottom:8px;"></p>
+      <input type="file" id="mdFileInput" accept=".md,.txt" class="text-input" style="margin-bottom:8px; font-size:0.78rem;" />
       <textarea
         id="mdRawTextarea"
         class="text-input"
-        rows="6"
+        rows="5"
         placeholder="가수: 국카스텐
 동의어: 하현우
 노래: 거울
@@ -303,7 +559,7 @@
 가사: 거울 속에 뒷모습을 보며
 비하인드: 국카스텐 정규 1집의 타이틀곡입니다.
 ---"
-        style="font-family:monospace; font-size:0.76rem; margin-bottom:8px;"
+        style="font-family:monospace; font-size:0.78rem; margin-bottom:8px;"
       ></textarea>
       <div class="action-row">
         <button class="btn btn-primary" id="parseMdTextBtn" style="flex:2;">✨ DB 변환·추가</button>
@@ -313,6 +569,8 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="pixel_avatar.js"></script>
+  <script src="online.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
