@@ -14,45 +14,45 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "royal", name: "황금 음악왕성", price: 150, grade: "S", desc: "오직 전설의 음악왕만이 설 수 있는\n블링블링 순금빛 로얄 스테이지", colors: ["#fde047", "#fef9c3", "#f59e0b", "#b45309"] }
   ],
   hair: [
-    { id: "default", name: "초코 바가지머리", price: 0, grade: "C", desc: "동글동글 귀엽게 자른\n시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
-    { id: "monkey_hood", name: "몽키 원숭이모자", price: 45, grade: "B", desc: "우끼끼~ 동글동글 큰 귀가 매력적인\n개구쟁이 원숭이 코스튬 모자", color: "#6b3410", style: "monkey" },
-    { id: "blonde", name: "샤이닝 금발", price: 35, grade: "C", desc: "어디서나 눈에 확 띄는\n아이돌 센터 데뷔용 황금빛 염색", color: "#facc15", style: "bowl" },
-    { id: "pink_twin", name: "복숭아 양갈래", price: 60, grade: "A", desc: "상큼발랄 과즙미가 팡팡 터지는\n핑크빛 트윈테일 스타일", color: "#f472b6", style: "twin" },
-    { id: "sprout_hat", name: "초록 새싹모자", price: 50, grade: "B", desc: "머리 위에서 광합성 중!\n귀여운 초록 새싹 인형 모자", color: "#4ade80", style: "sprout" },
-    { id: "octo_hat", name: "도토리 문어모자", price: 75, grade: "A", desc: "쪽쪽 빨판이 살아있는\n엉뚱발랄 숲속 문어 코스튬", color: "#a16207", style: "octo" },
-    { id: "rock_red", name: "불꽃 샤기컷", price: 70, grade: "A", desc: "고음이 3옥타브 더 올라갈 것 같은\n정열의 레드 록스타 헤어", color: "#ef4444", style: "spiky" }
+    { id: "default", name: "바가지 머리", price: 0, grade: "C", desc: "동글동글 귀엽게 자른\n시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
+    { id: "monkey_hood", name: "몽키 모자", price: 45, grade: "B", desc: "동글동글 큰 귀가 매력적인\n개구쟁이 원숭이 모자", color: "#6b3410", style: "monkey" },
+    { id: "blonde", name: "샤이닝 금발", price: 35, grade: "C", desc: "어디서나 눈에 확 띄는\n아이돌 센터 황금빛 염색", color: "#facc15", style: "bowl" },
+    { id: "pink_twin", name: "핑크 양갈래", price: 60, grade: "A", desc: "상큼발랄 과즙미가 터지는\n핑크빛 트윈테일 스타일", color: "#f472b6", style: "twin" },
+    { id: "sprout_hat", name: "초록 새싹모자", price: 50, grade: "B", desc: "머리 위에서 광합성 중!\n귀여운 초록 새싹 모자", color: "#4ade80", style: "sprout" },
+    { id: "octo_hat", name: "문어 모자", price: 75, grade: "A", desc: "쪽쪽 빨판이 살아있는\n엉뚱발랄 숲속 문어 모자", color: "#a16207", style: "octo" },
+    { id: "rock_red", name: "불꽃 샤기컷", price: 70, grade: "A", desc: "고음이 3옥타브 더 올라가는\n정열의 레드 록스타 헤어", color: "#ef4444", style: "spiky" }
   ],
   hat: [
     { id: "none", name: "모자 벗기", price: 0, grade: "C", desc: "아무 모자도 쓰지 않은\n시원하고 깔끔한 기본 상태" },
-    { id: "headset", name: "스튜디오 헤드셋", price: 45, grade: "B", desc: "1초 듣기 문제가 더 잘 들릴 것 같은\n블루투스 프로 헤드셋", color: "#0ea5e9" },
-    { id: "cat_ear", name: "네코미미 헤드폰", price: 65, grade: "A", desc: "냐옹~ 귀여운 고양이 귀가 달린\n인기 만점 핑크 헤드폰", color: "#f43f5e" },
-    { id: "acorn_hat", name: "다람쥐 도토리모자", price: 55, grade: "B", desc: "가을 숲속 다람쥐가 탐내는\n동글동글 도토리 베레모", color: "#854d0e" },
-    { id: "angel", name: "천사의 링", price: 90, grade: "A", desc: "머리 위에서 둥실둥실 빛나는\n순백의 천사 헤일로", color: "#facc15" },
-    { id: "crown", name: "음악왕 절대왕관", price: 200, grade: "S", desc: "가요계 모든 문제를 정복한\n절대강자의 루비 황금 왕관", color: "#f59e0b" }
+    { id: "headset", name: "프로 헤드셋", price: 45, grade: "B", desc: "1초 듣기 문제가 잘 들리는\n블루투스 프로 헤드셋", color: "#0ea5e9" },
+    { id: "cat_ear", name: "고양이 헤드폰", price: 65, grade: "A", desc: "냐옹~ 귀여운 고양이 귀가 달린\n인기 만점 핑크 헤드폰", color: "#f43f5e" },
+    { id: "acorn_hat", name: "도토리 모자", price: 55, grade: "B", desc: "가을 숲속 다람쥐가 탐내는\n동글동글 도토리 베레모", color: "#854d0e" },
+    { id: "angel", name: "천사의 링", price: 90, grade: "A", desc: "머리 위에서 둥실 빛나는\n순백의 천사 헤일로", color: "#facc15" },
+    { id: "crown", name: "음악왕 왕관", price: 200, grade: "S", desc: "가요계 모든 문제를 정복한\n절대강자의 루비 황금 왕관", color: "#f59e0b" }
   ],
   face: [
-    { id: "default", name: "귀요미 미소 (^w^)", price: 0, grade: "C", desc: "보기만 해도 기분이 좋아지는\n동글동글 고양이 입 미소" },
-    { id: "square_glass", name: "모범생 뿔테안경", price: 35, grade: "B", desc: "나무위키 비하인드를 줄줄 꿰고 있는\n척척박사 네모 안경" },
-    { id: "swirl_glass", name: "뱅글뱅글 안경", price: 55, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 골뱅이 안경" },
-    { id: "wink", name: "심쿵 윙크 (>wO)", price: 40, grade: "B", desc: "무대 엔딩요정처럼 상큼하게\n한쪽 눈을 찡긋 감은 표정" },
+    { id: "default", name: "기본 미소", price: 0, grade: "C", desc: "보기만 해도 기분 좋아지는\n동글동글 고양이 입 미소" },
+    { id: "square_glass", name: "뿔테 안경", price: 35, grade: "B", desc: "나무위키 비하인드를 꿰고 있는\n척척박사 네모 안경" },
+    { id: "swirl_glass", name: "골뱅이 안경", price: 55, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 골뱅이 안경" },
+    { id: "wink", name: "심쿵 윙크", price: 40, grade: "B", desc: "무대 엔딩요정처럼 상큼하게\n한쪽 눈을 찡긋 감은 표정" },
     { id: "sunglass", name: "힙합 선글라스", price: 60, grade: "A", desc: "연예인 포스가 뿜어져 나오는\n블랙 다크 선글라스" },
-    { id: "singing", name: "초고음 열창 (OДO)", price: 50, grade: "A", desc: "마이크가 찢어지도록 열창하는\n득음 직전의 표정" }
+    { id: "singing", name: "열창 표정", price: 50, grade: "A", desc: "마이크가 찢어지도록 열창하는\n득음 직전의 표정" }
   ],
   outfit: [
-    { id: "basic", name: "빨간 망토티 (기본)", price: 0, grade: "C", desc: "귀여운 빨간 스카프가 달린\n활동성 만점 기본 티셔츠", main: "#ef4444", sub: "#ffffff" },
-    { id: "overalls", name: "개구쟁이 멜빵룩", price: 50, grade: "B", desc: "90년대 캔디 감성이 물씬 풍기는\n노란 티셔츠와 청멜빵", main: "#facc15", sub: "#2563eb" },
-    { id: "uniform", name: "명문고 교복", price: 60, grade: "B", desc: "단정하면서도 풋풋한 매력이 넘치는\n하이스쿨 스쿨룩", main: "#1e293b", sub: "#ef4444" },
-    { id: "idol_suit", name: "아이돌 무대제복", price: 85, grade: "A", desc: "시상식 대상을 휩쓸 것 같은\n화려한 금장 스카이 제복", main: "#0284c7", sub: "#facc15" },
-    { id: "king_robe", name: "음악왕 황금망토", price: 180, grade: "S", desc: "바람에 멋지게 휘날리는\n최고급 임페리얼 골드 로브", main: "#b45309", sub: "#fde047" }
+    { id: "basic", name: "빨간 망토티", price: 0, grade: "C", desc: "귀여운 빨간 스카프가 달린\n활동성 만점 기본 티셔츠", main: "#ef4444", sub: "#ffffff" },
+    { id: "overalls", name: "캔디 멜빵룩", price: 50, grade: "B", desc: "90년대 감성이 물씬 풍기는\n노란 티셔츠와 청멜빵", main: "#facc15", sub: "#2563eb" },
+    { id: "uniform", name: "명문고 교복", price: 60, grade: "B", desc: "단정하고 풋풋한 매력이 넘치는\n하이스쿨 스쿨룩", main: "#1e293b", sub: "#ef4444" },
+    { id: "idol_suit", name: "아이돌 제복", price: 85, grade: "A", desc: "시상식 대상을 휩쓸 것 같은\n화려한 금장 스카이 제복", main: "#0284c7", sub: "#facc15" },
+    { id: "king_robe", name: "음악왕 망토", price: 180, grade: "S", desc: "바람에 멋지게 휘날리는\n최고급 임페리얼 골드 로브", main: "#b45309", sub: "#fde047" }
   ],
   acc: [
     { id: "none", name: "악기 미착용", price: 0, grade: "C", desc: "손에 아무것도 들지 않은\n가벼운 기본 상태" },
-    { id: "mic_silver", name: "다이나믹 보컬 마이크", price: 0, grade: "C", desc: "촘촘한 스틸 그릴망과 스위치가 달린\n스튜디오 표준 보컬 마이크", color: "#94a3b8" },
-    { id: "lightstick", name: "하트 발광 응원봉", price: 75, grade: "A", desc: "투명 돔 안에 입체 하트가 빛나는\n공식 팬클럽 응원봉", color: "#ec4899" },
-    { id: "keytar", name: "일렉트로 숄더 키타", price: 95, grade: "A", desc: "어깨에 메고 건반을 연주하는\n신스팝 밴드 전용 숄더 신디사이저", color: "#0ea5e9" },
-    { id: "boombox", name: "90s 마스터 붐박스", price: 90, grade: "A", desc: "더블 우퍼 스피커와 카세트 데크가 달린\n스트릿 힙합 대형 라디오", color: "#334155" },
-    { id: "guitar", name: "커스텀 스트랫 일렉기타", price: 120, grade: "S", desc: "6현 줄과 픽업, 헤드머신까지 정교하게 제작된\n체리레드 커스텀 일렉기타", color: "#dc2626" },
-    { id: "mic_gold", name: "24K 골든 보컬 마이크", price: 140, grade: "S", desc: "가왕의 목소리를 담아내는\n눈부신 24K 순금 콘덴서 마이크", color: "#facc15" }
+    { id: "mic_silver", name: "보컬 마이크", price: 0, grade: "C", desc: "촘촘한 그릴망과 스위치가 달린\n스튜디오 표준 마이크", color: "#94a3b8" },
+    { id: "lightstick", name: "하트 응원봉", price: 75, grade: "A", desc: "투명 돔 안에 하트가 빛나는\n공식 팬클럽 응원봉", color: "#ec4899" },
+    { id: "keytar", name: "숄더 키타", price: 95, grade: "A", desc: "어깨에 메고 건반을 연주하는\n신스팝 밴드 신디사이저", color: "#0ea5e9" },
+    { id: "boombox", name: "마스터 붐박스", price: 90, grade: "A", desc: "듀얼 우퍼와 카세트 데크가 달린\n스트릿 힙합 대형 라디오", color: "#334155" },
+    { id: "guitar", name: "스트랫 기타", price: 120, grade: "S", desc: "6현 줄과 픽업까지 정교한\n체리레드 커스텀 일렉기타", color: "#dc2626" },
+    { id: "mic_gold", name: "황금 마이크", price: 140, grade: "S", desc: "가왕의 목소리를 담아내는\n눈부신 24K 순금 마이크", color: "#facc15" }
   ],
   special: [
     {

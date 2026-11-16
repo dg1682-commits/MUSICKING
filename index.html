@@ -12,7 +12,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=7.0" />
+  <link rel="stylesheet" href="style.css?v=7.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -127,22 +127,25 @@
 
             <div class="apf-info-board">
               <div class="apf-info-paper">
-                <div id="shopBoardTitle" class="apf-info-title">내추럴 다크브라운</div>
+                <div class="apf-info-header-row">
+                  <span id="shopBoardTitle" class="apf-info-title">바가지 머리</span>
+                  <span id="shopBoardPriceBadge" class="apf-board-price-badge">✅ 보유중</span>
+                </div>
                 <div id="shopBoardDesc" class="apf-info-desc">아이템을 눌러 먼저 입어보세요!</div>
               </div>
-              <div style="display:flex; gap:4px;">
-                <button class="btn" onclick="resetShopPreview()" style="flex:0.9; padding:7px 4px; font-size:0.75rem;">🔄 원래옷</button>
-                <button class="btn btn-primary" id="shopConfirmActionBtn" style="flex:1.6; padding:7px 6px; font-size:0.78rem;">✅ 장착 저장</button>
+              <div style="display:flex; gap:5px;">
+                <button class="btn" onclick="resetShopPreview()" style="flex:0.85; padding:7px 4px; font-size:0.75rem; white-space:nowrap;">🔄 원래옷</button>
+                <button class="btn btn-primary" id="shopConfirmActionBtn" style="flex:1.4; padding:7px 6px; font-size:0.78rem; white-space:nowrap;">✅ 장착 저장</button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 중단 탭 바 (성별 변경은 변경권 탭에서 1,000 CD로 구매) -->
+        <!-- 중단 탭 바 (전부 한 줄로 깔끔하게 표시) -->
         <div class="apf-tab-bar">
           <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')">💇 헤어</div>
           <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')">🎧 모자</div>
-          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')">👓 안경·표정</div>
+          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')">👓 표정</div>
           <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')">🎸 악기</div>
           <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')">👕 의상</div>
           <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')">🎫 변경권</div>
@@ -645,9 +648,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=7.0"></script>
-  <script src="pixel_avatar.js?v=7.0"></script>
-  <script src="online.js?v=7.0"></script>
-  <script src="app.js?v=7.0"></script>
+  <script src="data.js?v=7.1"></script>
+  <script src="pixel_avatar.js?v=7.1"></script>
+  <script src="online.js?v=7.1"></script>
+  <script src="app.js?v=7.1"></script>
 </body>
 </html>

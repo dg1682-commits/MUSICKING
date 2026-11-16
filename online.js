@@ -476,6 +476,7 @@ function updateShopPreviewCanvas() {
   if (cdSpan) cdSpan.textContent = `${userState.cdCoins}`;
 
   const titleEl = document.getElementById("shopBoardTitle");
+  const priceBadgeEl = document.getElementById("shopBoardPriceBadge");
   const descEl = document.getElementById("shopBoardDesc");
   const confirmBtn = document.getElementById("shopConfirmActionBtn");
   if (!titleEl || !descEl || !confirmBtn) return;
@@ -485,15 +486,16 @@ function updateShopPreviewCanvas() {
   descEl.textContent = sel.desc || "아이템을 눌러 먼저 입어보세요!";
 
   if (sel.cat === "special" && sel.id === "nickname_ticket") {
-    confirmBtn.textContent = `🛍️ ${sel.price} CD로 닉네임 변경`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    confirmBtn.textContent = "🛍️ 구매 · 닉변하기";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseNicknameTicket;
     return;
   }
 
   if (sel.cat === "special" && sel.id === "gender_ticket") {
-    const nextGenderLabel = userState.avatarConfig.gender === "female" ? "남자 캐릭터로" : "여자 캐릭터로";
-    confirmBtn.textContent = `🛍️ ${sel.price} CD로 ${nextGenderLabel} 변경`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    confirmBtn.textContent = "🛍️ 구매 · 성별변경";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseGenderTicket;
     return;
@@ -501,11 +503,13 @@ function updateShopPreviewCanvas() {
 
   const isOwned = !sel.price || sel.price === 0 || userState.ownedItems.includes(sel.id);
   if (isOwned) {
-    confirmBtn.textContent = "✅ 이 모습 장착 저장";
+    if (priceBadgeEl) priceBadgeEl.textContent = "✅ 보유중";
+    confirmBtn.textContent = "✅ 장착 저장";
     confirmBtn.className = "btn btn-primary";
     confirmBtn.onclick = saveCurrentPreviewLook;
   } else {
-    confirmBtn.textContent = `🛍️ 구매하기 (${sel.price} CD)`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    confirmBtn.textContent = "🛍️ 구매하기";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
   }
@@ -636,13 +640,14 @@ window.renderShopCategory = function (cat) {
           ? shopPreviewState.selectedItem?.id === item.id
           : shopPreviewState.config[cat] === item.id;
       const grade = item.grade || "C";
+      const priceText = owned && cat !== "special" ? "보유" : `💿${item.price}`;
 
       return `
       <div class="apf-tile ${owned && cat !== "special" ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
-        ${previewing ? `<div class="apf-tile-check">✔</div>` : ""}
-        <canvas id="shopThumb_${cat}_${idx}" width="240" height="240" style="width:58px; height:58px;"></canvas>
-        <span class="apf-tile-name">${item.name} ${!owned || cat === "special" ? `(${item.price})` : ""}</span>
-        <div class="apf-tile-grade grade-${grade}">${grade}</div>
+        <span class="apf-tile-price ${owned && cat !== "special" ? "is-owned" : ""}">${priceText}</span>
+        ${previewing ? `<div class="apf-tile-check">✔</div>` : `<div class="apf-tile-grade grade-${grade}">${grade}</div>`}
+        <canvas id="shopThumb_${cat}_${idx}" width="240" height="240" style="width:52px; height:52px; margin-top:8px;"></canvas>
+        <span class="apf-tile-name">${item.name}</span>
       </div>
     `;
     })

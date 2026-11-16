@@ -333,24 +333,44 @@ body {
   background: #fffdf7;
   border: 2px solid #d97706;
   border-radius: 9px;
-  padding: 8px 6px;
+  padding: 7px 6px;
   text-align: center;
 }
 
-.apf-info-title {
-  font-size: 0.98rem;
-  font-weight: 900;
-  color: #1e1b18;
+.apf-info-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   margin-bottom: 3px;
 }
 
+.apf-info-title {
+  font-size: 0.94rem;
+  font-weight: 900;
+  color: #1e1b18;
+  white-space: nowrap;
+}
+
+.apf-board-price-badge {
+  background: #fef08a;
+  border: 1.5px solid #b45309;
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .apf-info-desc {
-  font-size: 0.74rem;
+  font-size: 0.73rem;
   font-weight: 700;
   color: #57534e;
   line-height: 1.35;
-  min-height: 32px;
+  min-height: 30px;
   white-space: pre-line;
+  word-break: keep-all;
 }
 
 .apf-tab-bar {
@@ -369,10 +389,11 @@ body {
   border: 2.5px solid var(--game-border);
   border-bottom: none;
   color: #d9f99d;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 900;
   text-align: center;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .apf-tab.active {
@@ -400,7 +421,7 @@ body {
   scrollbar-width: none;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 98px;
+  grid-auto-rows: 102px;
   gap: 8px;
 }
 
@@ -411,11 +432,11 @@ body {
   background: var(--apf-green-tile);
   border: 2.5px solid #367a07;
   border-radius: 14px;
-  padding: 6px;
+  padding: 6px 4px 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   cursor: pointer;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
   transition: transform 0.1s ease;
@@ -436,12 +457,33 @@ body {
   box-shadow: 0 0 0 2px #ffe4e6;
 }
 
+/* 좌측 상단: 가격 또는 보유 태그 분리 표시 */
+.apf-tile-price {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: #fef08a;
+  border: 1.5px solid #1e1b18;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #1e1b18;
+  white-space: nowrap;
+}
+
+.apf-tile-price.is-owned {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* 우측 상단: 체크 표시 또는 등급 배지 */
 .apf-tile-check {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: 5px;
+  right: 5px;
+  width: 21px;
+  height: 21px;
   border-radius: 6px;
   background: #f43f5e;
   color: #ffffff;
@@ -452,7 +494,43 @@ body {
   justify-content: center;
 }
 
-/* 랭킹 전용 전체화면 커스텀 필터 탭 칩 (윈도우 기본 드롭박스 완전 대체) */
+.apf-tile-grade {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.grade-C { background: #eab308; }
+.grade-B { background: #ea580c; }
+.grade-A { background: #ec4899; }
+.grade-S { background: #7c3aed; }
+
+/* 하단 중앙: 아이템 이름 한 줄 깔끔 표기 */
+.apf-tile-name {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #1e1b18;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 96%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 랭킹 전용 전체화면 커스텀 필터 탭 칩 */
 .rank-filter-group {
   background: var(--bg-subtle);
   border: 2px solid var(--game-border);
@@ -487,38 +565,6 @@ body {
   border-color: var(--game-border);
   color: var(--text-main);
   box-shadow: 0 2px 0 var(--game-border);
-}
-
-.apf-tile-grade {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
-}
-
-.grade-C { background: #eab308; }
-.grade-B { background: #ea580c; }
-.grade-A { background: #ec4899; }
-.grade-S { background: #7c3aed; }
-
-.apf-tile-name {
-  font-size: 0.72rem;
-  font-weight: 900;
-  margin-top: 2px;
-  color: #1e1b18;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 1px 6px;
-  border-radius: 999px;
 }
 
 /* ==================== 3. 게임 설정 화면 ==================== */
