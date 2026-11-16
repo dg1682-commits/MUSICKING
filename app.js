@@ -54,8 +54,13 @@ document.addEventListener(
   { passive: false }
 );
 
-// 모달 열기/닫기 전역 함수
+// 모달 열기/닫기 전역 함수 (동시에 1개의 모달만 열리도록 보장)
+window.closeAllModals = function () {
+  document.querySelectorAll(".modal-backdrop").forEach(m => m.classList.add("hidden"));
+};
+
 window.openModal = function (id) {
+  window.closeAllModals();
   const el = document.getElementById(id);
   if (el) el.classList.remove("hidden");
 };
@@ -285,11 +290,22 @@ function shuffleArray(arr) {
 function switchScreen(targetId) {
   stopAudio();
   stopTimeAttackTimer();
-  ["homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen"].forEach(id => {
+  window.closeAllModals();
+
+  const headerEl = document.getElementById("topHeader");
+  if (headerEl) {
+    headerEl.classList.toggle("hidden", targetId === "loginScreen");
+  }
+
+  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });
 }
+
+window.showLoginScreen = function () {
+  switchScreen("loginScreen");
+};
 
 function showHome() {
   updateHeaderUserUI();
@@ -412,6 +428,13 @@ function initEvents() {
 
   syncDecadeChips();
   updateLobbyCounts();
+  window.closeAllModals();
+
+  if (typeof userState !== "undefined" && userState.isLoggedIn) {
+    showHome();
+  } else {
+    showLoginScreen();
+  }
 }
 
 function syncDecadeChips() {

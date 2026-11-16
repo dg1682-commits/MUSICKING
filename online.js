@@ -169,7 +169,7 @@ async function handleAuthSubmit(mode) {
 
       saveUserStateLocal();
       alert(`🎉 환영합니다, [${nickInput}]님! 가입 보너스 100 CD가 준비되었습니다.`);
-      closeModal("authModal");
+      showHome();
     } else {
       // 로그인
       const { data, error } = await sbClient.auth.signInWithPassword({
@@ -199,12 +199,18 @@ async function handleAuthSubmit(mode) {
 
       saveUserStateLocal();
       alert(`👋 반갑습니다, [${userState.nickname}]님!`);
-      closeModal("authModal");
+      showHome();
     }
   } catch (err) {
     alert("통신 중 오류가 발생했습니다.");
   }
 }
+
+window.continueAsGuest = function () {
+  userState.isLoggedIn = false;
+  userState.nickname = "게스트도전자";
+  showHome();
+};
 
 async function handleLogout() {
   if (sbClient) {
@@ -214,9 +220,10 @@ async function handleLogout() {
   userState.id = null;
   userState.isLoggedIn = false;
   userState.nickname = "게스트도전자";
-  updateHeaderUserUI();
   closeModal("profileModal");
-  alert("로그아웃 되었습니다.");
+  if (typeof showLoginScreen === "function") {
+    showLoginScreen();
+  }
 }
 
 // ============================================================================
@@ -371,7 +378,7 @@ window.handleShopItemClick = async function (cat, itemId, price) {
 // ============================================================================
 function openMyProfileModal() {
   if (!userState.isLoggedIn) {
-    openModal("authModal");
+    showLoginScreen();
     return;
   }
   openModal("profileModal");
@@ -411,7 +418,7 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
 async function openSocialModal(tab = "friends") {
   if (!userState.isLoggedIn) {
     alert("친구 추가 및 DM 기능은 로그인 후 이용하실 수 있습니다!");
-    openModal("authModal");
+    showLoginScreen();
     return;
   }
   openModal("socialModal");
@@ -433,7 +440,7 @@ async function switchSocialTab(tab) {
 
 async function sendFriendRequestByNick(targetNickParam) {
   if (!userState.isLoggedIn) {
-    openModal("authModal");
+    showLoginScreen();
     return;
   }
   const nick = targetNickParam || document.getElementById("friendSearchInput").value.trim();
@@ -798,7 +805,7 @@ async function refreshRoomsList() {
 async function createOnlineRoom(roomType) {
   if (!userState.isLoggedIn) {
     alert("온라인 대전 방 생성은 로그인 후 가능합니다!");
-    openModal("authModal");
+    showLoginScreen();
     return;
   }
 
@@ -837,7 +844,7 @@ async function createOnlineRoom(roomType) {
 window.joinOnlineRoom = async function (roomId) {
   if (!userState.isLoggedIn) {
     alert("온라인 대전은 로그인 후 입장하실 수 있습니다!");
-    openModal("authModal");
+    showLoginScreen();
     return;
   }
 
