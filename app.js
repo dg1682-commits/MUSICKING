@@ -67,7 +67,7 @@ function isRunningAsApp() {
 }
 
 // ============================================================================
-// 모바일 키보드 올라올 때 문제 카드와 UI가 절대 찌그러지지 않도록 동적 뷰포트 제어
+// 모바일 키보드 올라올 때 허공 밀림·찌그러짐 원천 차단 동적 뷰포트 제어
 // ============================================================================
 function setupMobileKeyboardViewportHandler() {
   const shell = document.querySelector(".app-shell");
@@ -77,24 +77,25 @@ function setupMobileKeyboardViewportHandler() {
 
   const updateViewport = () => {
     if (window.visualViewport) {
-      const vh = window.visualViewport.height;
-      if (vh > baseHeight) baseHeight = vh;
-      shell.style.height = `${vh}px`;
+      const vv = window.visualViewport;
+      if (vv.height > baseHeight) baseHeight = vv.height;
+
+      // 브라우저가 화면을 위로 밀어 올리더라도 offsetTop과 height를 정확히 추적해 빈 허공이 절대 안 생기게 고정!
+      shell.style.top = `${vv.offsetTop}px`;
+      shell.style.height = `${vv.height}px`;
 
       const isInputFocused =
         document.activeElement &&
         ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
 
-      if (baseHeight - vh > 110 || (isInputFocused && baseHeight - vh > 60)) {
+      if (baseHeight - vv.height > 110 || (isInputFocused && baseHeight - vv.height > 60)) {
         document.body.classList.add("keyboard-open");
-        if (isInputFocused) {
-          setTimeout(() => {
-            document.activeElement?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          }, 60);
-        }
-        const dmList = document.getElementById("dmChatMessages");
-        if (dmList && state.currentScreen === "dmChatScreen") {
-          dmList.scrollTop = dmList.scrollHeight;
+        if (state.currentScreen === "dmChatScreen") {
+          const dmList = document.getElementById("dmChatMessages");
+          if (dmList) dmList.scrollTop = dmList.scrollHeight;
+        } else if (state.currentScreen === "battleRoomScreen") {
+          const roomChat = document.getElementById("roomChatLog");
+          if (roomChat) roomChat.scrollTop = roomChat.scrollHeight;
         }
       } else {
         document.body.classList.remove("keyboard-open");
@@ -107,6 +108,13 @@ function setupMobileKeyboardViewportHandler() {
     window.visualViewport.addEventListener("resize", updateViewport);
     window.visualViewport.addEventListener("scroll", updateViewport);
   }
+  document.addEventListener("focusin", () => {
+    setTimeout(updateViewport, 80);
+    setTimeout(updateViewport, 280);
+  });
+  document.addEventListener("focusout", () => {
+    setTimeout(updateViewport, 100);
+  });
 }
 
 function safeOn(id, event, handler) {

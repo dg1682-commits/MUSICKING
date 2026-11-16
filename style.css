@@ -66,9 +66,10 @@ select {
 
 html,
 body {
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
-  height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
@@ -81,15 +82,18 @@ body {
 
 /* 상/하단 버튼들이 화면 맨 끝에 붙지 않도록 안쪽으로 넉넉하게 여백(Safe Area) 배치 */
 .app-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   max-width: 480px;
   width: 100%;
+  height: 100%;
   height: 100dvh;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   padding: 20px 16px 42px;
-  position: relative;
-  transition: height 0.12s ease;
 }
 
 /* ==================== 상단 액션퍼즐패밀리 스타일 헤더 ==================== */
