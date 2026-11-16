@@ -185,7 +185,7 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  if (["setupScreen", "plazaScreen", "resultScreen"].includes(state.currentScreen)) {
+  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen"].includes(state.currentScreen)) {
     showHome();
     pushAppHistoryState();
     return;
@@ -413,10 +413,10 @@ window.switchScreen = function (targetId) {
 
   const headerEl = document.getElementById("topHeader");
   if (headerEl) {
-    headerEl.classList.toggle("hidden", targetId === "loginScreen");
+    headerEl.classList.toggle("hidden", targetId === "loginScreen" || targetId === "shopScreen");
   }
 
-  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen"].forEach(id => {
+  ["loginScreen", "homeScreen", "setupScreen", "gameScreen", "judgeScreen", "resultScreen", "plazaScreen", "shopScreen"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden", id !== targetId);
   });

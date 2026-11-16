@@ -440,12 +440,15 @@ window.loadRankingsList = async function () {
 };
 
 // ============================================================================
-// 3. 캐릭터 옷장 & CD 상점 (480x480 아이템 썸네일 + 입어보기 후 구매 분리)
+// 3. 액션퍼즐패밀리 스타일 전용 전체화면 상점 (#shopScreen)
+// - 상점 진입 시 팝업이 아닌 전체 화면 전환!
+// - 좌측 캐릭터 입어보기 + 우측 나무 보드 설명 + 하단 대형 단품 파츠 타일 그리드
 // ============================================================================
 window.openShopModal = function () {
   shopPreviewState.config = { ...userState.avatarConfig };
-  shopPreviewState.selectedItem = null;
-  openModal("shopModal");
+  const initItem = getItemById("hair", shopPreviewState.config.hair);
+  shopPreviewState.selectedItem = { cat: "hair", ...initItem };
+  switchScreen("shopScreen");
   renderShopCategory(shopPreviewState.selectedCat || "hair");
   updateShopPreviewCanvas();
 };
@@ -455,53 +458,46 @@ window.changeShopGenderPreview = function (gender) {
   shopPreviewState.selectedItem = {
     cat: "gender",
     id: gender,
-    name: gender === "male" ? "남자 기본 캐릭터" : "여자 기본 캐릭터",
+    name: gender === "male" ? "남자 아쿠 (기본)" : "여자 아쿠 (기본)",
+    grade: "C",
+    desc: gender === "male" ? "씩씩하고 귀여운\n음악왕 기본 남자 캐릭터" : "상큼발랄 리본이 매력적인\n음악왕 기본 여자 캐릭터",
     price: 0
   };
-  renderShopCategory(shopPreviewState.selectedCat);
+  renderShopCategory("gender");
   updateShopPreviewCanvas();
 };
 
 function updateShopPreviewCanvas() {
   const cv = document.getElementById("shopAvatarCanvas");
-  if (cv) renderPixelAvatar(cv, shopPreviewState.config);
-
-  const cdSpan = document.getElementById("shopCdBalance");
-  if (cdSpan) cdSpan.textContent = `${userState.cdCoins} CD`;
-
-  document.querySelectorAll("[data-shop-gender]").forEach(btn => {
-    btn.classList.toggle("active", btn.getAttribute("data-shop-gender") === shopPreviewState.config.gender);
-  });
-
-  const infoText = document.getElementById("shopPreviewStatusText");
-  const confirmBtn = document.getElementById("shopConfirmActionBtn");
-  if (!infoText || !confirmBtn) return;
-
-  const sel = shopPreviewState.selectedItem;
-  if (!sel) {
-    infoText.textContent = "💡 아래 아이템을 터치하면 피팅룸에서 입어볼 수 있습니다!";
-    confirmBtn.textContent = "✅ 현재 모습 저장";
-    confirmBtn.className = "btn btn-primary";
-    confirmBtn.onclick = saveCurrentPreviewLook;
-    return;
+  if (cv) {
+    renderPixelAvatar(cv, shopPreviewState.config, { transparentBg: true });
   }
 
+  const cdSpan = document.getElementById("shopCdBalance");
+  if (cdSpan) cdSpan.textContent = `${userState.cdCoins}`;
+
+  const titleEl = document.getElementById("shopBoardTitle");
+  const descEl = document.getElementById("shopBoardDesc");
+  const confirmBtn = document.getElementById("shopConfirmActionBtn");
+  if (!titleEl || !descEl || !confirmBtn) return;
+
+  const sel = shopPreviewState.selectedItem || getItemById("hair", shopPreviewState.config.hair);
+  titleEl.textContent = sel.name || "기본 스타일";
+  descEl.textContent = sel.desc || "아이템을 눌러 먼저 입어보세요!";
+
   if (sel.cat === "special" && sel.id === "nickname_ticket") {
-    infoText.textContent = `🎫 [${sel.name}] (가격: ${sel.price} CD)`;
-    confirmBtn.textContent = `🛍️ ${sel.price} CD로 구매·닉변하기`;
+    confirmBtn.textContent = `🛍️ ${sel.price} CD 구매·닉변`;
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseNicknameTicket;
     return;
   }
 
-  const isOwned = sel.price === 0 || userState.ownedItems.includes(sel.id);
+  const isOwned = !sel.price || sel.price === 0 || userState.ownedItems.includes(sel.id);
   if (isOwned) {
-    infoText.textContent = `👗 [${sel.name}] 피팅 중 (보유함)`;
-    confirmBtn.textContent = "✅ 이 스타일 장착 저장";
+    confirmBtn.textContent = "✅ 이 모습 장착 저장";
     confirmBtn.className = "btn btn-primary";
     confirmBtn.onclick = saveCurrentPreviewLook;
   } else {
-    infoText.textContent = `👗 [${sel.name}] 피팅 중 (미보유 · ${sel.price} CD)`;
     confirmBtn.textContent = `🛍️ 구매하기 (${sel.price} CD)`;
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
@@ -510,7 +506,8 @@ function updateShopPreviewCanvas() {
 
 window.resetShopPreview = function () {
   shopPreviewState.config = { ...userState.avatarConfig };
-  shopPreviewState.selectedItem = null;
+  const curHair = getItemById("hair", userState.avatarConfig.hair);
+  shopPreviewState.selectedItem = { cat: "hair", ...curHair };
   renderShopCategory(shopPreviewState.selectedCat);
   updateShopPreviewCanvas();
 };
@@ -520,7 +517,7 @@ async function saveCurrentPreviewLook() {
     const id = shopPreviewState.config[cat];
     const item = getItemById(cat, id);
     if (item && item.price > 0 && !userState.ownedItems.includes(id)) {
-      gameAlert(`[${item.name}] 아이템은 아직 구매하지 않았습니다!\n우측 하단 [구매하기] 버튼을 먼저 눌러주세요.`);
+      gameAlert(`[${item.name}] 아이템은 아직 구매하지 않았습니다!\n우측 보드의 [구매하기] 버튼을 먼저 눌러주세요.`);
       return;
     }
   }
@@ -528,7 +525,7 @@ async function saveCurrentPreviewLook() {
   await syncProfileToServer();
   renderShopCategory(shopPreviewState.selectedCat);
   updateShopPreviewCanvas();
-  gameAlert("캐릭터 스타일이 저장되었습니다!", "👗 장착 완료");
+  gameAlert("캐릭터 코스튬 장착이 저장되었습니다!", "👗 장착 완료");
 }
 
 async function purchaseAndEquipPreviewItem(sel) {
@@ -537,7 +534,7 @@ async function purchaseAndEquipPreviewItem(sel) {
     return;
   }
 
-  gameConfirm(`[${sel.name}] 아이템을 💿 ${sel.price} CD에 구매하고 장착할까요?`, async () => {
+  gameConfirm(`[${sel.name}] 코스튬을 💿 ${sel.price} CD에 구매하고 장착할까요?`, async () => {
     userState.cdCoins -= sel.price;
     if (!userState.ownedItems.includes(sel.id)) {
       userState.ownedItems.push(sel.id);
@@ -547,7 +544,7 @@ async function purchaseAndEquipPreviewItem(sel) {
     renderShopCategory(shopPreviewState.selectedCat);
     updateShopPreviewCanvas();
     gameAlert(`🎉 [${sel.name}] 구매 및 장착 완료!`, "🛍️ 구매 성공");
-  }, "🛍️ 아이템 구매");
+  }, "🛍️ 코스튬 구매");
 }
 
 function purchaseNicknameTicket() {
@@ -601,32 +598,49 @@ window.renderShopCategory = function (cat) {
   const grid = document.getElementById("shopItemsGrid");
   if (!grid) return;
 
+  // 'gender' 탭일 때는 남자 캐릭터 / 여자 캐릭터 선택 타일 표시
+  if (cat === "gender") {
+    const gList = [
+      { id: "male", name: "남자 아쿠", grade: "C" },
+      { id: "female", name: "여자 아쿠", grade: "C" }
+    ];
+    grid.innerHTML = gList
+      .map(g => {
+        const selected = shopPreviewState.config.gender === g.id;
+        return `
+        <div class="apf-tile owned-tile ${selected ? "preview-selected" : ""}" onclick="changeShopGenderPreview('${g.id}')">
+          ${selected ? `<div class="apf-tile-check">✔</div>` : ""}
+          <canvas id="shopGenderThumb_${g.id}" width="240" height="240" style="width:58px; height:58px;"></canvas>
+          <span class="apf-tile-name">${g.name}</span>
+          <div class="apf-tile-grade grade-C">C</div>
+        </div>
+      `;
+      })
+      .join("");
+
+    gList.forEach(g => {
+      const cv = document.getElementById(`shopGenderThumb_${g.id}`);
+      if (cv) renderPixelAvatar(cv, { ...DEFAULT_AVATAR_CONFIG, gender: g.id }, { transparentBg: true });
+    });
+    return;
+  }
+
   const items = AVATAR_SHOP_ITEMS[cat] || [];
   grid.innerHTML = items
     .map((item, idx) => {
       const owned = item.price === 0 || userState.ownedItems.includes(item.id);
-      const actuallyEquipped = userState.avatarConfig[cat] === item.id;
       const previewing =
         cat === "special"
           ? shopPreviewState.selectedItem?.id === item.id
           : shopPreviewState.config[cat] === item.id;
-
-      let statusLabel =
-        cat === "special"
-          ? `💿 ${item.price} CD`
-          : actuallyEquipped
-          ? "✅ 장착중"
-          : owned
-          ? "보유중"
-          : `💿 ${item.price} CD`;
+      const grade = item.grade || "C";
 
       return `
-      <div class="shop-item-card ${previewing ? "equipped" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
-        <canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:52px; height:52px; border-radius:10px; border:1px solid var(--border-color); background:#fff;"></canvas>
-        <div class="shop-item-name">${item.name}</div>
-        <div style="font-size:0.7rem; font-weight:800; color:${owned && cat !== "special" ? "var(--primary)" : "#b45309"};">
-          ${statusLabel}
-        </div>
+      <div class="apf-tile ${owned && cat !== "special" ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
+        ${previewing ? `<div class="apf-tile-check">✔</div>` : ""}
+        <canvas id="shopThumb_${cat}_${idx}" width="240" height="240" style="width:58px; height:58px;"></canvas>
+        <span class="apf-tile-name">${item.name} ${!owned || cat === "special" ? `(${item.price})` : ""}</span>
+        <div class="apf-tile-grade grade-${grade}">${grade}</div>
       </div>
     `;
     })
@@ -634,7 +648,7 @@ window.renderShopCategory = function (cat) {
 
   items.forEach((item, idx) => {
     const cv = document.getElementById(`shopThumb_${cat}_${idx}`);
-    if (cv) renderItemThumbnail(cv, cat, item, shopPreviewState.config.gender);
+    if (cv) renderItemThumbnail(cv, cat, item);
   });
 };
 

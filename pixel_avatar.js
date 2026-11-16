@@ -1,66 +1,67 @@
 // ============================================================================
-// [음악왕 v4.0] 480x480 초고해상도 캐릭터 & 아이템 렌더러 (pixel_avatar.js)
-// - 모든 캐릭터 및 장착 아이템을 480x480 네이티브 고해상도 캔버스에 정밀 렌더링
-// - 상점 내 개별 아이템 썸네일(480x480 스케일) 렌더링 지원
-// - 기본 캐릭터 남/여(male/female) 선택 및 닉네임 변경권 포함
+// [음악왕 v5.0] 액션퍼즐패밀리(아쿠) 스타일 480x480 캐릭터 & 단품 파츠 렌더러 (pixel_avatar.js)
+// - 와이드 파노라마 배경 + 정중앙/좌측 캐릭터 렌더링 지원
+// - 상점 타일용 '단품 파츠 아이콘(모자만, 안경만, 헤어만 등)' 단독 고해상도 렌더링 지원
+// - 등급(C/B/A/S) 및 코믹 한줄 설명 포함
 // ============================================================================
 
 const BASE_AVATAR_SHOP_ITEMS = {
   bg: [
-    { id: "meadow", name: "헤네시스 초원 (기본)", price: 0, colors: ["#7dd3fc", "#e0f2fe", "#4ade80", "#16a34a"] },
-    { id: "neon", name: "네온 콘서트 아레나", price: 40, colors: ["#1e1b4b", "#312e81", "#f43f5e", "#4f46e5"] },
-    { id: "sakura", name: "봄날 벚꽃 스테이지", price: 50, colors: ["#fecdd3", "#fff1f2", "#f472b6", "#db2777"] },
-    { id: "galaxy", name: "스타라이트 우주돔", price: 80, colors: ["#0f172a", "#1e293b", "#38bdf8", "#6366f1"] },
-    { id: "royal", name: "음악왕 황금 성전", price: 150, colors: ["#fef08a", "#fef9c3", "#f59e0b", "#b45309"] }
+    { id: "meadow", name: "아쿠네 초원마당", price: 0, grade: "C", desc: "따사로운 햇살과 귀여운 구름이\n두둥실 떠다니는 평화로운 뒷마당", colors: ["#5ec8f8", "#aee4ff", "#76d32d", "#58b018"] },
+    { id: "neon", name: "네온 뮤직뱅크", price: 40, grade: "B", desc: "화려한 레이저 조명이 쏟아지는\n생방송 음악방송 메인 스테이지", colors: ["#1e1b4b", "#3730a3", "#f43f5e", "#4f46e5"] },
+    { id: "sakura", name: "봄날 벚꽃동산", price: 50, grade: "B", desc: "분홍빛 벚꽃잎이 흩날리는\n설레는 봄날의 피크닉 동산", colors: ["#fda4af", "#ffe4e6", "#f472b6", "#db2777"] },
+    { id: "galaxy", name: "안드로메다 우주", price: 80, grade: "A", desc: "별똥별이 쏟아지는 신비로운\n우주 최강 음악왕 스테이지", colors: ["#0f172a", "#1e293b", "#38bdf8", "#6366f1"] },
+    { id: "royal", name: "황금 음악왕성", price: 150, grade: "S", desc: "오직 전설의 음악왕만이 설 수 있는\n블링블링 순금빛 로얄 스테이지", colors: ["#fde047", "#fef9c3", "#f59e0b", "#b45309"] }
   ],
   hair: [
-    { id: "default", name: "내추럴 블랙 (기본)", price: 0, color: "#27272a", shade: "#18181b", highlight: "#71717a", style: "default" },
-    { id: "blonde", name: "샤이닝 아이돌 금발", price: 30, color: "#eab308", shade: "#ca8a04", highlight: "#fef08a", style: "default" },
-    { id: "pink_twin", name: "러블리 핑크 트윈테일", price: 60, color: "#ec4899", shade: "#be185d", highlight: "#fbcfe8", style: "twin" },
-    { id: "retro_90s", name: "90s 브릿지 더듬이", price: 50, color: "#78350f", shade: "#451a03", highlight: "#d97706", style: "antenna" },
-    { id: "rock_red", name: "크림슨 록스타 장발", price: 70, color: "#dc2626", shade: "#991b1b", highlight: "#fca5a5", style: "long" },
-    { id: "mint_pop", name: "소다 민트 팝스타", price: 65, color: "#14b8a6", shade: "#0f766e", highlight: "#99f6e4", style: "default" },
-    { id: "silver_wolf", name: "실버 울프컷", price: 85, color: "#64748b", shade: "#334155", highlight: "#f1f5f9", style: "long" }
+    { id: "default", name: "초코 바가지머리", price: 0, grade: "C", desc: "동글동글 귀엽게 자른\n액퍼 패밀리 기본 바가지 헤어", color: "#27272a", style: "bowl" },
+    { id: "monkey_hood", name: "몽키매직", price: 45, grade: "B", desc: "끼루끼루 끼끼루~\n개구쟁이 원숭이 귀 코스튬 모자", color: "#6b3410", style: "monkey" },
+    { id: "blonde", name: "샤이닝 금발", price: 35, grade: "C", desc: "어디서나 눈에 확 띄는\n아이돌 센터 데뷔용 황금빛 염색", color: "#facc15", style: "bowl" },
+    { id: "pink_twin", name: "복숭아 양갈래", price: 60, grade: "A", desc: "상큼발랄 과즙미가 팡팡 터지는\n핑크빛 트윈테일 스타일", color: "#f472b6", style: "twin" },
+    { id: "sprout_hat", name: "초록 새싹모자", price: 50, grade: "B", desc: "머리 위에서 광합성 중!\n귀여운 초록 새싹 인형 모자", color: "#4ade80", style: "sprout" },
+    { id: "octo_hat", name: "도토리 문어모자", price: 75, grade: "A", desc: "쪽쪽 빨판이 살아있는\n엉뚱발랄 숲속 문어 코스튬", color: "#a16207", style: "octo" },
+    { id: "rock_red", name: "불꽃 샤기컷", price: 70, grade: "A", desc: "고음이 3옥타브 더 올라갈 것 같은\n정열의 레드 록스타 헤어", color: "#ef4444", style: "spiky" }
   ],
   hat: [
-    { id: "none", name: "착용 안 함", price: 0 },
-    { id: "headset", name: "프로 스튜디오 헤드셋", price: 45, color: "#0ea5e9", sub: "#bae6fd" },
-    { id: "cat_ear", name: "네코미미 게이밍 헤드폰", price: 65, color: "#f43f5e", sub: "#fecdd3" },
-    { id: "beanie", name: "스트릿 힙합 비니", price: 40, color: "#2563eb", sub: "#93c5fd" },
-    { id: "beret", name: "아티스트 베레모", price: 55, color: "#e11d48", sub: "#fda4af" },
-    { id: "angel", name: "천사의 헤일로 링", price: 90, color: "#facc15", sub: "#fef9c3" },
-    { id: "crown", name: "전설의 음악왕 크라운", price: 200, color: "#f59e0b", sub: "#fef08a" }
+    { id: "none", name: "모자 벗기", price: 0, grade: "C", desc: "아무 모자도 쓰지 않은\n시원하고 깔끔한 기본 상태" },
+    { id: "headset", name: "스튜디오 헤드셋", price: 45, grade: "B", desc: "1초 듣기 문제가 더 잘 들릴 것 같은\n블루투스 프로 헤드셋", color: "#0ea5e9" },
+    { id: "cat_ear", name: "네코미미 헤드폰", price: 65, grade: "A", desc: "냐옹~ 귀여운 고양이 귀가 달린\n인기 만점 핑크 헤드폰", color: "#f43f5e" },
+    { id: "acorn_hat", name: "다람쥐 도토리모자", price: 55, grade: "B", desc: "가을 숲속 다람쥐가 탐내는\n동글동글 도토리 베레모", color: "#854d0e" },
+    { id: "angel", name: "천사의 링", price: 90, grade: "A", desc: "머리 위에서 둥실둥실 빛나는\n순백의 천사 헤일로", color: "#facc15" },
+    { id: "crown", name: "음악왕 절대왕관", price: 200, grade: "S", desc: "가요계 모든 문제를 정복한\n절대강자의 루비 황금 왕관", color: "#f59e0b" }
   ],
   face: [
-    { id: "default", name: "초롱초롱 눈망울 (기본)", price: 0 },
-    { id: "wink", name: "엔딩요정 윙크", price: 30 },
-    { id: "sunglass", name: "연예인 블랙 선글라스", price: 50 },
-    { id: "star_glass", name: "슈퍼스타 별안경", price: 75 },
-    { id: "singing", name: "고음폭발 열창 표정", price: 40 }
+    { id: "default", name: "아쿠 미소 (^w^)", price: 0, grade: "C", desc: "보기만 해도 기분이 좋아지는\n액퍼 시그니처 고양이 입 미소" },
+    { id: "square_glass", name: "모범생 뿔테안경", price: 35, grade: "B", desc: "나무위키 비하인드를 줄줄 꿰고 있는\n척척박사 네모 안경" },
+    { id: "swirl_glass", name: "뱅글뱅글 안경", price: 55, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 골뱅이 안경" },
+    { id: "wink", name: "심쿵 윙크 (>wO)", price: 40, grade: "B", desc: "무대 엔딩요정처럼 상큼하게\n한쪽 눈을 찡긋 감은 표정" },
+    { id: "sunglass", name: "힙합 선글라스", price: 60, grade: "A", desc: "연예인 포스가 뿜어져 나오는\n블랙 다크 선글라스" },
+    { id: "singing", name: "초고음 열창 (OДO)", price: 50, grade: "A", desc: "마이크가 찢어지도록 열창하는\n득음 직전의 표정" }
   ],
   outfit: [
-    { id: "basic", name: "연습생 후드티 (기본)", price: 0, main: "#4f46e5", sub: "#e0e7ff" },
-    { id: "overalls", name: "90s 캔디 멜빵룩", price: 50, main: "#f97316", sub: "#2563eb" },
-    { id: "uniform", name: "하이스쿨 교복", price: 60, main: "#1e293b", sub: "#ef4444" },
-    { id: "idol_suit", name: "시상식 로얄 제복", price: 85, main: "#0284c7", sub: "#facc15" },
-    { id: "rock_leather", name: "인디밴드 라이더재킷", price: 80, main: "#18181b", sub: "#e11d48" },
-    { id: "king_robe", name: "음악왕 임페리얼 망토", price: 180, main: "#b45309", sub: "#fde047" }
+    { id: "basic", name: "빨간 망토티 (기본)", price: 0, grade: "C", desc: "아쿠가 제일 좋아하는\n활동성 만점 기본 티셔츠", main: "#ef4444", sub: "#ffffff" },
+    { id: "overalls", name: "개구쟁이 멜빵룩", price: 50, grade: "B", desc: "90년대 캔디 감성이 물씬 풍기는\n노란 티셔츠와 청멜빵", main: "#facc15", sub: "#2563eb" },
+    { id: "uniform", name: "명문고 교복", price: 60, grade: "B", desc: "단정하면서도 풋풋한 매력이 넘치는\n하이스쿨 스쿨룩", main: "#1e293b", sub: "#ef4444" },
+    { id: "idol_suit", name: "아이돌 무대제복", price: 85, grade: "A", desc: "시상식 대상을 휩쓸 것 같은\n화려한 금장 스카이 제복", main: "#0284c7", sub: "#facc15" },
+    { id: "king_robe", name: "음악왕 황금망토", price: 180, grade: "S", desc: "바람에 멋지게 휘날리는\n최고급 임페리얼 골드 로브", main: "#b45309", sub: "#fde047" }
   ],
   acc: [
-    { id: "none", name: "착용 안 함", price: 0 },
-    { id: "mic_silver", name: "스튜디오 실버 마이크", price: 0, color: "#94a3b8" },
-    { id: "mic_gold", name: "대상 수상 황금마이크", price: 120, color: "#facc15" },
-    { id: "guitar", name: "커스텀 레드 일렉기타", price: 110, color: "#ef4444" },
-    { id: "lightstick", name: "팬클럽 하트 응원봉", price: 70, color: "#ec4899" },
-    { id: "boombox", name: "90s 힙합 붐박스", price: 95, color: "#475569" }
+    { id: "none", name: "빈손", price: 0, grade: "C", desc: "손에 아무것도 들지 않은\n가벼운 기본 상태" },
+    { id: "mic_silver", name: "실버 마이크", price: 0, grade: "C", desc: "노래방 애창곡을 부르기 딱 좋은\n기본 유선 마이크", color: "#94a3b8" },
+    { id: "banana", name: "노란 바나나", price: 45, grade: "B", desc: "몽키매직과 찰떡궁합!\n달콤하고 귀여운 바나나 간식", color: "#facc15" },
+    { id: "tissue", name: "눈물의 휴지", price: 50, grade: "B", desc: "슬픈 발라드를 들을 때 필수품인\n돌돌 말린 두루마리 휴지", color: "#f8fafc" },
+    { id: "lightstick", name: "하트 응원봉", price: 75, grade: "A", desc: "콘서트장을 핑크빛으로 물들이는\n반짝반짝 LED 응원봉", color: "#ec4899" },
+    { id: "guitar", name: "일렉트릭 기타", price: 110, grade: "A", desc: "강렬한 록 사운드를 뿜어내는\n커스텀 레드 일렉기타", color: "#ef4444" },
+    { id: "mic_gold", name: "전설의 황금마이크", price: 130, grade: "S", desc: "가왕의 목소리를 담아내는\n눈부신 24K 순금 마이크", color: "#facc15" }
   ],
   special: [
     {
       id: "nickname_ticket",
       name: "✨ 닉네임 변경권",
       price: 100,
+      grade: "S",
       consumable: true,
-      desc: "원하는 새 닉네임으로 즉시 변경할 수 있는 스페셜 티켓"
+      desc: "원하는 새로운 닉네임으로\n즉시 변경할 수 있는 마법 티켓!"
     }
   ]
 };
@@ -88,11 +89,10 @@ function applyServerShopCatalog(customCatalog) {
 
 function getItemById(category, id) {
   const list = AVATAR_SHOP_ITEMS[category] || [];
-  return list.find(item => item.id === id) || list[0] || { id: "none", name: "없음", price: 0 };
+  return list.find(item => item.id === id) || list[0] || { id: "none", name: "없음", price: 0, grade: "C", desc: "" };
 }
 
-// 둥근 도트/캐주얼 사각형 헬퍼 (480x480 기준 정밀 렌더링)
-function fillRoundRect(ctx, x, y, w, h, radius, fill, stroke = null, strokeWidth = 6) {
+function fillRoundRect(ctx, x, y, w, h, radius, fill, stroke = null, strokeWidth = 7) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, radius);
   if (fill) {
@@ -107,7 +107,83 @@ function fillRoundRect(ctx, x, y, w, h, radius, fill, stroke = null, strokeWidth
 }
 
 // ============================================================================
-// 480x480 초고해상도 캐릭터 렌더러 (상용 캐주얼 게임 퀄리티 + 정밀 픽셀 디테일)
+// 1. 와이드 파노라마 배경 렌더러 (액션퍼즐패밀리 스타일 하늘 + 웃는 구름 + 나무 울타리 + 초원)
+// ============================================================================
+function renderApfWideBackground(ctx, W, H, bgItem) {
+  const c = (bgItem && bgItem.colors) || ["#5ec8f8", "#aee4ff", "#76d32d", "#58b018"];
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+  skyGrad.addColorStop(0, c[0]);
+  skyGrad.addColorStop(1, c[1]);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 아기자기한 웃는 구름 (^w^)
+  const drawCuteCloud = (cx, cy, scale = 1) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(-28, 6, 22, 0, Math.PI * 2);
+    ctx.arc(0, -6, 28, 0, Math.PI * 2);
+    ctx.arc(28, 6, 22, 0, Math.PI * 2);
+    ctx.arc(0, 12, 24, 0, Math.PI * 2);
+    ctx.fill();
+    // 구름 볼터치 & 눈
+    ctx.fillStyle = "#fda4af";
+    ctx.beginPath();
+    ctx.arc(-16, 6, 5, 0, Math.PI * 2);
+    ctx.arc(16, 6, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-12, 0); ctx.lineTo(-8, -3); ctx.lineTo(-4, 0);
+    ctx.moveTo(4, 0); ctx.lineTo(8, -3); ctx.lineTo(12, 0);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  drawCuteCloud(W * 0.22, H * 0.2, 0.95);
+  drawCuteCloud(W * 0.78, H * 0.16, 0.8);
+
+  const horizonY = H * 0.56;
+
+  // 뒷배경 둥근 나무 수풀
+  ctx.fillStyle = c[3];
+  for (let x = 0; x <= W + 40; x += 52) {
+    ctx.beginPath();
+    ctx.arc(x, horizonY, 32, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 귀여운 나무 울타리
+  ctx.fillStyle = "#b45309";
+  ctx.strokeStyle = "#451a03";
+  ctx.lineWidth = 2.5;
+  fillRoundRect(ctx, 0, horizonY - 12, W, 8, 2, "#92400e", "#451a03", 2);
+  for (let x = 10; x < W; x += 28) {
+    fillRoundRect(ctx, x, horizonY - 24, 14, 28, 4, "#d97706", "#451a03", 2.5);
+  }
+
+  // 앞쪽 밝은 연두색 잔디 마당
+  const lawnGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+  lawnGrad.addColorStop(0, c[2]);
+  lawnGrad.addColorStop(1, c[3]);
+  ctx.fillStyle = lawnGrad;
+  ctx.fillRect(0, horizonY, W, H - horizonY);
+
+  ctx.strokeStyle = "#3f6212";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, horizonY);
+  ctx.lineTo(W, horizonY);
+  ctx.stroke();
+}
+
+// ============================================================================
+// 2. 액션퍼즐패밀리 스타일 480x480 캐릭터 렌더러 (아쿠 감성 굵은 선 + 동글 귀요미)
 // ============================================================================
 function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {}) {
   if (!canvas) return;
@@ -117,8 +193,6 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
 
   ctx.save();
   ctx.clearRect(0, 0, W, H);
-  // 모든 캔버스 크기에 관계없이 내부 좌표계를 480x480 기준으로 스케일링!
-  ctx.scale(W / 480, H / 480);
 
   const cfg = { ...DEFAULT_AVATAR_CONFIG, ...(config || {}) };
   const isFemale = cfg.gender === "female";
@@ -130,297 +204,435 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
   const outfitItem = getItemById("outfit", cfg.outfit);
   const accItem = getItemById("acc", cfg.acc);
 
-  const outline = "#1e293b";
-  const hairMain = hairItem.color || "#27272a";
-  const hairShade = hairItem.shade || "#18181b";
-  const hairHi = hairItem.highlight || "#71717a";
-
-  // 1. 480x480 배경 스테이지
-  if (!options.transparentBg && bgItem && bgItem.colors) {
-    const grad = ctx.createLinearGradient(0, 0, 0, 360);
-    grad.addColorStop(0, bgItem.colors[0]);
-    grad.addColorStop(1, bgItem.colors[1]);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 480, 370);
-
-    // 구름 / 별빛 디테일
-    fillRoundRect(ctx, 45, 55, 100, 34, 17, "rgba(255,255,255,0.85)");
-    fillRoundRect(ctx, 65, 38, 60, 26, 13, "rgba(255,255,255,0.85)");
-    fillRoundRect(ctx, 325, 70, 110, 34, 17, "rgba(255,255,255,0.85)");
-    fillRoundRect(ctx, 350, 52, 65, 26, 13, "rgba(255,255,255,0.85)");
-
-    // 바닥 스테이지
-    ctx.fillStyle = bgItem.colors[3];
-    ctx.fillRect(0, 365, 480, 115);
-    ctx.fillStyle = bgItem.colors[2];
-    ctx.fillRect(0, 355, 480, 24);
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(0, 355);
-    ctx.lineTo(480, 355);
-    ctx.stroke();
+  if (!options.transparentBg) {
+    renderApfWideBackground(ctx, W, H, bgItem);
   }
 
-  // 발밑 그림자
-  ctx.fillStyle = "rgba(15, 23, 42, 0.22)";
+  // 캐릭터가 와이드 캔버스에서도 정중앙(또는 지정 위치)에 비율 깨짐 없이 그려지도록 변환
+  const charSize = Math.min(W, H);
+  const offsetX = options.charCenterX !== undefined ? options.charCenterX - charSize / 2 : (W - charSize) / 2;
+  const offsetY = (H - charSize) / 2 + (options.charOffsetY || 12);
+
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(charSize / 480, charSize / 480);
+
+  const outline = "#1e1b18";
+  const faceWhite = "#fffdf9";
+
+  // 발밑 동그란 그림자
+  ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
   ctx.beginPath();
-  ctx.ellipse(240, 405, 95, 20, 0, 0, Math.PI * 2);
+  ctx.ellipse(240, 405, 85, 20, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. 황금 망토 & 뒷머리 레이어
+  // 망토 (음악왕 황금망토 또는 기본 빨간 스카프 망토)
   if (outfitItem.id === "king_robe") {
-    fillRoundRect(ctx, 115, 245, 250, 145, 28, "#dc2626", outline, 7);
-    fillRoundRect(ctx, 128, 255, 224, 125, 20, "#b91c1c");
-    fillRoundRect(ctx, 115, 368, 250, 22, 8, "#facc15", outline, 5);
-  }
-
-  if (hairItem.style === "long" || (isFemale && hairItem.style === "default")) {
-    fillRoundRect(ctx, 120, 150, 240, 175, 48, hairMain, outline, 8);
-    fillRoundRect(ctx, 136, 170, 208, 145, 36, hairShade);
-  }
-
-  if (hairItem.style === "twin" || (isFemale && hairItem.id === "pink_twin")) {
-    fillRoundRect(ctx, 68, 165, 68, 155, 30, hairMain, outline, 8);
-    fillRoundRect(ctx, 344, 165, 68, 155, 30, hairMain, outline, 8);
-    // 트윈테일 머리끈
-    fillRoundRect(ctx, 82, 162, 42, 22, 8, "#f43f5e", outline, 5);
-    fillRoundRect(ctx, 356, 162, 42, 22, 8, "#f43f5e", outline, 5);
-  }
-
-  // 3. 다리 & 신발
-  fillRoundRect(ctx, 184, 332, 42, 58, 14, "#ffe4c8", outline, 7);
-  fillRoundRect(ctx, 254, 332, 42, 58, 14, "#ffe4c8", outline, 7);
-  // 신발
-  const shoeColor = isFemale ? "#e11d48" : "#334155";
-  fillRoundRect(ctx, 172, 370, 58, 34, 14, shoeColor, outline, 7);
-  fillRoundRect(ctx, 250, 370, 58, 34, 14, shoeColor, outline, 7);
-  fillRoundRect(ctx, 182, 376, 24, 10, 5, "#ffffff");
-  fillRoundRect(ctx, 260, 376, 24, 10, 5, "#ffffff");
-
-  // 4. 몸통 & 의상
-  const outMain = outfitItem.main || "#4f46e5";
-  const outSub = outfitItem.sub || "#e0e7ff";
-
-  // 양팔
-  fillRoundRect(ctx, 122, 256, 46, 76, 20, outMain, outline, 7);
-  fillRoundRect(ctx, 312, 256, 46, 76, 20, outMain, outline, 7);
-  // 양손
-  fillRoundRect(ctx, 126, 312, 36, 32, 15, "#ffe4c8", outline, 6);
-  fillRoundRect(ctx, 318, 312, 36, 32, 15, "#ffe4c8", outline, 6);
-
-  // 상의 몸통
-  fillRoundRect(ctx, 152, 248, 176, 102, 28, outMain, outline, 8);
-  // 이너 셔츠 / 넥타이 / 칼라 디테일
-  fillRoundRect(ctx, 208, 250, 64, 72, 12, outSub, outline, 5);
-  if (outfitItem.id === "overalls") {
-    fillRoundRect(ctx, 178, 250, 22, 95, 6, outSub, outline, 5);
-    fillRoundRect(ctx, 280, 250, 22, 95, 6, outSub, outline, 5);
-  } else if (outfitItem.id === "uniform") {
-    fillRoundRect(ctx, 228, 262, 24, 52, 6, "#ef4444", outline, 4);
-  }
-
-  // 하의 (여캐 플리츠 스커트 / 남캐 팬츠)
-  if (isFemale) {
-    fillRoundRect(ctx, 144, 322, 192, 34, 14, outSub, outline, 7);
+    fillRoundRect(ctx, 130, 265, 220, 120, 36, "#dc2626", outline, 9);
+    fillRoundRect(ctx, 130, 362, 220, 22, 8, "#facc15", outline, 7);
   } else {
-    fillRoundRect(ctx, 160, 324, 160, 30, 10, "#1e293b", outline, 7);
-  }
-
-  // 5. 얼굴 & 귀 (480x480 매끄러운 2등신 헤드)
-  fillRoundRect(ctx, 110, 168, 36, 48, 16, "#fed7aa", outline, 7);
-  fillRoundRect(ctx, 334, 168, 36, 48, 16, "#fed7aa", outline, 7);
-
-  const faceGrad = ctx.createLinearGradient(240, 105, 240, 260);
-  faceGrad.addColorStop(0, "#fff5eb");
-  faceGrad.addColorStop(0.7, "#ffe4c8");
-  faceGrad.addColorStop(1, "#fed7aa");
-  fillRoundRect(ctx, 130, 105, 220, 156, 66, faceGrad, outline, 8);
-
-  // 볼터치
-  ctx.fillStyle = isFemale ? "rgba(251, 113, 133, 0.55)" : "rgba(253, 164, 175, 0.45)";
-  ctx.beginPath();
-  ctx.ellipse(166, 214, 22, 12, 0, 0, Math.PI * 2);
-  ctx.ellipse(314, 214, 22, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 6. 고해상도 눈매 & 표정 & 안경
-  const drawSparkleEye = (cx, cy) => {
-    fillRoundRect(ctx, cx - 22, cy - 24, 44, 48, 18, outline);
-    fillRoundRect(ctx, cx - 18, cy - 18, 36, 38, 14, "#312e81");
-    fillRoundRect(ctx, cx - 14, cy - 4, 28, 22, 10, "#6366f1");
-    // 하이라이트 물방울
-    ctx.fillStyle = "#ffffff";
+    // 액퍼 아쿠 특유의 귀여운 빨간 미니 망토/스카프
+    ctx.fillStyle = "#ef4444";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.arc(cx - 7, cy - 9, 8, 0, Math.PI * 2);
-    ctx.arc(cx + 8, cy + 7, 4, 0, Math.PI * 2);
+    ctx.moveTo(240, 275);
+    ctx.lineTo(315, 295);
+    ctx.lineTo(295, 330);
+    ctx.closePath();
     ctx.fill();
-    if (isFemale) {
-      // 여캐 속눈썹
-      ctx.strokeStyle = outline;
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(cx - 24, cy - 18);
-      ctx.lineTo(cx - 32, cy - 25);
-      ctx.stroke();
-    }
-  };
+    ctx.stroke();
+  }
 
-  if (faceItem.id === "wink") {
-    // 왼쪽 윙크
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 8;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(166, 190);
-    ctx.quadraticCurveTo(188, 174, 208, 190);
-    ctx.stroke();
-    drawSparkleEye(292, 190);
-    fillRoundRect(ctx, 224, 222, 32, 18, 9, "#f43f5e", outline, 5);
-  } else if (faceItem.id === "sunglass") {
-    fillRoundRect(ctx, 148, 166, 82, 48, 14, "#0f172a", outline, 6);
-    fillRoundRect(ctx, 250, 166, 82, 48, 14, "#0f172a", outline, 6);
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(230, 182);
-    ctx.lineTo(250, 182);
-    ctx.stroke();
-    fillRoundRect(ctx, 162, 176, 26, 10, 4, "#38bdf8");
-    fillRoundRect(ctx, 264, 176, 26, 10, 4, "#38bdf8");
-    fillRoundRect(ctx, 226, 226, 28, 10, 5, "#e11d48");
-  } else if (faceItem.id === "star_glass") {
-    fillRoundRect(ctx, 150, 164, 78, 52, 20, "#facc15", outline, 6);
-    fillRoundRect(ctx, 252, 164, 78, 52, 20, "#facc15", outline, 6);
-    fillRoundRect(ctx, 172, 178, 34, 26, 10, "#1e293b");
-    fillRoundRect(ctx, 274, 178, 34, 26, 10, "#1e293b");
-    fillRoundRect(ctx, 224, 224, 32, 16, 8, "#f43f5e", outline, 5);
-  } else if (faceItem.id === "singing") {
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 8;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(166, 188);
-    ctx.quadraticCurveTo(188, 174, 208, 188);
-    ctx.moveTo(272, 188);
-    ctx.quadraticCurveTo(292, 174, 314, 188);
-    ctx.stroke();
-    fillRoundRect(ctx, 214, 214, 52, 32, 16, "#be123c", outline, 6);
-    fillRoundRect(ctx, 224, 226, 32, 16, 8, "#fb7185");
-  } else {
-    drawSparkleEye(188, 190);
-    drawSparkleEye(292, 190);
-    // 미소 입
+  // 양갈래 뒷머리
+  if (hairItem.style === "twin") {
+    fillRoundRect(ctx, 64, 165, 68, 135, 34, hairItem.color, outline, 9);
+    fillRoundRect(ctx, 348, 165, 68, 135, 34, hairItem.color, outline, 9);
+  }
+
+  // 앙증맞은 다리 (액퍼 특유의 심플하고 귀여운 스틱/통통 다리)
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 14;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(212, 345);
+  ctx.lineTo(208, 392);
+  ctx.moveTo(268, 345);
+  ctx.lineTo(272, 392);
+  ctx.stroke();
+
+  // 몸통 & 의상 (동글동글 귀요미 바디)
+  const outMain = outfitItem.main || "#ef4444";
+  const outSub = outfitItem.sub || "#ffffff";
+
+  // 양팔 (만세/차렷 귀여운 포즈)
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(185, 290);
+  ctx.lineTo(138, 325);
+  ctx.moveTo(295, 290);
+  ctx.lineTo(342, 325);
+  ctx.stroke();
+
+  fillRoundRect(ctx, 182, 268, 116, 86, 36, outMain, outline, 9);
+  fillRoundRect(ctx, 204, 278, 72, 48, 18, outSub, outline, 6);
+
+  if (isFemale) {
+    // 여캐 귀여운 프릴 스커트
+    fillRoundRect(ctx, 174, 328, 132, 28, 14, outSub, outline, 8);
+  }
+
+  // 큼직한 귀 (양쪽 동글 귀 — 몽키매직일 때는 더 큰 원숭이 귀!)
+  const isMonkey = hairItem.style === "monkey";
+  const earR = isMonkey ? 46 : 34;
+  ctx.fillStyle = isMonkey ? "#6b3410" : faceWhite;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.arc(105, 198, earR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(375, 198, earR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // 귀 안쪽 핑크/살구 디테일
+  ctx.fillStyle = isMonkey ? "#fffdf9" : "#fda4af";
+  ctx.beginPath();
+  ctx.arc(105, 198, earR * 0.55, 0, Math.PI * 2);
+  ctx.arc(375, 198, earR * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  if (isMonkey) {
     ctx.strokeStyle = outline;
     ctx.lineWidth = 6;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.arc(240, 220, 16, 0.15 * Math.PI, 0.85 * Math.PI);
     ctx.stroke();
   }
 
-  // 7. 앞머리 & 헤어 디테일 + 엔젤링 하이라이트
-  fillRoundRect(ctx, 122, 82, 236, 76, 38, hairMain, outline, 8);
-  // 좌우 옆머리
-  fillRoundRect(ctx, 120, 120, 38, 76, 18, hairMain, outline, 7);
-  fillRoundRect(ctx, 322, 120, 38, 76, 18, hairMain, outline, 7);
-  // 앞머리 뱅 디테일
-  fillRoundRect(ctx, 164, 118, 48, 44, 16, hairMain, outline, 6);
-  fillRoundRect(ctx, 216, 118, 52, 46, 16, hairMain, outline, 6);
-  fillRoundRect(ctx, 270, 118, 48, 44, 16, hairMain, outline, 6);
+  // 얼굴 본체 (액퍼 시그니처 큼직한 만두형 동글 얼굴)
+  fillRoundRect(ctx, 112, 92, 256, 190, 92, faceWhite, outline, 10);
 
-  // 엔젤링 하이라이트
-  fillRoundRect(ctx, 160, 98, 65, 16, 8, hairHi);
-  fillRoundRect(ctx, 255, 98, 65, 16, 8, hairHi);
+  // 몽키매직 원숭이 갈색 털 라인 (첨부 이미지 그대로!)
+  if (isMonkey) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(112, 92, 256, 190, 92);
+    ctx.clip();
+    ctx.fillStyle = "#6b3410";
+    ctx.fillRect(100, 80, 280, 72);
+    // 이마 M자 원숭이 얼굴 라인
+    ctx.fillStyle = faceWhite;
+    ctx.beginPath();
+    ctx.arc(195, 175, 65, 0, Math.PI * 2);
+    ctx.arc(285, 175, 65, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // 외곽선 다시 그리기
+    fillRoundRect(ctx, 112, 92, 256, 190, 92, null, outline, 10);
+    // 머리 위 원숭이 잔털 두 가닥
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(232, 92); ctx.lineTo(222, 68);
+    ctx.moveTo(246, 92); ctx.lineTo(254, 70);
+    ctx.stroke();
+  } else {
+    // 일반 헤어 스타일 렌더링
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(112, 92, 256, 190, 92);
+    ctx.clip();
+    ctx.fillStyle = hairItem.color || "#27272a";
+    ctx.fillRect(100, 80, 280, 68);
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(100, 148);
+    ctx.lineTo(380, 148);
+    ctx.stroke();
+    ctx.restore();
+    fillRoundRect(ctx, 112, 92, 256, 190, 92, null, outline, 10);
 
-  if (hairItem.style === "antenna") {
-    fillRoundRect(ctx, 175, 130, 22, 65, 10, hairHi, outline, 5);
-    fillRoundRect(ctx, 283, 130, 22, 65, 10, hairHi, outline, 5);
+    // 새싹 모자 / 문어 모자 특수 헤어
+    if (hairItem.style === "sprout") {
+      fillRoundRect(ctx, 234, 48, 12, 46, 6, "#16a34a", outline, 6);
+      fillRoundRect(ctx, 196, 36, 44, 26, 13, "#4ade80", outline, 6);
+      fillRoundRect(ctx, 240, 36, 44, 26, 13, "#4ade80", outline, 6);
+    } else if (hairItem.style === "octo") {
+      fillRoundRect(ctx, 165, 42, 150, 74, 36, "#ea580c", outline, 8);
+      fillRoundRect(ctx, 224, 92, 32, 24, 12, "#fed7aa", outline, 6);
+    }
   }
 
   if (isFemale && hatItem.id === "none") {
-    fillRoundRect(ctx, 308, 106, 44, 28, 10, "#f43f5e", outline, 5);
-    fillRoundRect(ctx, 322, 113, 16, 14, 5, "#ffe4e6");
+    // 여캐 귀여운 핑크 리본
+    fillRoundRect(ctx, 312, 96, 52, 32, 12, "#f43f5e", outline, 7);
+    ctx.fillStyle = "#ffe4e6";
+    ctx.beginPath();
+    ctx.arc(338, 112, 7, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // 8. 모자 / 헤드셋 / 왕관
-  if (hatItem.id === "headset") {
-    fillRoundRect(ctx, 112, 70, 256, 26, 13, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 92, 142, 38, 78, 16, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 350, 142, 38, 78, 16, hatItem.color, outline, 7);
-  } else if (hatItem.id === "cat_ear") {
-    fillRoundRect(ctx, 112, 70, 256, 24, 12, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 128, 32, 54, 48, 14, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 140, 44, 30, 26, 8, hatItem.sub || "#fecdd3");
-    fillRoundRect(ctx, 298, 32, 54, 48, 14, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 310, 44, 30, 26, 8, hatItem.sub || "#fecdd3");
-    fillRoundRect(ctx, 92, 142, 38, 78, 16, hatItem.color, outline, 7);
-    fillRoundRect(ctx, 350, 142, 38, 78, 16, hatItem.color, outline, 7);
-  } else if (hatItem.id === "beanie") {
-    fillRoundRect(ctx, 124, 52, 232, 66, 32, hatItem.color, outline, 8);
-    fillRoundRect(ctx, 118, 96, 244, 26, 12, hatItem.sub || "#93c5fd", outline, 7);
-  } else if (hatItem.id === "beret") {
-    fillRoundRect(ctx, 118, 54, 236, 54, 26, hatItem.color, outline, 8);
-    fillRoundRect(ctx, 232, 36, 16, 20, 6, outline);
+  // 핑크빛 볼터치
+  ctx.fillStyle = "#fda4af";
+  ctx.beginPath();
+  ctx.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
+  ctx.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 표정 & 안경 (액퍼 시그니처 코믹/귀요미 표정!)
+  ctx.strokeStyle = outline;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (faceItem.id === "square_glass") {
+    // 네모 뿔테안경 (첨부 이미지 B등급 안경 그대로!)
+    fillRoundRect(ctx, 156, 174, 72, 42, 8, "#ffffff", outline, 9);
+    fillRoundRect(ctx, 252, 174, 72, 42, 8, "#ffffff", outline, 9);
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(228, 194);
+    ctx.lineTo(252, 194);
+    ctx.stroke();
+  } else if (faceItem.id === "swirl_glass") {
+    // 뱅글뱅글 안경
+    ctx.lineWidth = 8;
+    [192, 288].forEach(cx => {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(cx, 194, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, 194, 18, 0, Math.PI * 1.5);
+      ctx.stroke();
+    });
+  } else if (faceItem.id === "sunglass") {
+    fillRoundRect(ctx, 150, 170, 80, 46, 12, "#0f172a", outline, 8);
+    fillRoundRect(ctx, 250, 170, 80, 46, 12, "#0f172a", outline, 8);
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(230, 188); ctx.lineTo(250, 188);
+    ctx.stroke();
+  } else if (faceItem.id === "wink") {
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(168, 184); ctx.lineTo(208, 196); ctx.lineTo(168, 208);
+    ctx.stroke();
+    ctx.fillStyle = outline;
+    ctx.beginPath();
+    ctx.arc(292, 196, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(287, 190, 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (faceItem.id === "singing") {
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(168, 184); ctx.lineTo(204, 196); ctx.lineTo(168, 206);
+    ctx.moveTo(312, 184); ctx.lineTo(276, 196); ctx.lineTo(312, 206);
+    ctx.stroke();
+  } else {
+    // 기본 액퍼 아쿠 표정 (ㅡ ㅡ 눈썹 + 초롱눈 또는 실눈)
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(170, 172); ctx.lineTo(208, 172);
+    ctx.moveTo(272, 172); ctx.lineTo(310, 172);
+    ctx.stroke();
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(172, 196); ctx.lineTo(208, 196);
+    ctx.moveTo(272, 196); ctx.lineTo(308, 196);
+    ctx.stroke();
+  }
+
+  // 입 모양 (액퍼 특유의 귀여운 3자 고양이 입 `w` 또는 열창 입)
+  if (faceItem.id === "singing") {
+    fillRoundRect(ctx, 214, 218, 52, 36, 18, "#e11d48", outline, 7);
+  } else {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(226, 224, 14, 0, Math.PI);
+    ctx.arc(254, 224, 14, 0, Math.PI);
+    ctx.stroke();
+  }
+
+  // 모자 / 헤드셋 / 왕관
+  if (hatItem.id === "headset" || hatItem.id === "cat_ear") {
+    const hc = hatItem.color || "#0ea5e9";
+    ctx.strokeStyle = hc;
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(240, 190, 144, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.stroke();
+    fillRoundRect(ctx, 82, 162, 34, 68, 16, hc, outline, 8);
+    fillRoundRect(ctx, 364, 162, 34, 68, 16, hc, outline, 8);
+    if (hatItem.id === "cat_ear") {
+      fillRoundRect(ctx, 134, 48, 48, 44, 12, hc, outline, 8);
+      fillRoundRect(ctx, 298, 48, 48, 44, 12, hc, outline, 8);
+    }
+  } else if (hatItem.id === "acorn_hat") {
+    fillRoundRect(ctx, 132, 52, 216, 68, 34, "#a16207", outline, 9);
+    fillRoundRect(ctx, 232, 30, 16, 26, 6, "#451a03", outline, 6);
   } else if (hatItem.id === "angel") {
     ctx.strokeStyle = "#facc15";
     ctx.lineWidth = 14;
     ctx.beginPath();
     ctx.ellipse(240, 42, 85, 18, 0, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.strokeStyle = "#fef08a";
-    ctx.lineWidth = 6;
-    ctx.stroke();
   } else if (hatItem.id === "crown") {
-    fillRoundRect(ctx, 152, 34, 176, 62, 14, "#facc15", outline, 8);
-    fillRoundRect(ctx, 224, 16, 32, 32, 10, "#f59e0b", outline, 6);
-    fillRoundRect(ctx, 228, 54, 24, 24, 8, "#ef4444", outline, 5);
-    fillRoundRect(ctx, 176, 58, 18, 18, 6, "#38bdf8", outline, 4);
-    fillRoundRect(ctx, 286, 58, 18, 18, 6, "#38bdf8", outline, 4);
+    fillRoundRect(ctx, 156, 34, 168, 64, 14, "#facc15", outline, 9);
+    fillRoundRect(ctx, 226, 52, 28, 28, 8, "#ef4444", outline, 6);
   }
 
-  // 9. 손 악기 / 마이크 / 응원봉
+  // 손 소품 / 악기
   if (accItem.id === "mic_silver" || accItem.id === "mic_gold") {
-    fillRoundRect(ctx, 352, 248, 26, 78, 10, "#475569", outline, 7);
-    fillRoundRect(ctx, 338, 206, 54, 52, 24, accItem.color || "#94a3b8", outline, 7);
+    fillRoundRect(ctx, 336, 272, 24, 68, 10, "#475569", outline, 7);
+    fillRoundRect(ctx, 324, 234, 48, 48, 24, accItem.color || "#94a3b8", outline, 7);
+  } else if (accItem.id === "banana") {
+    fillRoundRect(ctx, 326, 256, 74, 34, 17, "#facc15", outline, 7);
+    fillRoundRect(ctx, 338, 240, 68, 32, 16, "#fde047", outline, 7);
+  } else if (accItem.id === "tissue") {
+    fillRoundRect(ctx, 326, 252, 64, 58, 16, "#ffffff", outline, 7);
+    fillRoundRect(ctx, 346, 268, 24, 24, 12, "#94a3b8", outline, 5);
   } else if (accItem.id === "guitar") {
-    fillRoundRect(ctx, 366, 165, 28, 110, 8, "#78350f", outline, 7);
-    fillRoundRect(ctx, 320, 242, 92, 92, 32, accItem.color || "#ef4444", outline, 8);
-    fillRoundRect(ctx, 346, 268, 40, 40, 20, "#ffffff", outline, 5);
+    fillRoundRect(ctx, 356, 180, 26, 100, 8, "#78350f", outline, 7);
+    fillRoundRect(ctx, 316, 248, 88, 88, 34, "#ef4444", outline, 8);
   } else if (accItem.id === "lightstick") {
-    fillRoundRect(ctx, 354, 250, 24, 78, 10, "#f8fafc", outline, 7);
-    fillRoundRect(ctx, 332, 194, 68, 62, 26, accItem.color || "#ec4899", outline, 7);
-  } else if (accItem.id === "boombox") {
-    fillRoundRect(ctx, 318, 268, 124, 82, 16, accItem.color || "#475569", outline, 8);
-    fillRoundRect(ctx, 334, 286, 36, 36, 18, "#0f172a", "#94a3b8", 5);
-    fillRoundRect(ctx, 390, 286, 36, 36, 18, "#0f172a", "#94a3b8", 5);
+    fillRoundRect(ctx, 342, 268, 22, 68, 10, "#ffffff", outline, 7);
+    fillRoundRect(ctx, 322, 218, 62, 56, 26, "#ec4899", outline, 7);
   }
 
   ctx.restore();
 }
 
-// 상점 아이템 카드용 480x480 고해상도 개별 파츠 아이콘 렌더링
-function renderItemThumbnail(canvas, category, item, baseGender = "male") {
+// ============================================================================
+// 3. 상점 타일 전용 '단품 코스튬 파츠' 고해상도 렌더러 (첨부 사진처럼 파츠만 크게 그리기!)
+// ============================================================================
+function renderItemThumbnail(canvas, category, item) {
   if (!canvas || !item) return;
-  if (category === "special") {
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.scale(canvas.width / 480, canvas.height / 480);
-    fillRoundRect(ctx, 40, 110, 400, 260, 36, "#fef3c7", "#b45309", 12);
-    fillRoundRect(ctx, 70, 140, 340, 200, 24, "#fde68a", "#f59e0b", 8);
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.scale(W / 240, H / 240);
+
+  if (category === "hair") {
+    if (item.style === "monkey") {
+      // 원숭이 모자 단품 아이콘 (첨부 이미지 좌하단 핑크 선택 타일 그대로!)
+      fillRoundRect(ctx, 20, 95, 42, 48, 21, "#ffffff", outline, 9);
+      fillRoundRect(ctx, 178, 95, 42, 48, 21, "#ffffff", outline, 9);
+      fillRoundRect(ctx, 48, 52, 144, 136, 65, "#6b3410", outline, 9);
+      fillRoundRect(ctx, 64, 96, 112, 88, 45, "#ffffff", outline, 7);
+    } else if (item.style === "sprout") {
+      fillRoundRect(ctx, 112, 95, 16, 65, 8, "#16a34a", outline, 8);
+      fillRoundRect(ctx, 60, 65, 62, 38, 19, "#4ade80", outline, 8);
+      fillRoundRect(ctx, 118, 65, 62, 38, 19, "#4ade80", outline, 8);
+    } else if (item.style === "octo") {
+      fillRoundRect(ctx, 56, 60, 128, 110, 54, "#ea580c", outline, 9);
+      fillRoundRect(ctx, 102, 126, 36, 32, 16, "#fed7aa", outline, 7);
+    } else {
+      // 바가지/헤어 단품 실루엣 (첨부 이미지 1행 1열 스타일!)
+      ctx.fillStyle = item.color || "#27272a";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.arc(120, 135, 68, Math.PI, 0, false);
+      ctx.lineTo(188, 175);
+      ctx.lineTo(158, 175);
+      ctx.lineTo(158, 130);
+      ctx.lineTo(82, 130);
+      ctx.lineTo(82, 175);
+      ctx.lineTo(52, 175);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  } else if (category === "face") {
+    if (item.id === "square_glass") {
+      // 첨부 이미지 1행 2열 네모 안경 단품 그대로!
+      fillRoundRect(ctx, 36, 94, 72, 48, 6, "#ffffff", outline, 9);
+      fillRoundRect(ctx, 132, 94, 72, 48, 6, "#ffffff", outline, 9);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.moveTo(108, 118);
+      ctx.lineTo(132, 118);
+      ctx.stroke();
+    } else if (item.id === "swirl_glass") {
+      // 첨부 이미지 3행 2열 골뱅이 안경 단품 그대로!
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 8;
+      [82, 158].forEach(cx => {
+        ctx.beginPath();
+        ctx.arc(cx, 120, 34, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, 120, 18, 0, Math.PI * 1.5);
+        ctx.stroke();
+      });
+    } else if (item.id === "sunglass") {
+      fillRoundRect(ctx, 36, 94, 74, 48, 12, "#0f172a", outline, 8);
+      fillRoundRect(ctx, 130, 94, 74, 48, 12, "#0f172a", outline, 8);
+    } else {
+      fillRoundRect(ctx, 52, 62, 136, 116, 56, "#fffdf9", outline, 8);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(106, 134, 14, 0, Math.PI);
+      ctx.arc(134, 134, 14, 0, Math.PI);
+      ctx.stroke();
+    }
+  } else if (category === "hat") {
+    if (item.id === "crown") {
+      fillRoundRect(ctx, 48, 72, 144, 92, 18, "#facc15", outline, 9);
+      fillRoundRect(ctx, 104, 98, 32, 32, 10, "#ef4444", outline, 6);
+    } else if (item.id === "acorn_hat") {
+      fillRoundRect(ctx, 48, 76, 144, 88, 42, "#a16207", outline, 9);
+      fillRoundRect(ctx, 110, 48, 20, 32, 8, "#451a03", outline, 7);
+    } else {
+      const hc = item.color || "#0ea5e9";
+      ctx.strokeStyle = hc;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.arc(120, 130, 58, Math.PI, 0);
+      ctx.stroke();
+      fillRoundRect(ctx, 44, 110, 32, 58, 14, hc, outline, 8);
+      fillRoundRect(ctx, 164, 110, 32, 58, 14, hc, outline, 8);
+    }
+  } else if (category === "acc") {
+    if (item.id === "banana") {
+      fillRoundRect(ctx, 56, 105, 128, 46, 22, "#facc15", outline, 8);
+      fillRoundRect(ctx, 72, 78, 116, 44, 22, "#fde047", outline, 8);
+    } else if (item.id === "tissue") {
+      fillRoundRect(ctx, 64, 68, 112, 98, 24, "#ffffff", outline, 8);
+      fillRoundRect(ctx, 98, 92, 44, 42, 20, "#94a3b8", outline, 6);
+    } else if (item.id === "guitar") {
+      fillRoundRect(ctx, 110, 38, 24, 110, 8, "#78350f", outline, 8);
+      fillRoundRect(ctx, 68, 108, 104, 92, 36, "#ef4444", outline, 8);
+    } else {
+      fillRoundRect(ctx, 104, 112, 32, 78, 12, "#475569", outline, 8);
+      fillRoundRect(ctx, 84, 54, 72, 68, 34, item.color || "#facc15", outline, 8);
+    }
+  } else if (category === "outfit") {
+    fillRoundRect(ctx, 56, 66, 128, 110, 28, item.main || "#ef4444", outline, 9);
+    fillRoundRect(ctx, 88, 76, 64, 62, 16, item.sub || "#ffffff", outline, 6);
+  } else if (category === "bg") {
+    const c = item.colors || ["#5ec8f8", "#aee4ff", "#76d32d", "#58b018"];
+    fillRoundRect(ctx, 32, 42, 176, 156, 24, c[0], outline, 8);
+    fillRoundRect(ctx, 36, 132, 168, 62, 18, c[2], outline, 6);
+  } else {
+    fillRoundRect(ctx, 36, 68, 168, 104, 22, "#fef08a", "#b45309", 9);
     ctx.fillStyle = "#b45309";
-    ctx.font = "900 90px sans-serif";
+    ctx.font = "900 44px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("🎫 VIP", 240, 270);
-    ctx.restore();
-    return;
+    ctx.fillText("🎫 VIP", 120, 136);
   }
 
-  const sampleCfg = {
-    ...DEFAULT_AVATAR_CONFIG,
-    gender: baseGender,
-    [category]: item.id
-  };
-  renderPixelAvatar(canvas, sampleCfg);
+  ctx.restore();
 }
