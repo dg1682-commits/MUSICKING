@@ -410,18 +410,6 @@ function initEvents() {
     });
   });
 
-  // MD 모달
-  document.getElementById("closeMdModalBtn").addEventListener("click", () => closeModal("mdModal"));
-  document.getElementById("mdFileInput").addEventListener("change", handleMdFileUpload);
-  document.getElementById("parseMdTextBtn").addEventListener("click", handleMdTextParse);
-  document.getElementById("clearCustomBtn").addEventListener("click", () => {
-    if (confirm("추가한 커스텀 문제를 초기화할까요?")) {
-      saveCustomQuestions([]);
-      renderCustomQuestionCount();
-      updateLobbyCounts();
-    }
-  });
-
   syncDecadeChips();
   updateLobbyCounts();
 }

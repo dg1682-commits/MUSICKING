@@ -898,3 +898,8 @@ canvas {
   padding: 14px;
   box-shadow: 0 8px 0 #334155, 0 20px 40px rgba(0, 0, 0, 0.25);
 }
+
+.hidden {
+  display: none !important;
+}
+

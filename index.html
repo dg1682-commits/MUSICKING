@@ -514,7 +514,7 @@
     </div>
   </div>
 
-  <!-- ==================== [모달 9] 환경 설정 & MD 문제 관리 ==================== -->
+  <!-- ==================== [모달 9] 환경 설정 ==================== -->
   <div id="settingsModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -530,40 +530,6 @@
           <span>🔤 도트 픽셀 폰트 사용</span>
           <strong id="fontStyleStatus" style="color:var(--primary);">ON</strong>
         </div>
-        <div class="pixel-list-item" onclick="closeModal('settingsModal'); openModal('mdModal'); renderCustomQuestionCount();">
-          <span>📂 사용자 MD 문제 추가/관리</span>
-          <strong>열기 ➔</strong>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== [모달 10] MD 파일 자동 변환 모달 ==================== -->
-  <div id="mdModal" class="modal-backdrop hidden">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:0.95rem;">📂 MD 문제 자동 추가/관리</h3>
-        <button class="header-btn" id="closeMdModalBtn">닫기 ✕</button>
-      </div>
-      <p id="customQCountText" style="color:var(--primary); font-weight:800; font-size:0.8rem; margin-bottom:8px;"></p>
-      <input type="file" id="mdFileInput" accept=".md,.txt" class="text-input" style="margin-bottom:8px; font-size:0.78rem;" />
-      <textarea
-        id="mdRawTextarea"
-        class="text-input"
-        rows="5"
-        placeholder="가수: 국카스텐
-동의어: 하현우
-노래: 거울
-연도: 2010
-키워드: 사이키델릭 록, 1집 타이틀곡
-가사: 거울 속에 뒷모습을 보며
-비하인드: 국카스텐 정규 1집의 타이틀곡입니다.
----"
-        style="font-family:monospace; font-size:0.78rem; margin-bottom:8px;"
-      ></textarea>
-      <div class="action-row">
-        <button class="btn btn-primary" id="parseMdTextBtn" style="flex:2;">✨ DB 변환·추가</button>
-        <button class="btn" id="clearCustomBtn" style="flex:1;">초기화</button>
       </div>
     </div>
   </div>
