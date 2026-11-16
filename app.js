@@ -1,14 +1,15 @@
 // ============================================================================
-// [음악왕 v3.0] 메인 게임 엔진 (app.js)
-// - 싱글/멀티 선택, 뒤로가기 앱 종료 방지(History Trap), 커스텀 모달 완벽 적용
-// - 모든 버튼 이벤트 안전 바인딩(오류 제로 보장)
+// [음악왕 v4.0] 메인 게임 엔진 (app.js)
+// - 기본 폰트: 기본 고딕 적용
+// - 모바일 키보드 올라올 때 visualViewport 연동으로 문제 가림 현상 완벽 해결
+// - 첫 터치 시 모바일 주소창 자동 숨김(Fullscreen) 트리거
 // ============================================================================
 
 const state = {
   decades: new Set(["1990s", "2000s", "2010s", "2020s"]),
-  mode: "behind",      // 'behind' | 'lyrics' | 'onesec'
-  stage: 1,            // 1: 노래 | 2: 가수 | 3: 가수+노래
-  questionLimit: 10,   // 10 | 20 | 50 | 'infinite'
+  mode: "behind",
+  stage: 1,
+  questionLimit: 10,
   timeAttack: false,
   hardMode: false,
 
@@ -33,7 +34,8 @@ const state = {
   audioStopTimer: null,
   itunesCache: new Map(),
   oneSecOffsetIndex: 0,
-  currentScreen: "loginScreen"
+  currentScreen: "loginScreen",
+  autoFullscreenTried: false
 };
 
 state.audioEl.crossOrigin = "anonymous";
@@ -45,7 +47,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, #roomChatLog, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -54,13 +56,51 @@ document.addEventListener(
   { passive: false }
 );
 
-// 안전한 이벤트 바인딩 헬퍼 (요소가 없어도 절대 에러 발생 안 함)
+// 모바일 브라우저 첫 터치 시 기본으로 상단 주소창 숨김(Fullscreen) 유도
+function tryAutoHideAddressBar() {
+  if (state.autoFullscreenTried) return;
+  state.autoFullscreenTried = true;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  window.scrollTo(0, 1);
+}
+document.addEventListener("pointerdown", tryAutoHideAddressBar, { once: true });
+
+// ============================================================================
+// 모바일 키보드 올라올 때 문제가 절대 가려지지 않도록 동적 뷰포트 제어
+// ============================================================================
+function setupMobileKeyboardViewportHandler() {
+  const shell = document.querySelector(".app-shell");
+  if (!shell) return;
+
+  const updateViewport = () => {
+    if (window.visualViewport) {
+      const vh = window.visualViewport.height;
+      const fullH = window.innerHeight;
+      shell.style.height = `${vh}px`;
+      // 키보드가 올라와 화면 높이가 줄어든 상태 감지
+      if (fullH - vh > 110) {
+        document.body.classList.add("keyboard-open");
+      } else {
+        document.body.classList.remove("keyboard-open");
+      }
+      window.scrollTo(0, 0);
+    }
+  };
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateViewport);
+    window.visualViewport.addEventListener("scroll", updateViewport);
+  }
+}
+
 function safeOn(id, event, handler) {
   const el = document.getElementById(id);
   if (el) el.addEventListener(event, handler);
 }
 
-// 모달 열기/닫기 전역 함수 (커스텀 다이얼로그는 별도 레이어로 유지)
 window.closeAllModals = function () {
   document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
 };
@@ -79,7 +119,6 @@ window.closeModal = function (id) {
   if (el) el.classList.add("hidden");
 };
 
-// 음악왕 도전 버튼 -> 싱글/멀티 선택 모달 오픈
 window.openPlayModeSelect = function () {
   openModal("playModeSelectModal");
 };
@@ -99,11 +138,12 @@ window.openRankingModal = function () {
   if (typeof loadRankingsList === "function") loadRankingsList();
 };
 
+// 기본 폰트: 기본 고딕 (토글 시 도트 폰트와 전환)
 window.toggleFontStyle = function () {
-  document.body.classList.toggle("standard-font");
-  const isPixel = !document.body.classList.contains("standard-font");
+  document.body.classList.toggle("use-pixel-font");
+  const isPixel = document.body.classList.contains("use-pixel-font");
   const statusEl = document.getElementById("fontStyleStatus");
-  if (statusEl) statusEl.textContent = isPixel ? "ON" : "OFF (기본 고딕)";
+  if (statusEl) statusEl.textContent = isPixel ? "도트 폰트" : "기본 고딕 (기본)";
 };
 
 window.toggleFullscreenMode = function () {
@@ -115,7 +155,7 @@ window.toggleFullscreenMode = function () {
 };
 
 // ============================================================================
-// 모바일 물리 '뒤로가기' 버튼 앱 종료 방지 트랩 (항목 12)
+// 모바일 물리 '뒤로가기' 버튼 앱 종료 방지 트랩
 // ============================================================================
 function pushAppHistoryState() {
   try {
@@ -124,7 +164,6 @@ function pushAppHistoryState() {
 }
 
 window.addEventListener("popstate", () => {
-  // 1. 커스텀 알림창이 열려 있으면 닫기
   const dialog = document.getElementById("customDialogModal");
   if (dialog && !dialog.classList.contains("hidden")) {
     dialog.classList.add("hidden");
@@ -132,7 +171,13 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  // 2. 일반 모달이 열려 있으면 모달만 닫기
+  const battleModal = document.getElementById("battleRoomModal");
+  if (battleModal && !battleModal.classList.contains("hidden")) {
+    leaveBattleRoom();
+    pushAppHistoryState();
+    return;
+  }
+
   const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
   if (openModals.length > 0) {
     window.closeAllModals();
@@ -140,7 +185,6 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  // 3. 서브 화면(설정, 대기실, 인게임, 결과)에 있으면 메인 홈으로 이동
   if (["setupScreen", "plazaScreen", "resultScreen"].includes(state.currentScreen)) {
     showHome();
     pushAppHistoryState();
@@ -155,7 +199,6 @@ window.addEventListener("popstate", () => {
     return;
   }
 
-  // 4. 메인 홈 화면에서 뒤로가기 누르면 바로 앱이 꺼지지 않고 확인 모달 표시
   if (state.currentScreen === "homeScreen") {
     pushAppHistoryState();
     gameConfirm("로그아웃하고 로그인 화면으로 돌아가시겠습니까?", () => {
@@ -403,12 +446,12 @@ window.updateLobbyCounts = function () {
 };
 
 function initEvents() {
+  setupMobileKeyboardViewportHandler();
   pushAppHistoryState();
   updateHeaderUserUI();
 
-  safeOn("brandHome", "click", showHome);
+  safeOn("headerMyProfileTrigger", "click", openMyProfileModal);
   safeOn("headerCdBtn", "click", openShopModal);
-  safeOn("headerProfileBtn", "click", openMyProfileModal);
   safeOn("openPatchBtn", "click", () => openModal("patchNotesModal"));
   safeOn("openSettingsBtn", "click", () => openModal("settingsModal"));
   safeOn("enterSetupBtn", "click", openPlayModeSelect);
@@ -418,7 +461,6 @@ function initEvents() {
     state.audioEl.volume = Number(e.target.value);
   });
 
-  // 연대 선택
   document.querySelectorAll("[data-decade]").forEach(el => {
     el.addEventListener("click", () => {
       const dec = el.getAttribute("data-decade");
@@ -432,7 +474,6 @@ function initEvents() {
     });
   });
 
-  // 모드 선택
   document.querySelectorAll("[data-mode]").forEach(el => {
     el.addEventListener("click", () => {
       state.mode = el.getAttribute("data-mode");
@@ -441,7 +482,6 @@ function initEvents() {
     });
   });
 
-  // 단계 선택
   document.querySelectorAll("[data-stage]").forEach(el => {
     el.addEventListener("click", () => {
       state.stage = Number(el.getAttribute("data-stage"));
@@ -450,7 +490,6 @@ function initEvents() {
     });
   });
 
-  // 문제 수 선택
   document.querySelectorAll("[data-limit]").forEach(el => {
     el.addEventListener("click", () => {
       const val = el.getAttribute("data-limit");
@@ -504,7 +543,6 @@ function initEvents() {
   window.closeAllModals();
   showLoginScreen();
 
-  // Supabase 세션 및 관리자 설정 로드
   if (typeof restoreSupabaseSession === "function") {
     restoreSupabaseSession();
   }
