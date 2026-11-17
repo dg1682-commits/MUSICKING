@@ -13,10 +13,24 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>음악왕</title>
+  <meta name="description" content="1초 듣고 맞추는 짜릿한 음악 퀴즈!" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="음악왕" />
+  <meta property="og:title" content="음악왕" />
+  <meta property="og:description" content="1초 듣고 맞추는 짜릿한 음악 퀴즈!" />
+  <meta property="og:url" content="https://dg1682-commits.github.io/MUSICKING/" />
+  <meta property="og:image" content="https://dg1682-commits.github.io/MUSICKING/icons/icon-512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="음악왕 앱 아이콘" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="음악왕" />
+  <meta name="twitter:description" content="1초 듣고 맞추는 짜릿한 음악 퀴즈!" />
+  <meta name="twitter:image" content="https://dg1682-commits.github.io/MUSICKING/icons/icon-512.png" />
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.16" />
+  <link rel="stylesheet" href="style.css?v=10.17" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -150,6 +164,7 @@
     <section id="shopScreen" class="screen-view hidden">
       <div class="apf-shop-wrapper">
         <div class="apf-shop-top" id="shopTopBackdrop">
+          <canvas id="shopBgCanvas" class="shop-bg-canvas" width="760" height="420"></canvas>
           <div class="apf-shop-topbar">
             <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기">⬅</button>
             <div class="cd-pill">
@@ -184,7 +199,7 @@
           <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="tab-ico">🏞️</span><span>배경</span></div>
           <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="tab-ico">💇</span><span>헤어</span></div>
           <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="tab-ico">🎧</span><span>모자</span></div>
-          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>표정</span></div>
+          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>얼굴</span></div>
           <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="tab-ico">🎸</span><span>악기</span></div>
           <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="tab-ico">👕</span><span>의상</span></div>
           <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')"><span class="tab-ico">🎫</span><span>변경권</span></div>
@@ -843,6 +858,13 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎨 v10.17 480×480 캐릭터·상점 27종 대개편 & OG 링크 썸네일</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>전 파츠 고해상도·고디테일 리뉴얼</strong>: 헤어 15종(쉼표·펌·샤기컷·양갈래 등), 의상(카라·단추·소매·신발), 배경 12종(상점 상단 스테이지·타일 동시 풀 일러스트) 전면 업그레이드</li>
+          <li><strong>신규 A~S급 코스튬 27종 출시</strong>: 구름·태양·별·파티·펑키·트리 모자, 상처·터프/산타 수염·잠자리안경·개구리눈·가면, 배관공·5살유치원·파자마·노란네모·방울고양이·드레스, 해변·골목·지하실·구름 배경, 해골·키보드·선풍기·스노우보드·X-Mas 선물</li>
+          <li><strong>얼굴 카테고리 정리 & 링크 썸네일</strong>: <code>표정 ➔ 얼굴</code> 명칭 변경, 중복 <code>열창 표정</code> 제거 및 <code>심쿵 윙크</code> 아이콘 수정, 메신저 공유 시 음악왕 OG 썸네일 카드 지원</li>
+        </ul>
+
         <p style="font-weight:900; color:#2563eb; margin-bottom:4px;">🚀 v10.16 싱글·멀티 홈 분리 · 랜덤 플레이 · 스토어 정책/외부 탈퇴 완성</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>홈 싱글/멀티 직관 분리</strong>: 메인 하단 도전 버튼을 <code>🎯 싱글 플레이</code>·<code>⚔️ 멀티 플레이</code>로 분할하고, 멀티 선택 시 <code>1:1 / 4인</code> 대결 선택 모달 제공</li>
@@ -1225,10 +1247,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.16"></script>
-  <script src="pixel_avatar.js?v=10.16"></script>
-  <script src="online.js?v=10.16"></script>
-  <script src="app.js?v=10.16"></script>
+  <script src="data.js?v=10.17"></script>
+  <script src="pixel_avatar.js?v=10.17"></script>
+  <script src="online.js?v=10.17"></script>
+  <script src="app.js?v=10.17"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

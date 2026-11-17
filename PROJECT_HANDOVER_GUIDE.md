@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.16`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.17`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.16`)
-- **현재 버전**: **v10.16** (`SHOP_CATALOG_VERSION = 11`)
+- **앱 이름**: 음악왕 (`v10.17`)
+- **현재 버전**: **v10.17** (`SHOP_CATALOG_VERSION = 12`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -19,11 +19,11 @@
 
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
-| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (13개 전체화면 `<section>`/`<main>` + 16개 모달, 개인정보/외부탈퇴 URL 라우팅 지원) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
+| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (13개 전체화면 `<section>`/`<main>` + 16개 모달, OG 공유 메타태그·개인정보/외부탈퇴 URL 라우팅·상점 풀배경 캔버스 포함) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
 | [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (싱글·멀티 분할 도크·정사각형 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
-| [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v11), 캐릭터·배경·정밀 악기·도트 로고 캔버스 렌더러 | `online.js`, `app.js`보다 **반드시 먼저** 로드 |
-| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
+| [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `online.js`, `app.js`보다 **반드시 먼저** 로드 |
+| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
 | [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진(랜덤 플레이 `startRandomGame` 포함), iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM/클릭 효과음(`click.wav`), 백그라운드 음소거(`visibilitychange`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어, 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
 | [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**, **`📦 스토어 출시 정보`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
 | [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
@@ -66,7 +66,7 @@
      - [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html)에서 수정한 글로벌 상점 카탈로그와 문제 오버라이드를 저장하는 공용 설정 행입니다.
      - `avatar_config`: `{ shopCatalog: AVATAR_SHOP_ITEMS, catalogVersion: SHOP_CATALOG_VERSION }`
      - `owned_items`: 수정/추가/`_deleted: true` 처리된 문제 배열
-     - **주의**: 서버 카탈로그의 `catalogVersion < SHOP_CATALOG_VERSION` (현재 `11`)인 구버전 데이터는 무시하여 최신 시세 및 신규 아이템이 덮어씌워지지 않도록 방어되어 있습니다 ([applyServerShopCatalog](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js#L192-L207)).
+     - **주의**: 서버 카탈로그의 `catalogVersion < SHOP_CATALOG_VERSION` (현재 `12`)인 구버전 데이터는 무시하여 최신 시세 및 신규 아이템이 덮어씌워지지 않도록 방어되어 있습니다 ([applyServerShopCatalog](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js#L232-L248)).
 
 2. **`rankings`**
    - 컬럼: `user_id`, `nickname`, `avatar_config`, `decade_filter`, `game_mode` (`behind` | `lyrics` | `onesec`), `stage` (`1` | `2` | `3`), `question_limit`, `time_attack`, `score`, `accuracy`
@@ -171,24 +171,28 @@
 
 ---
 
-## 6. 캐릭터 · 상점(v11 카탈로그) & 사운드(BGM/SFX) 규격
+## 6. 캐릭터 · 상점(v12 카탈로그) & 사운드(BGM/SFX) 규격
 
 ### 캐릭터 & 상점 시스템 ([pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js))
-- **정배율 렌더링**: `#homeScreen`의 `.home-wide-stage`는 `1:1` 정사각형(`width="560" height="560"`, CSS `width: min(100%, 240px, 31dvh); aspect-ratio: 1 / 1`) 비율이며, `#loginScreen` / `#signupGenderModal`의 `.home-wide-stage`는 직사각 캔버스 비율(`aspect-ratio: auto; width: 100%`)을 유지합니다. `renderPixelAvatar` 내부에서도 `canvas.clientWidth * 2` × `canvas.clientHeight * 2`로 캔버스 비율을 자동 동기화합니다.
-- **상점 시세 & 보유 수 (`SHOP_CATALOG_VERSION = 11`)**:
-  - `🏞️ 배경 (bg)`: **8종** (`0 ~ 2,000 CD`)
-  - `💇 헤어 (hair)`: **15종** (`0 ~ 1,100 CD`) — *반짝 민머리·상큼 양갈래·하이 포니테일·동글 만두머리·발랄 삐삐머리 5종 포함*
-  - `🎧 모자 (hat)`: **14종** (`0 ~ 2,000 CD`) — *프로펠러 모자·왕리본 머리핀·곰돌이 모자·보석 왕관 4종 포함*
-  - `👓 표정 (face)`: **14종** (`0 ~ 1,100 CD`) — *오잉? 놀람·해맑은 웃음·고양이 입·빵터짐·쪽~ 윙크 5종 포함*
-  - `🎸 악기 (acc)`: **15종** (`0 ~ 1,800 CD`) — *회오리 왕사탕·곰돌이 인형·최신 스마트폰 3종 포함*
-  - `👕 의상 (outfit)`: **9종** (`0 ~ 1,800 CD`)
+- **정배율 · 최소 480×480+ 고해상도 렌더링**: `#homeScreen`의 `.home-wide-stage`는 `1:1` 정사각형(`width="560" height="560"`, CSS `width: min(100%, 240px, 31dvh); aspect-ratio: 1 / 1`) 비율이며, `#loginScreen` / `#signupGenderModal`의 `.home-wide-stage`는 직사각 캔버스 비율(`aspect-ratio: auto; width: 100%`)을 유지합니다. `renderPixelAvatar` 내부에서도 CSS 비율과 맞추면서 단변 최소 `480px`(목록 소형 아이콘은 `280px`) 및 고DPR(`2~3x`)을 보장하고, 상점 상단 스테이지(`#shopBgCanvas`)에도 선택한 배경 풀 일러스트를 실시간 렌더링합니다.
+- **상점 시세 & 보유 수 (`SHOP_CATALOG_VERSION = 12`)**:
+  - `🏞️ 배경 (bg)`: **12종** (`0 ~ 2,000 CD`) — *해변·골목·지하실·구름 신규 4종 포함, 전종 타일 미니 일러스트화*
+  - `💇 헤어 (hair)`: **15종** (`0 ~ 1,100 CD`) — *바가지/금발/쉼표/양갈래 3종/포니테일/불꽃샤기컷/실버펌/만두/삐삐 등 15종 전부 개별 앞·뒷머리 실루엣 & 엔젤링 고디테일화*
+  - `🎧 모자 (hat)`: **20종** (`0 ~ 2,000 CD`) — *구름모자·태양모자·별 모자·파티모자·펑키스타일·트리 모자 6종 신규*
+  - `👓 얼굴 (face)`: **19종** (`0 ~ 1,500 CD`) — *기존 "표정" ➔ "얼굴" 개명, 중복 `열창 표정` 제거(`default` 자동 폴백), `심쿵 윙크` 아이콘 버그 수정, 터프 수염·산타 수염·상처·잠자리안경·개구리 눈·가면 6종 신규*
+  - `🎸 악기 (acc)`: **20종** (`0 ~ 1,800 CD`) — *해골·키보드·선풍기·스노우보드·X-Mas 선물 5종 신규*
+  - `👕 의상 (outfit)`: **15종** (`0 ~ 1,800 CD`) — *배관공·5살유치원·파자마·노란네모·방울고양이·드레스 6종 신규, 전종 소매·장갑·신발·패턴 디테일화*
   - `🎫 변경권 (special)`: **닉네임 변경권 `5,000 CD`**, **성별 변경권 `10,000 CD`**
-- **선택 일괄 구매 & 미구매 저장 방어** ([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L800-L926)):
-  - 피팅룸에서 여러 미구매 아이템을 입어본 상태에서 구매를 누르면 `shopMultiBuyModal`이 떠서 체크박스로 원하는 항목만 골라 결제할 수 있으며, `sanitizeAvatarConfigToOwned()`가 미구매 미리보기 파츠는 실제 장착 저장에서 자동 제외합니다.
+- **선택 일괄 구매 & 미구매 저장 방어** ([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L1095-L1200)):
+  - 피팅룸에서 여러 미구매 아이템을 입어본 상태에서 구매를 누르면 `shopMultiBuyModal`이 떠서 체크박스로 원하는 항목만 골라 결제할 수 있으며, `sanitizeAvatarConfigToOwned()`가 미구매 미리보기 파츠 및 삭제된 구형 `face("singing")`을 자동 정리합니다.
 - **상점 고스트 스크롤 & 탭**:
   - 7개 탭이 좁은 화면에서도 짤리지 않도록 7열 균등 그리드(`.apf-tab-bar`) + 2줄 아이콘·라벨 스택 적용
-  - `#shopItemsGrid`는 스크롤할 때(`.is-scrolling`)만 얇은 흰색 스크롤바가 나타납니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L60-L70), [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L585-L621)).
-- **신규 아이템 추가 시 주의**: `BASE_AVATAR_SHOP_ITEMS`에 아이템을 추가할 때는 **반드시** [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js)의 `renderPixelAvatar()` / `drawDetailedInstrument()` / `renderApfWideBackground()` 및 `renderItemThumbnail()` 4곳에 해당 `id` 드로잉 분기를 함께 작성하고 `SHOP_CATALOG_VERSION`을 올리세요.
+  - `#shopItemsGrid`는 스크롤할 때(`.is-scrolling`)만 얇은 흰색 스크롤바가 나타납니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L64-L74), [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L585-L621)).
+- **신규 아이템 추가 시 주의**: `BASE_AVATAR_SHOP_ITEMS`에 아이템을 추가할 때는 **반드시** [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js)의 `drawDetailedInstrument()` / `renderApfWideBackground()` / `drawHairBack()` / `drawHairFront()` / `drawDetailedOutfit()` / `drawDetailedFace()` / `drawDetailedHat()` 및 `renderItemThumbnail()`에 해당 `id` 드로잉 분기를 함께 작성하고 `SHOP_CATALOG_VERSION`을 올리세요.
+
+### 링크 공유 OG 메타태그 ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L15-L31))
+- `og:title` (`"음악왕"`), `og:description` (`"1초 듣고 맞추는 짜릿한 음악 퀴즈!"`), `og:image` (`https://dg1682-commits.github.io/MUSICKING/icons/icon-512.png`, `512×512`) 및 `twitter:card`가 등록되어 있습니다.
+- 카카오톡 등은 링크 썸네일을 자체 캐싱하므로 이미지·문구 변경 배포 후 즉시 새 미리보기가 안 뜰 경우 카카오 디벨로퍼스 URL 캐시 초기화를 1회 실행하면 즉시 갱신됩니다.
 
 ### 사운드(BGM & 효과음) 및 1초 듣기 규격 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L671-L820))
 - **`bgm/main.mp3`** (volume `0.22`, loop): `loginScreen`, `homeScreen`, `setupScreen`, `plazaScreen`, `battleRoomScreen`, `rankingScreen`, `socialScreen`, `dmChatScreen`에서 **이미 재생 중이면 끊기지 않고 계속 유지**됩니다.

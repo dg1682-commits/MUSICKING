@@ -475,7 +475,7 @@ async function restoreSupabaseSession() {
         userState.exp = Number(rawCfg._exp) || 0;
         userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
         userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
-        userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...rawCfg };
+        userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
         userState.ownedItems = Array.isArray(prof.owned_items)
           ? prof.owned_items
           : ["meadow", "default", "none", "basic", "mic_silver"];
@@ -622,7 +622,7 @@ window.handleAuthSubmit = async function (mode) {
       userState.exp = Number(rawCfg._exp) || 0;
       userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
       userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
-      userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...rawCfg };
+      userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
       userState.ownedItems = prof?.owned_items || userState.ownedItems;
       userState.isLoggedIn = true;
       loadBlockedUsersFromStorage(rawCfg._blockedUsers);
@@ -991,17 +991,30 @@ window.openShopModal = function () {
 };
 
 function updateShopPreviewCanvas() {
+  shopPreviewState.config = sanitizeAvatarConfigShape(shopPreviewState.config);
   const cv = document.getElementById("shopAvatarCanvas");
   if (cv) {
     renderPixelAvatar(cv, shopPreviewState.config, { transparentBg: true });
   }
 
-  // 선택한 배경(bg) 컬러를 상점 상단 스테이지에도 실시간 반영!
+  // 선택한 배경(bg) 고디테일 풀 일러스트 & 컬러를 상점 상단 스테이지에도 실시간 반영!
   const topBackdrop = document.getElementById("shopTopBackdrop");
+  const bgItem = getItemById("bg", shopPreviewState.config.bg);
   if (topBackdrop) {
-    const bgItem = getItemById("bg", shopPreviewState.config.bg);
     const c = (bgItem && bgItem.colors) || ["#5ec8f8", "#aee4ff", "#76d32d", "#58b018"];
     topBackdrop.style.background = `linear-gradient(180deg, ${c[0]} 0%, ${c[1]} 58%, ${c[2]} 58%, ${c[3]} 100%)`;
+  }
+  const bgCanvas = document.getElementById("shopBgCanvas");
+  if (bgCanvas && topBackdrop && typeof renderApfWideBackground === "function") {
+    const w = Math.max(640, Math.round((topBackdrop.clientWidth || 380) * 2));
+    const h = Math.max(360, Math.round((topBackdrop.clientHeight || 200) * 2));
+    if (Math.abs(bgCanvas.width - w) > 8 || Math.abs(bgCanvas.height - h) > 8) {
+      bgCanvas.width = w;
+      bgCanvas.height = h;
+    }
+    const bgCtx = bgCanvas.getContext("2d");
+    bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+    renderApfWideBackground(bgCtx, bgCanvas.width, bgCanvas.height, bgItem);
   }
 
   const cdSpan = document.getElementById("shopCdBalance");
@@ -1075,7 +1088,7 @@ const SHOP_CAT_LABELS = {
   bg: "배경",
   hair: "헤어",
   hat: "모자",
-  face: "표정",
+  face: "얼굴",
   outfit: "의상",
   acc: "악기"
 };
@@ -1093,9 +1106,10 @@ function getUnownedPreviewItems() {
 }
 
 function sanitizeAvatarConfigToOwned(previewCfg) {
-  const safe = { ...userState.avatarConfig };
+  const safe = sanitizeAvatarConfigShape(userState.avatarConfig);
+  const cleanPreview = sanitizeAvatarConfigShape(previewCfg);
   for (const cat of ["bg", "hair", "hat", "face", "outfit", "acc"]) {
-    const id = previewCfg[cat];
+    const id = cleanPreview[cat];
     const item = getItemById(cat, id);
     if (item && (!item.price || item.price === 0 || userState.ownedItems.includes(item.id))) {
       safe[cat] = id;
@@ -1296,7 +1310,7 @@ window.renderShopCategory = function (cat) {
       <div class="apf-tile ${owned && cat !== "special" ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
         <span class="apf-tile-price ${owned && cat !== "special" ? "is-owned" : ""}">${priceText}</span>
         ${previewing ? `<div class="apf-tile-check">✔</div>` : `<div class="apf-tile-grade grade-${grade}">${grade}</div>`}
-        <canvas id="shopThumb_${cat}_${idx}" width="240" height="240" style="width:52px; height:52px; margin-top:8px;"></canvas>
+        <canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:52px; height:52px; margin-top:8px;"></canvas>
         <span class="apf-tile-name">${item.name}</span>
       </div>
     `;
