@@ -91,9 +91,11 @@ function setupMobileKeyboardViewportHandler() {
   if (!shell) return;
 
   let baseHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  let fishingLockedHeight = window.visualViewport ? Math.max(window.innerHeight, window.visualViewport.height) : window.innerHeight;
 
   const updateViewport = () => {
     const fishingInputBar = document.getElementById("fishingInputBar");
+    const fishingStageArea = document.getElementById("fishingStageArea");
     if (window.visualViewport) {
       const vv = window.visualViewport;
       if (vv.height > baseHeight) baseHeight = vv.height;
@@ -101,22 +103,36 @@ function setupMobileKeyboardViewportHandler() {
       const isInputFocused =
         document.activeElement &&
         ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
-      const kbGap = Math.max(0, Math.round(baseHeight - vv.height));
-      const isKbOpen = kbGap > 110 || (isInputFocused && kbGap > 60);
-
-      if (!isKbOpen && state.currentScreen !== "fishingScreen") {
-        baseHeight = vv.height;
-      } else if (!isKbOpen && state.currentScreen === "fishingScreen" && Math.abs(baseHeight - vv.height) < 55) {
-        baseHeight = Math.max(baseHeight, vv.height);
-      }
 
       if (state.currentScreen === "fishingScreen") {
-        // 낚시터: 가상 키보드가 올라와도 전체 뷰포트·캐릭터·배경은 1px도 밀리지 않도록 높이 완전 고정!
+        // 낚시터: 키보드가 닫혀 있을 때만 기준 높이를 갱신하고, 키보드가 열린 동안에는
+        // body.keyboard-open 클래스를 절대 붙이지 않고 쉘·상단 무대 높이를 1px도 움직이지 않게 완전 잠금!
+        document.body.classList.remove("keyboard-open");
+        const isFishingInputActive = document.activeElement && document.activeElement.id === "fishingChatInput";
+        const candidateDiff = fishingLockedHeight - vv.height;
+        const isKbOpen = isFishingInputActive ? candidateDiff > 60 : candidateDiff > 110;
+
+        if (!isKbOpen) {
+          fishingLockedHeight = vv.height;
+          baseHeight = Math.max(baseHeight, vv.height);
+        }
+
+        const kbGap = isKbOpen ? Math.max(0, Math.round(fishingLockedHeight - vv.height)) : 0;
         shell.style.top = `${vv.offsetTop}px`;
-        shell.style.height = `${baseHeight}px`;
+        shell.style.height = `${fishingLockedHeight}px`;
+
+        if (fishingStageArea) {
+          if (isKbOpen) {
+            fishingStageArea.style.flex = "none";
+            fishingStageArea.style.height = `${Math.round(fishingLockedHeight * 0.56)}px`;
+          } else {
+            fishingStageArea.style.flex = "";
+            fishingStageArea.style.height = "";
+          }
+        }
 
         if (fishingInputBar) {
-          if (isKbOpen && document.activeElement && document.activeElement.id === "fishingChatInput") {
+          if (isKbOpen && isFishingInputActive && kbGap > 60) {
             fishingInputBar.style.transform = `translate3d(0, -${kbGap}px, 0)`;
             fishingInputBar.classList.add("is-kb-floating");
           } else {
@@ -124,17 +140,29 @@ function setupMobileKeyboardViewportHandler() {
             fishingInputBar.classList.remove("is-kb-floating");
           }
         }
-        document.body.classList.toggle("keyboard-open", isKbOpen);
+
         shell.scrollTop = 0;
         const fishingEl = document.getElementById("fishingScreen");
         if (fishingEl) fishingEl.scrollTop = 0;
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
         window.scrollTo(0, 0);
         return;
       }
 
+      if (fishingStageArea) {
+        fishingStageArea.style.flex = "";
+        fishingStageArea.style.height = "";
+      }
       if (fishingInputBar) {
         fishingInputBar.style.transform = "";
         fishingInputBar.classList.remove("is-kb-floating");
+      }
+
+      const kbGap = Math.max(0, Math.round(baseHeight - vv.height));
+      const isKbOpen = kbGap > 110 || (isInputFocused && kbGap > 60);
+      if (!isKbOpen) {
+        baseHeight = vv.height;
       }
 
       // 브라우저가 화면을 위로 밀어 올리더라도 offsetTop과 height를 정확히 추적해 빈 허공이 절대 안 생기게 고정!
@@ -164,8 +192,10 @@ function setupMobileKeyboardViewportHandler() {
     window.visualViewport.addEventListener("scroll", updateViewport);
   }
   document.addEventListener("focusin", () => {
-    setTimeout(updateViewport, 80);
-    setTimeout(updateViewport, 280);
+    updateViewport();
+    setTimeout(updateViewport, 60);
+    setTimeout(updateViewport, 180);
+    setTimeout(updateViewport, 300);
   });
   document.addEventListener("focusout", () => {
     setTimeout(updateViewport, 100);
@@ -365,7 +395,8 @@ window.addEventListener("popstate", () => {
   }
 
   if (state.currentScreen === "fishingScreen") {
-    if (typeof exitFishingScreenWithLoading === "function") exitFishingScreenWithLoading();
+    if (typeof confirmExitFishingRoom === "function") confirmExitFishingRoom();
+    else if (typeof exitFishingScreenWithLoading === "function") exitFishingScreenWithLoading();
     else showHome();
     armAppBackGuard(true);
     return;
@@ -728,10 +759,13 @@ window.confirmExitSingleGame = function () {
 // ============================================================================
 // 배경음악(BGM) & 모든 버튼 클릭 효과음(bgm/click.wav) 컨트롤
 // ============================================================================
+const FISH_BGM_CANDIDATES = ["./bgm/fish.mp3?v=10.21", "./bgm/FISH.MP3?v=10.21", "./BGM/fish.mp3?v=10.21"];
+
 const bgmState = {
   mainAudio: new Audio("./bgm/main.mp3"),
   shopAudio: new Audio("./bgm/shop.mp3"),
-  fishAudio: new Audio("./bgm/fish.mp3"),
+  fishAudio: new Audio(),
+  fishAudioIdx: 0,
   clickPool: Array.from({ length: 4 }, () => {
     const a = new Audio("./bgm/click.wav");
     a.volume = 0.45;
@@ -746,7 +780,39 @@ bgmState.mainAudio.volume = 0.22;
 bgmState.shopAudio.loop = true;
 bgmState.shopAudio.volume = 0.22;
 bgmState.fishAudio.loop = true;
-bgmState.fishAudio.volume = 0.22;
+bgmState.fishAudio.volume = 0.25;
+bgmState.fishAudio.preload = "none";
+
+bgmState.fishAudio.addEventListener("error", () => {
+  if (appExited || !bgmState.fishAudio.getAttribute("src")) return;
+  if (bgmState.fishAudioIdx + 1 < FISH_BGM_CANDIDATES.length) {
+    bgmState.fishAudioIdx += 1;
+    bgmState.fishAudio.src = FISH_BGM_CANDIDATES[bgmState.fishAudioIdx];
+    bgmState.fishAudio.load();
+    if (!bgmState.muted && !document.hidden && bgmState.currentType === "fish") {
+      bgmState.fishAudio.play().catch(() => {});
+    }
+  }
+});
+
+bgmState.fishAudio.addEventListener("canplay", () => {
+  if (!bgmState.muted && !appExited && !document.hidden && bgmState.currentType === "fish" && bgmState.fishAudio.paused) {
+    bgmState.fishAudio.play().catch(() => {});
+  }
+});
+
+function playFishingBgmSafely() {
+  if (!bgmState.fishAudio || appExited || document.hidden || bgmState.muted) return;
+  const hasSrc = Boolean(bgmState.fishAudio.getAttribute("src"));
+  if (!hasSrc || bgmState.fishAudio.error) {
+    bgmState.fishAudioIdx = 0;
+    bgmState.fishAudio.src = FISH_BGM_CANDIDATES[0];
+    bgmState.fishAudio.load();
+  }
+  if (bgmState.fishAudio.paused) {
+    bgmState.fishAudio.play().catch(() => {});
+  }
+}
 
 window.playClickSfx = function () {
   if (appExited || document.hidden || bgmState.muted) return;
@@ -849,9 +915,7 @@ function updateBgmForScreen(screenId) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
     bgmState.currentType = "fish";
-    if (bgmState.fishAudio && bgmState.fishAudio.paused) {
-      bgmState.fishAudio.play().catch(() => {});
-    }
+    playFishingBgmSafely();
   } else {
     bgmState.shopAudio.pause();
     if (bgmState.fishAudio) bgmState.fishAudio.pause();
@@ -869,14 +933,13 @@ document.addEventListener(
     armAppBackGuard(true);
     unlockQuizAudio();
     if (!bgmState.muted && bgmState.currentType !== "none") {
-      const targetAudio =
-        bgmState.currentType === "shop"
-          ? bgmState.shopAudio
-          : bgmState.currentType === "fish"
-          ? bgmState.fishAudio
-          : bgmState.mainAudio;
-      if (targetAudio && targetAudio.paused) {
-        targetAudio.play().catch(() => {});
+      if (bgmState.currentType === "fish") {
+        playFishingBgmSafely();
+      } else {
+        const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
+        if (targetAudio && targetAudio.paused) {
+          targetAudio.play().catch(() => {});
+        }
       }
     }
   },
@@ -990,6 +1053,7 @@ window.switchScreen = function (targetId, opts = {}) {
   }
 
   document.body.classList.toggle("on-home-screen", targetId === "homeScreen");
+  document.body.classList.toggle("on-fishing-screen", targetId === "fishingScreen");
   // 싱글/멀티 전용 플레이 화면일 때 전자 미디(MIDI) 다크 스튜디오 배경 활성화
   document.body.classList.toggle("midi-play-theme", ["gameScreen", "battlePlayScreen"].includes(targetId));
 

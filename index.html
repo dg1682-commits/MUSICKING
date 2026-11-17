@@ -30,7 +30,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.20" />
+  <link rel="stylesheet" href="style.css?v=10.21" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -681,7 +681,7 @@
         <!-- 좌측 상단: 나가기 · 사운드 · 채널명 -->
         <div class="fishing-top-left">
           <div class="fishing-top-btn-row">
-            <button type="button" class="fishing-exit-btn" onclick="event.stopPropagation(); exitFishingScreenWithLoading()">← 나가기</button>
+            <button type="button" class="fishing-exit-btn" onclick="event.stopPropagation(); confirmExitFishingRoom()">← 나가기</button>
             <button type="button" id="fishingSoundBtn" class="fishing-sound-mini-btn" onclick="event.stopPropagation(); toggleBgmMute()" title="배경음악 켜기/끄기">🔊</button>
           </div>
           <div id="fishingChannelLabel" class="fishing-channel-badge">🎣 1채널 · 잔잔한 호수</div>
@@ -720,18 +720,18 @@
       <!-- 하단 실시간 휘발성 채팅 영역 (화면 밀림 없이 입력창만 키보드 위로 부양) -->
       <div class="fishing-chat-panel">
         <div id="fishingChatLog" class="fishing-chat-log"></div>
-        <div id="fishingInputBar" class="fishing-input-bar">
+        <form id="fishingInputBar" class="fishing-input-bar" onsubmit="event.preventDefault(); sendFishingChat();">
           <input
             type="text"
             id="fishingChatInput"
             class="text-input fishing-chat-input"
             maxlength="80"
+            enterkeyhint="send"
             placeholder="낚시터 채팅을 입력하세요..."
             autocomplete="off"
-            onkeydown="if(event.key==='Enter' && !event.isComposing) sendFishingChat()"
           />
-          <button type="button" class="fishing-send-btn" onclick="sendFishingChat()">전송</button>
-        </div>
+          <button type="submit" class="fishing-send-btn" onmousedown="event.preventDefault()">전송</button>
+        </form>
       </div>
     </section>
 
@@ -934,6 +934,14 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 v10.21 낚시터 채팅·말풍선·배경 라인·상단 여백 &amp; 퇴장 확인 개선</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>실시간 채팅 &amp; 말풍선 즉시 반영</strong>: 전송 시 내 말풍선·채팅창 즉시 출력(<code>&lt;form&gt;</code> + <code>enterkeyhint="send"</code> 모바일 전송 키 완벽 대응)</li>
+          <li><strong>맵 외곽 라인 &amp; 카메라 홀 회피</strong>: 낚시터 전체화면 밀착, 구름·언덕·호수·수련·찌·나무 부두 기둥에 진한 <code>#1e1b18</code> 외곽선 보강, 상단 UI 전체 하향 조정</li>
+          <li><strong>키보드 화면 움직임 완전 차단 &amp; 퇴장 확인</strong>: <code>keyboard-open</code> 패딩 간섭 제거 및 상단 무대 높이 잠금, <code>← 나가기</code>·물리 뒤로가기 시 퇴장 확인 모달 출력</li>
+          <li><strong>낚시터 BGM(<code>fish.mp3</code>) 안정 재생</strong>: <code>preload="none"</code> + 로드 에러 시 대소문자 폴백·자동 재시도 적용</li>
+        </ul>
+
         <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 v10.20 방치형 소셜 낚시터 · 홈 2×3 버튼 개편</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>전용 방치형 소셜 낚시터 오픈 (<code>fishing_room_1</code>)</strong>: 상단 맑은 호수·수변 데크 무대(터치 이동·스탠딩 캐릭터) + 하단 휘발성 실시간 채팅 &amp; 5초 fade-out 말풍선(최신 발화 최상단 z-index)</li>
@@ -1333,11 +1341,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.20"></script>
-  <script src="pixel_avatar.js?v=10.20"></script>
-  <script src="online.js?v=10.20"></script>
-  <script src="fishing.js?v=10.20"></script>
-  <script src="app.js?v=10.20"></script>
+  <script src="data.js?v=10.21"></script>
+  <script src="pixel_avatar.js?v=10.21"></script>
+  <script src="online.js?v=10.21"></script>
+  <script src="fishing.js?v=10.21"></script>
+  <script src="app.js?v=10.21"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

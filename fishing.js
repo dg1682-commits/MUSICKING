@@ -266,7 +266,7 @@ function stopFishingRewardTimer() {
 }
 
 // ============================================================================
-// 2. 상단 낚시터 배경 캔버스 (부드러운 물결 & 햇살 + 수변 데크)
+// 2. 상단 낚시터 배경 캔버스 (뚜렷한 게임 외곽선 · 입체 수변 데크 · 물결/찌 디테일)
 // ============================================================================
 function startFishingBgLoop() {
   stopFishingBgLoop();
@@ -275,13 +275,50 @@ function startFishingBgLoop() {
   const ctx = canvas.getContext("2d");
   let lastDraw = 0;
 
+  const drawCloud = (cx, cy, sc) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 2.6 / sc;
+    ctx.beginPath();
+    ctx.moveTo(-34, 10);
+    ctx.bezierCurveTo(-44, 10, -44, -8, -26, -8);
+    ctx.bezierCurveTo(-24, -24, 4, -26, 12, -11);
+    ctx.bezierCurveTo(28, -14, 38, -2, 34, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawTree = (tx, ty, radius, trunkH) => {
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "#1e1b18";
+    ctx.fillStyle = "#78350f";
+    ctx.fillRect(tx - radius * 0.22, ty - trunkH, radius * 0.44, trunkH);
+    ctx.strokeRect(tx - radius * 0.22, ty - trunkH, radius * 0.44, trunkH);
+
+    ctx.fillStyle = "#16a34a";
+    ctx.beginPath();
+    ctx.arc(tx, ty - trunkH - radius * 0.55, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#4ade80";
+    ctx.beginPath();
+    ctx.arc(tx - radius * 0.25, ty - trunkH - radius * 0.72, radius * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
   const drawFrame = ts => {
     if (!fishingState.isInside || (typeof state !== "undefined" && state.currentScreen !== "fishingScreen")) {
       return;
     }
     fishingState.bgAnimFrame = requestAnimationFrame(drawFrame);
     if (document.hidden) return;
-    if (ts - lastDraw < 65) return; // 약 15fps 물결 애니메이션으로 6시간 배터리 최적화!
+    if (ts - lastDraw < 65) return; // 약 15fps 최적화
     lastDraw = ts;
 
     const area = canvas.parentElement;
@@ -297,104 +334,209 @@ function startFishingBgLoop() {
     const W = canvas.width;
     const H = canvas.height;
     const t = ts * 0.0014;
-    const shoreY = H * 0.50;
-    const waterTop = H * 0.23;
+    const waterTop = H * 0.28;
+    const shoreY = H * 0.52;
+    const outlineW = Math.max(3, Math.round(W * 0.0042));
 
-    // 1) 맑은 하늘 & 먼 산 능선
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, waterTop + 10);
+    // 1) 맑은 하늘 그라데이션 & 윤곽선 구름
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, waterTop + 12);
     skyGrad.addColorStop(0, "#38bdf8");
-    skyGrad.addColorStop(1, "#bae6fd");
+    skyGrad.addColorStop(1, "#e0f2fe");
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, W, waterTop + 10);
+    ctx.fillRect(0, 0, W, waterTop + 12);
 
-    // 구름 2개
-    [0.22, 0.72].forEach((cx, idx) => {
-      const x = W * cx + Math.sin(t * 0.3 + idx) * (W * 0.015);
-      const y = H * (0.09 + idx * 0.03);
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.beginPath();
-      ctx.arc(x - 16, y + 4, 14, 0, Math.PI * 2);
-      ctx.arc(x, y - 3, 18, 0, Math.PI * 2);
-      ctx.arc(x + 16, y + 4, 14, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    drawCloud(W * 0.24 + Math.sin(t * 0.28) * (W * 0.014), H * 0.14, W / 720);
+    drawCloud(W * 0.76 + Math.cos(t * 0.24) * (W * 0.014), H * 0.11, W / 800);
 
-    // 먼 초록 언덕 실루엣
+    // 먼 초록 능선 + 검은 외곽선
     ctx.fillStyle = "#34d399";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = outlineW;
     ctx.beginPath();
     ctx.moveTo(0, waterTop);
-    ctx.quadraticCurveTo(W * 0.26, waterTop - H * 0.09, W * 0.52, waterTop);
-    ctx.quadraticCurveTo(W * 0.78, waterTop - H * 0.11, W, waterTop);
+    ctx.quadraticCurveTo(W * 0.24, waterTop - H * 0.08, W * 0.50, waterTop - H * 0.01);
+    ctx.quadraticCurveTo(W * 0.78, waterTop - H * 0.10, W, waterTop - H * 0.02);
+    ctx.lineTo(W, waterTop + 4);
+    ctx.lineTo(0, waterTop + 4);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
 
-    // 2) 반짝이는 호수 물가
+    // 언덕 위 작은 나무 포인트
+    drawTree(W * 0.09, waterTop + 1, W * 0.024, H * 0.032);
+    drawTree(W * 0.91, waterTop, W * 0.026, H * 0.036);
+
+    // 2) 반짝이는 호수 수면 & 수평선 외곽선
     const waterGrad = ctx.createLinearGradient(0, waterTop, 0, shoreY);
     waterGrad.addColorStop(0, "#0284c7");
+    waterGrad.addColorStop(0.55, "#0ea5e9");
     waterGrad.addColorStop(1, "#38bdf8");
     ctx.fillStyle = waterGrad;
     ctx.fillRect(0, waterTop, W, shoreY - waterTop);
 
-    // 물결 윤슬 반짝이
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-    ctx.lineWidth = Math.max(2, W * 0.003);
+    // 호수 위쪽 경계 라인
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = outlineW;
+    ctx.beginPath();
+    ctx.moveTo(0, waterTop);
+    ctx.lineTo(W, waterTop);
+    ctx.stroke();
+
+    // 물결 윤슬
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.lineWidth = Math.max(2, W * 0.0032);
     ctx.lineCap = "round";
-    for (let row = 0; row < 5; row++) {
-      const ry = waterTop + (shoreY - waterTop) * (0.18 + row * 0.17);
+    for (let row = 0; row < 4; row++) {
+      const ry = waterTop + (shoreY - waterTop) * (0.20 + row * 0.21);
       for (let col = 0; col < 4; col++) {
-        const rx = ((W * (0.14 + col * 0.25 + (row % 2) * 0.08)) + Math.sin(t + row + col) * 14) % W;
+        const rx = ((W * (0.14 + col * 0.25 + (row % 2) * 0.08)) + Math.sin(t + row + col) * 12) % W;
         ctx.beginPath();
-        ctx.moveTo(rx - W * 0.04, ry);
-        ctx.lineTo(rx + W * 0.04, ry);
+        ctx.moveTo(rx - W * 0.036, ry);
+        ctx.lineTo(rx + W * 0.036, ry);
         ctx.stroke();
       }
     }
 
-    // 수변 하얀 포말 테두리
-    ctx.fillStyle = "rgba(224, 242, 254, 0.85)";
-    for (let x = 0; x <= W + 24; x += W * 0.065) {
-      const waveY = shoreY + Math.sin(t * 2 + x * 0.02) * 2.5;
+    // 호수 위 수련 잎 + 동동 뜨는 빨간 낚시 찌 2개
+    [0.21, 0.79].forEach((px, idx) => {
+      const padX = W * px;
+      const padY = waterTop + (shoreY - waterTop) * (0.42 + idx * 0.16);
+      ctx.fillStyle = "#22c55e";
+      ctx.strokeStyle = "#1e1b18";
+      ctx.lineWidth = Math.max(2, outlineW * 0.75);
       ctx.beginPath();
-      ctx.arc(x, waveY, W * 0.036, Math.PI, 0);
+      ctx.ellipse(padX, padY, W * 0.028, H * 0.016, 0, 0.2, Math.PI * 1.9);
+      ctx.lineTo(padX, padY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    const bobX = W * 0.48;
+    const bobY = waterTop + (shoreY - waterTop) * 0.44 + Math.sin(t * 2.8) * 3.5;
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(bobX, bobY + 4, W * 0.025 + Math.sin(t * 2.8) * 4, H * 0.011, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ef4444";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(bobX, bobY - 3, W * 0.011, Math.PI, 0);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(bobX, bobY - 3, W * 0.011, 0, Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    // 3) 물가 경계 흙/잔디 언덕라인 + 포말
+    ctx.fillStyle = "rgba(224, 242, 254, 0.9)";
+    for (let x = 0; x <= W + 24; x += W * 0.065) {
+      const waveY = shoreY + Math.sin(t * 2 + x * 0.02) * 2.2;
+      ctx.beginPath();
+      ctx.arc(x, waveY, W * 0.033, Math.PI, 0);
       ctx.fill();
     }
 
-    // 3) 캐릭터 이동 가능한 초원 · 나무 데크 바닥 영역
     const groundGrad = ctx.createLinearGradient(0, shoreY, 0, H);
     groundGrad.addColorStop(0, "#86efac");
-    groundGrad.addColorStop(0.28, "#4ade80");
+    groundGrad.addColorStop(0.24, "#4ade80");
     groundGrad.addColorStop(1, "#22c55e");
     ctx.fillStyle = groundGrad;
     ctx.fillRect(0, shoreY, W, H - shoreY);
 
-    // 중앙 나무 부두 데크(낚시 포인트 장식)
+    // 물과 잔디 사이 뚜렷한 진갈색/검정 해안선
+    ctx.fillStyle = "#d97706";
+    ctx.fillRect(0, shoreY - 4, W, H * 0.024);
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = outlineW;
+    ctx.beginPath();
+    ctx.moveTo(0, shoreY - 4);
+    ctx.lineTo(W, shoreY - 4);
+    ctx.moveTo(0, shoreY - 4 + H * 0.024);
+    ctx.lineTo(W, shoreY - 4 + H * 0.024);
+    ctx.stroke();
+
+    // 4) 입체 수변 나무 데크(부두) + 나무 말뚝 기둥
     const deckX = W * 0.14;
     const deckW = W * 0.72;
-    const deckY = shoreY - H * 0.03;
-    const deckH = H * 0.22;
-    ctx.fillStyle = "#b45309";
-    ctx.strokeStyle = "#451a03";
-    ctx.lineWidth = 3;
+    const deckY = shoreY - H * 0.055;
+    const deckH = H * 0.24;
+
+    // 데크 앞쪽 수면 그림자
+    ctx.fillStyle = "rgba(15, 23, 42, 0.22)";
+    ctx.fillRect(deckX + 6, deckY + deckH, deckW - 12, H * 0.026);
+
+    // 데크 상판
+    ctx.fillStyle = "#c26d1f";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = outlineW;
     ctx.beginPath();
     if (typeof ctx.roundRect === "function") ctx.roundRect(deckX, deckY, deckW, deckH, 10);
     else ctx.rect(deckX, deckY, deckW, deckH);
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(69, 26, 3, 0.45)";
-    ctx.lineWidth = 2;
-    for (let px = deckX + W * 0.07; px < deckX + deckW - 10; px += W * 0.07) {
-      ctx.beginPath(); ctx.moveTo(px, deckY + 2); ctx.lineTo(px, deckY + deckH - 2); ctx.stroke();
-    }
-    ctx.fillStyle = "#d97706";
-    ctx.fillRect(deckX + 4, deckY + 4, deckW - 8, H * 0.03);
+    // 데크 상단 밝은 하이라이트 보드 + 아래쪽 두께감
+    ctx.fillStyle = "#ea8c2f";
+    ctx.fillRect(deckX + outlineW, deckY + outlineW, deckW - outlineW * 2, H * 0.025);
+    ctx.fillStyle = "#92400e";
+    ctx.fillRect(deckX + outlineW, deckY + deckH - H * 0.036, deckW - outlineW * 2, H * 0.036 - outlineW);
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = Math.max(2, outlineW * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(deckX, deckY + deckH - H * 0.036);
+    ctx.lineTo(deckX + deckW, deckY + deckH - H * 0.036);
+    ctx.stroke();
 
-    // 바닥 풀잎 디테일
-    ctx.fillStyle = "#15803d";
-    [[0.08, 0.78], [0.24, 0.88], [0.76, 0.85], [0.91, 0.74]].forEach(([gx, gy]) => {
+    // 나무 널빤지 이음새 & 못 디테일
+    ctx.strokeStyle = "#451a03";
+    ctx.lineWidth = Math.max(2, outlineW * 0.6);
+    for (let px = deckX + W * 0.065; px < deckX + deckW - 12; px += W * 0.065) {
       ctx.beginPath();
-      ctx.arc(W * gx, H * gy, W * 0.012, 0, Math.PI * 2);
+      ctx.moveTo(px, deckY + outlineW);
+      ctx.lineTo(px, deckY + deckH - H * 0.036);
+      ctx.stroke();
+    }
+
+    // 좌/우/중앙 나무 말뚝 기둥(윤곽선 포함)
+    [deckX + 8, deckX + deckW * 0.5 - 7, deckX + deckW - 22].forEach(postX => {
+      const postW = Math.max(12, W * 0.022);
+      const postH = H * 0.085;
+      const postY = deckY - postH * 0.45;
+      ctx.fillStyle = "#92400e";
+      ctx.strokeStyle = "#1e1b18";
+      ctx.lineWidth = Math.max(2.5, outlineW * 0.85);
+      ctx.fillRect(postX, postY, postW, postH);
+      ctx.strokeRect(postX, postY, postW, postH);
+      ctx.fillStyle = "#facc15";
+      ctx.fillRect(postX + 2, postY + 2, postW - 4, 5);
+    });
+
+    // 앞마당 돌 & 풀잎 포인트 (선명한 외곽선)
+    ctx.lineWidth = Math.max(2, outlineW * 0.7);
+    ctx.strokeStyle = "#1e1b18";
+    [[0.07, 0.78], [0.92, 0.73]].forEach(([rx, ry]) => {
+      ctx.fillStyle = "#94a3b8";
+      ctx.beginPath();
+      ctx.ellipse(W * rx, H * ry, W * 0.022, H * 0.015, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+    });
+    [[0.22, 0.88], [0.76, 0.86], [0.11, 0.64], [0.89, 0.62]].forEach(([gx, gy]) => {
+      ctx.strokeStyle = "#14532d";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(W * gx, H * gy);
+      ctx.lineTo(W * gx - 6, H * gy - 11);
+      ctx.moveTo(W * gx, H * gy);
+      ctx.lineTo(W * gx, H * gy - 14);
+      ctx.moveTo(W * gx, H * gy);
+      ctx.lineTo(W * gx + 6, H * gy - 10);
+      ctx.stroke();
     });
   };
 
@@ -723,8 +865,9 @@ function connectFishingRealtimeChannel() {
       if (!payload || !payload.msg) return;
       if (typeof isUserBlocked === "function" && isUserBlocked(payload.userId, payload.nickname)) return;
       const senderKey = payload.key || payload.userId;
-      const isMe = senderKey === myKey;
-      appendFishingUserChat(payload.nickname || "도전자", payload.msg, isMe);
+      // 내 채팅은 sendFishingChat()에서 즉시 렌더링하므로 자기 에코 중복 차단
+      if (senderKey === myKey || (userState.id && payload.userId === userState.id)) return;
+      appendFishingUserChat(payload.nickname || "도전자", payload.msg, false);
       showFishingSpeechBubble(senderKey, payload.msg);
     })
     .subscribe(async status => {
@@ -770,15 +913,18 @@ window.sendFishingChat = function () {
     ts: Date.now()
   };
 
+  // 본인 채팅·말풍선은 Supabase broadcast.self=false 여부와 무관하게 즉시 화면에 반영!
+  appendFishingUserChat(payload.nickname, payload.msg, true);
+  showFishingSpeechBubble(myKey, payload.msg);
+
   if (fishingState.channel) {
-    fishingState.channel.send({
-      type: "broadcast",
-      event: "fishing_chat",
-      payload
-    });
-  } else {
-    appendFishingUserChat(payload.nickname, payload.msg, true);
-    showFishingSpeechBubble(myKey, payload.msg);
+    try {
+      fishingState.channel.send({
+        type: "broadcast",
+        event: "fishing_chat",
+        payload
+      });
+    } catch (e) {}
   }
 };
 
@@ -862,10 +1008,35 @@ window.cleanupFishingRuntime = function (shouldSyncServer = true) {
   const chatInput = document.getElementById("fishingChatInput");
   if (chatInput) chatInput.blur();
   const inputBar = document.getElementById("fishingInputBar");
-  if (inputBar) inputBar.style.transform = "";
+  if (inputBar) {
+    inputBar.style.transform = "";
+    inputBar.classList.remove("is-kb-floating");
+  }
+  const stageArea = document.getElementById("fishingStageArea");
+  if (stageArea) {
+    stageArea.style.flex = "";
+    stageArea.style.height = "";
+  }
 
   if (shouldSyncServer && typeof syncProfileToServer === "function") {
     syncProfileToServer();
+  }
+};
+
+window.confirmExitFishingRoom = function () {
+  if (fishingState.isTransitioning) return;
+  const dlg = document.getElementById("customDialogModal");
+  if (dlg && !dlg.classList.contains("hidden")) {
+    return;
+  }
+  if (typeof gameConfirm === "function") {
+    gameConfirm(
+      "낚시터에서 나가시겠습니까?\n(현재까지 쌓인 경험치·CD는 자동 저장됩니다.)",
+      () => window.exitFishingScreenWithLoading(),
+      "🎣 낚시터 나가기"
+    );
+  } else {
+    window.exitFishingScreenWithLoading();
   }
 };
 
