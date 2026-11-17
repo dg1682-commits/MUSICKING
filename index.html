@@ -30,7 +30,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.22" />
+  <link rel="stylesheet" href="style.css?v=10.23" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -702,7 +702,7 @@
             <button type="button" class="fishing-exit-btn" onclick="event.stopPropagation(); confirmExitFishingRoom()">← 나가기</button>
             <button type="button" id="fishingSoundBtn" class="fishing-sound-mini-btn" onclick="event.stopPropagation(); toggleBgmMute()" title="배경음악 켜기/끄기">🔊</button>
           </div>
-          <div id="fishingChannelLabel" class="fishing-channel-badge">🎣 1채널 · 잔잔한 호수</div>
+          <div id="fishingChannelLabel" class="fishing-channel-badge">🎣 통합 서버 · 잔잔한 호수</div>
         </div>
 
         <!-- 중앙 상단: 하루 누적시간 (매일 오전 06:00 초기화) -->
@@ -953,6 +953,13 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🌐 v10.23 낚시터 통합 서버 실시간 동기화 · 백그라운드 유지 &amp; 강제종료 자동 퇴장</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>전원 단일 통합 서버 접속 (<code>fishing_room_1</code>)</strong>: 실시간 Broadcast/Presence + 4초 DB 로스터(<code>_fishingLive</code>) 결합 및 소켓 끊김 자동 재연결 워치독으로 모든 유저가 한 방에서 실시간 이동·채팅 동기화</li>
+          <li><strong>폰 홈버튼 유지 &amp; 복귀 재합류</strong>: 홈버튼으로 내려도 방 체류(<code>💤</code>)·경험치/CD 적립이 계속 유지되며, 복귀·탭 재로드 시 낚시터로 즉시 자동 복귀</li>
+          <li><strong>강제종료(스와이프/앱 닫기) 자동 퇴장</strong>: <code>beforeunload</code>/<code>pagehide</code> 시 <code>keepalive</code> 서버 패치 및 이탈 브로드캐스트로 유령 캐릭터 잔류를 즉시 정리</li>
+        </ul>
+
         <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">🎣 v10.22 상점 낚싯대·미끼 각 4종 출시 &amp; 캐릭터 착용 인벤토리 슬롯</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>낚싯대 4종 출시 (경험치 버프)</strong>: 나무(5,000 CD · +5%), 카본(10,000 CD · +10%), 루비(20,000 CD · +20%), 황금 낚싯대(30,000 CD · +30%)</li>
@@ -1367,11 +1374,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.22"></script>
-  <script src="pixel_avatar.js?v=10.22"></script>
-  <script src="online.js?v=10.22"></script>
-  <script src="fishing.js?v=10.22"></script>
-  <script src="app.js?v=10.22"></script>
+  <script src="data.js?v=10.23"></script>
+  <script src="pixel_avatar.js?v=10.23"></script>
+  <script src="online.js?v=10.23"></script>
+  <script src="fishing.js?v=10.23"></script>
+  <script src="app.js?v=10.23"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

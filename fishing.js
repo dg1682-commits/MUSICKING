@@ -1,13 +1,13 @@
 // ============================================================================
-// [음악왕 v10.20] 방치형 소셜 낚시터 전용 모듈 (fishing.js)
-// - 채널 변수화 (fishing_room_1 ~ 추후 다중 채널/서버 확장 가능)
-// - 매일 KST 오전 06:00 기준 6시간(360분) 일일 한도 즉시 리셋 (실시간 돌파 대응)
-// - 기본 6시간 최대 보상: 경험치 +1,000 / CD +3,000 (+ 낚싯대/미끼 배율 확장 구조)
-// - 휘발성 실시간 채팅, 5초 fade-out 최상단 z-index 말풍선, 바닥 터치 스무스 이동
+// [음악왕 v10.23] 방치형 소셜 낚시터 전용 모듈 (fishing.js)
+// - 단일 통합 글로벌 서버 (fishing_room_1) — 모든 접속자가 한 서버에 함께 접속
+// - 실시간 Presence + Broadcast + 4초 DB 로스터(_fishingLive) 하이브리드 동기화로
+//   폰 홈버튼(백그라운드) 전환 시에도 방 유지 & 복귀 즉시 실시간 위치·채팅 재동기화
+// - 스와이프 강제종료 / 앱 닫기(beforeunload/pagehide) 시 keepalive 자동 퇴장 처리
 // ============================================================================
 
 const FISHING_CHANNELS = [
-  { id: "fishing_room_1", name: "1채널 · 잔잔한 호수" }
+  { id: "fishing_room_1", name: "통합 서버 · 잔잔한 호수" }
 ];
 let currentFishingChannelId = FISHING_CHANNELS[0].id;
 
@@ -19,12 +19,23 @@ const FISHING_CD_PER_MINUTE = FISHING_BASE_MAX_CD / 360;
 const FISHING_KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const FISHING_LOADING_DURATION_MS = 2000;
 const FISHING_SYNC_INTERVAL_MS = 60000;
+const FISHING_ROSTER_POLL_MS = 4000;
+const FISHING_HEARTBEAT_MS = 18000;
+const FISHING_FG_STALE_MS = 45000;
+const FISHING_BG_IDLE_MAX_MS = 6 * 60 * 60 * 1000;
+const FISHING_SESSION_KEY = "mk_fishing_session";
 
 const fishingState = {
   isInside: false,
   isTransitioning: false,
+  hasRunForcedExit: false,
+  sessionTag: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
   channel: null,
   timerInterval: null,
+  rosterPollTimer: null,
+  heartbeatTimer: null,
+  reconnectTimer: null,
+  dbMoveSaveTimer: null,
   bgAnimFrame: null,
   lastTickAt: 0,
   lastServerSyncAt: 0,
@@ -36,15 +47,58 @@ const fishingState = {
     earnedCd: 0
   },
   myPos: { x: 50, y: 68 },
+  myPosTs: 0,
   playersMap: new Map(),
   knownPeerIds: new Set(),
+  recentLeftAt: new Map(),
   hasInitialPresenceSync: false,
+  hasInitialDbSync: false,
   chatMessages: [],
   activeBubbles: new Map(),
   playerNodeMap: new Map(),
   playerAvatarKeys: new Map(),
   topBubbleZ: 100
 };
+
+function getPublicFishingAvatarConfig(rawCfg = null) {
+  const src = rawCfg || (typeof userState !== "undefined" ? userState.avatarConfig : DEFAULT_AVATAR_CONFIG);
+  if (typeof sanitizeAvatarConfigShape === "function") {
+    const clean = sanitizeAvatarConfigShape(src);
+    return {
+      gender: clean.gender,
+      bg: clean.bg,
+      hair: clean.hair,
+      hat: clean.hat,
+      face: clean.face,
+      outfit: clean.outfit,
+      acc: clean.acc,
+      fishingRod: clean.fishingRod || "none",
+      fishingBait: clean.fishingBait || "none"
+    };
+  }
+  return { ...DEFAULT_AVATAR_CONFIG };
+}
+
+function persistFishingSessionMarker() {
+  if (typeof userState === "undefined" || !userState.id) return;
+  try {
+    sessionStorage.setItem(
+      FISHING_SESSION_KEY,
+      JSON.stringify({
+        uid: userState.id,
+        channelId: currentFishingChannelId,
+        pos: fishingState.myPos,
+        savedAt: Date.now()
+      })
+    );
+  } catch (e) {}
+}
+
+function clearFishingSessionMarker() {
+  try {
+    sessionStorage.removeItem(FISHING_SESSION_KEY);
+  } catch (e) {}
+}
 
 // ============================================================================
 // 1. KST 오전 06:00 일일 초기화 계산 & 버프 확장(낚싯대/미끼) 모듈
@@ -586,6 +640,8 @@ function handleFishingStageTap(e) {
   const targetY = Math.max(54, Math.min(88, Math.round(rawY * 10) / 10));
 
   fishingState.myPos = { x: targetX, y: targetY };
+  fishingState.myPosTs = Date.now();
+  persistFishingSessionMarker();
 
   const myKey = getMyFishingKey();
   const prev = fishingState.playersMap.get(myKey) || {};
@@ -594,12 +650,15 @@ function handleFishingStageTap(e) {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
-    avatarConfig: userState.avatarConfig,
+    avatarConfig: getPublicFishingAvatarConfig(),
     x: targetX,
-    y: targetY
+    y: targetY,
+    posTs: fishingState.myPosTs,
+    mode: "fg"
   });
   syncFishingPlayersDOM();
   trackMyFishingPresence(true);
+  scheduleFishingMoveDbSave();
 }
 
 function syncFishingPlayersDOM() {
@@ -656,9 +715,12 @@ function syncFishingPlayersDOM() {
 
     node.style.left = `${Math.max(8, Math.min(92, Number(p.x) || 50))}%`;
     node.style.top = `${Math.max(52, Math.min(89, Number(p.y) || 68))}%`;
+    node.classList.toggle("is-bg", p.mode === "bg");
 
     const nickEl = node.querySelector(".fishing-player-nick");
-    if (nickEl) nickEl.textContent = p.nickname || "도전자";
+    if (nickEl) {
+      nickEl.textContent = p.mode === "bg" ? `${p.nickname || "도전자"} 💤` : p.nickname || "도전자";
+    }
 
     // 아바타가 변경되었을 때만 480x480 캔버스 렌더링 (6시간 배터리 최적화!)
     if (fishingState.playerAvatarKeys.get(p.key) !== cfgSig) {
@@ -689,7 +751,7 @@ function renderFishingOnlineUsersList(playersList = null) {
       const safeId = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.userId || "") : "";
       const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.nickname || "") : "";
       const isMe = userState.id && p.userId === userState.id;
-      return `<div class="fishing-user-item${isMe ? " is-me" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}">${escapeFishingHtml(p.nickname || "도전자")}</div>`;
+      return `<div class="fishing-user-item${isMe ? " is-me" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}">${escapeFishingHtml(p.nickname || "도전자")}${p.mode === "bg" ? " 💤" : ""}</div>`;
     })
     .join("");
 }
@@ -768,16 +830,48 @@ function appendFishingUserChat(nick, msg, isMe = false) {
   );
 }
 
+function buildMyFishingLivePayload(mode = "fg", active = true) {
+  return {
+    active: !!active,
+    channelId: currentFishingChannelId,
+    mode,
+    x: fishingState.myPos.x,
+    y: fishingState.myPos.y,
+    posTs: fishingState.myPosTs || Date.now(),
+    heartbeatAt: Date.now(),
+    sessionTag: fishingState.sessionTag
+  };
+}
+
+function scheduleFishingMoveDbSave() {
+  if (fishingState.dbMoveSaveTimer) {
+    clearTimeout(fishingState.dbMoveSaveTimer);
+  }
+  fishingState.dbMoveSaveTimer = setTimeout(() => {
+    fishingState.dbMoveSaveTimer = null;
+    if (!fishingState.isInside) return;
+    if (typeof userState !== "undefined") {
+      userState.fishingLive = buildMyFishingLivePayload(document.hidden ? "bg" : "fg", true);
+    }
+    if (typeof syncProfileToServer === "function") syncProfileToServer();
+  }, 850);
+}
+
 async function trackMyFishingPresence(alsoBroadcastMove = false) {
   const myKey = getMyFishingKey();
+  const posTs = fishingState.myPosTs || Date.now();
+  const cleanAvatar = getPublicFishingAvatarConfig();
+  const mode = document.hidden ? "bg" : "fg";
   const payload = {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
-    avatarConfig: userState.avatarConfig,
+    avatarConfig: cleanAvatar,
     x: fishingState.myPos.x,
     y: fishingState.myPos.y,
-    joinedAt: Date.now()
+    posTs,
+    joinedAt: Date.now(),
+    mode
   };
   fishingState.playersMap.set(myKey, payload);
 
@@ -788,32 +882,214 @@ async function trackMyFishingPresence(alsoBroadcastMove = false) {
         fishingState.channel.send({
           type: "broadcast",
           event: "fishing_move",
-          payload: { key: myKey, userId: userState.id, x: payload.x, y: payload.y }
+          payload: {
+            key: myKey,
+            userId: userState.id,
+            nickname: userState.nickname || "도전자",
+            avatarConfig: cleanAvatar,
+            x: payload.x,
+            y: payload.y,
+            ts: posTs,
+            mode
+          }
         });
       }
     } catch (e) {}
   }
 }
 
-function connectFishingRealtimeChannel() {
-  disconnectFishingRealtimeChannel();
+function scheduleFishingReconnect() {
+  if (!fishingState.isInside || (typeof state !== "undefined" && state.currentScreen !== "fishingScreen")) return;
+  if (document.hidden) return;
+  if (fishingState.reconnectTimer) return;
+  fishingState.reconnectTimer = setTimeout(() => {
+    fishingState.reconnectTimer = null;
+    if (!fishingState.isInside || (typeof state !== "undefined" && state.currentScreen !== "fishingScreen")) return;
+    try {
+      if (sbClient && sbClient.realtime && !sbClient.realtime.isConnected()) {
+        sbClient.realtime.connect();
+      }
+    } catch (e) {}
+    connectFishingRealtimeChannel(true);
+  }, 1500);
+}
+
+function ensureFishingRealtimeHealthy() {
+  if (!fishingState.isInside || (typeof state !== "undefined" && state.currentScreen !== "fishingScreen")) return;
+  if (!sbClient) return;
+  try {
+    if (sbClient.realtime && !sbClient.realtime.isConnected()) {
+      sbClient.realtime.connect();
+    }
+  } catch (e) {}
+
+  const st = fishingState.channel && fishingState.channel.state;
+  if (!fishingState.channel || st !== "joined") {
+    connectFishingRealtimeChannel(true);
+  } else {
+    trackMyFishingPresence(true);
+  }
+}
+
+async function syncFishingGlobalRosterFromDb() {
+  if (!fishingState.isInside || !sbClient) return;
+  if (typeof state !== "undefined" && state.currentScreen !== "fishingScreen") return;
+
+  try {
+    const { data: rows, error } = await sbClient
+      .from("profiles")
+      .select("id, nickname, avatar_config")
+      .neq("nickname", "__ADMIN_CONFIG__")
+      .limit(250);
+
+    if (error || !Array.isArray(rows)) return;
+    if (!fishingState.isInside) return;
+
+    const myKey = getMyFishingKey();
+    const now = Date.now();
+    const presKeys = new Set();
+    if (fishingState.channel) {
+      try {
+        const pres = fishingState.channel.presenceState();
+        Object.entries(pres).forEach(([pk, arr]) => {
+          const entry = Array.isArray(arr) && arr[0];
+          presKeys.add((entry && entry.key) || pk);
+        });
+      } catch (e) {}
+    }
+
+    const activeDbKeys = new Set([myKey]);
+
+    rows.forEach(r => {
+      if (!r || !r.id || r.id === userState.id) return;
+      if (typeof isUserBlocked === "function" && isUserBlocked(r.id, r.nickname)) return;
+
+      const cfg = r.avatar_config || {};
+      const live = cfg._fishingLive;
+      if (!live || !live.active || live.channelId !== currentFishingChannelId) return;
+
+      const leftStamp = fishingState.recentLeftAt.get(r.id) || 0;
+      if (leftStamp && now - leftStamp < 10000 && (live.heartbeatAt || 0) <= leftStamp) {
+        return;
+      }
+
+      const inPresence = presKeys.has(r.id);
+      const hbAge = now - (Number(live.heartbeatAt) || 0);
+      const mode = live.mode || "fg";
+
+      if (!inPresence) {
+        if (mode === "fg" && hbAge > FISHING_FG_STALE_MS) return;
+        if (mode === "bg" && hbAge > FISHING_BG_IDLE_MAX_MS) return;
+      }
+
+      activeDbKeys.add(r.id);
+      const prev = fishingState.playersMap.get(r.id);
+      const dbPosTs = Number(live.posTs) || 0;
+      const useDbPos = !prev || dbPosTs > (Number(prev.posTs) || 0);
+      const resolvedMode = inPresence && mode !== "bg" ? "fg" : mode;
+
+      fishingState.playersMap.set(r.id, {
+        ...(prev || {}),
+        key: r.id,
+        userId: r.id,
+        nickname: r.nickname || prev?.nickname || "도전자",
+        avatarConfig: getPublicFishingAvatarConfig(cfg),
+        x: useDbPos ? (Number(live.x) || 50) : prev.x,
+        y: useDbPos ? (Number(live.y) || 68) : prev.y,
+        posTs: useDbPos ? dbPosTs : prev.posTs,
+        mode: resolvedMode
+      });
+
+      if (fishingState.hasInitialDbSync && !fishingState.knownPeerIds.has(r.id)) {
+        fishingState.knownPeerIds.add(r.id);
+        appendFishingSystemMessage(`[${r.nickname || "도전자"}]님이 입장하였습니다`);
+      }
+      fishingState.knownPeerIds.add(r.id);
+    });
+
+    // Realtime Presence와 DB 로스터 모두에서 사라진 유저 정리
+    Array.from(fishingState.playersMap.keys()).forEach(k => {
+      if (k === myKey) return;
+      if (!activeDbKeys.has(k) && !presKeys.has(k)) {
+        fishingState.playersMap.delete(k);
+        fishingState.knownPeerIds.delete(k);
+      }
+    });
+
+    fishingState.hasInitialDbSync = true;
+    syncFishingPlayersDOM();
+  } catch (e) {}
+}
+
+function startFishingNetworkSync() {
+  stopFishingNetworkSync();
+
+  fishingState.rosterPollTimer = setInterval(() => {
+    if (!fishingState.isInside || document.hidden) return;
+    if (typeof state !== "undefined" && state.currentScreen !== "fishingScreen") return;
+    syncFishingGlobalRosterFromDb();
+  }, FISHING_ROSTER_POLL_MS);
+
+  fishingState.heartbeatTimer = setInterval(() => {
+    if (!fishingState.isInside || document.hidden) return;
+    if (typeof state !== "undefined" && state.currentScreen !== "fishingScreen") return;
+    ensureFishingRealtimeHealthy();
+    if (typeof userState !== "undefined") {
+      userState.fishingLive = buildMyFishingLivePayload("fg", true);
+    }
+    if (typeof syncProfileToServer === "function") syncProfileToServer();
+  }, FISHING_HEARTBEAT_MS);
+}
+
+function stopFishingNetworkSync() {
+  if (fishingState.rosterPollTimer) {
+    clearInterval(fishingState.rosterPollTimer);
+    fishingState.rosterPollTimer = null;
+  }
+  if (fishingState.heartbeatTimer) {
+    clearInterval(fishingState.heartbeatTimer);
+    fishingState.heartbeatTimer = null;
+  }
+  if (fishingState.reconnectTimer) {
+    clearTimeout(fishingState.reconnectTimer);
+    fishingState.reconnectTimer = null;
+  }
+  if (fishingState.dbMoveSaveTimer) {
+    clearTimeout(fishingState.dbMoveSaveTimer);
+    fishingState.dbMoveSaveTimer = null;
+  }
+}
+
+function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
+  disconnectFishingRealtimeChannel({ keepPlayers: isReconnect, sendLeaveSignal: false });
 
   const myKey = getMyFishingKey();
-  const initX = 24 + Math.floor(Math.random() * 52);
-  const initY = 60 + Math.floor(Math.random() * 22);
-  fishingState.myPos = { x: initX, y: initY };
-  fishingState.playersMap.clear();
-  fishingState.knownPeerIds = new Set([myKey]);
-  fishingState.hasInitialPresenceSync = false;
+  if (!isReconnect) {
+    if (restorePos && typeof restorePos.x === "number" && typeof restorePos.y === "number") {
+      fishingState.myPos = { x: restorePos.x, y: restorePos.y };
+    } else {
+      const initX = 24 + Math.floor(Math.random() * 52);
+      const initY = 60 + Math.floor(Math.random() * 22);
+      fishingState.myPos = { x: initX, y: initY };
+    }
+    fishingState.myPosTs = Date.now();
+    fishingState.playersMap.clear();
+    fishingState.knownPeerIds = new Set([myKey]);
+    fishingState.recentLeftAt.clear();
+    fishingState.hasInitialPresenceSync = false;
+    fishingState.hasInitialDbSync = false;
+  }
 
   const myInitialPayload = {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
-    avatarConfig: userState.avatarConfig,
-    x: initX,
-    y: initY,
-    joinedAt: Date.now()
+    avatarConfig: getPublicFishingAvatarConfig(),
+    x: fishingState.myPos.x,
+    y: fishingState.myPos.y,
+    posTs: fishingState.myPosTs || Date.now(),
+    joinedAt: Date.now(),
+    mode: document.hidden ? "bg" : "fg"
   };
   fishingState.playersMap.set(myKey, myInitialPayload);
   syncFishingPlayersDOM();
@@ -828,47 +1104,96 @@ function connectFishingRealtimeChannel() {
     .on("presence", { event: "sync" }, () => {
       if (!fishingState.channel) return;
       const pres = fishingState.channel.presenceState();
-      const nextMap = new Map();
-      const nextKeys = new Set();
+      const presentKeys = new Set();
 
       Object.entries(pres).forEach(([presKey, arr]) => {
         const entry = Array.isArray(arr) && arr[0];
         if (!entry) return;
         const k = entry.key || presKey;
-        nextKeys.add(k);
-        const prev = fishingState.playersMap.get(k);
-        nextMap.set(k, prev ? { ...entry, x: prev.x ?? entry.x, y: prev.y ?? entry.y } : entry);
+        if (k === myKey) return;
+        if (typeof isUserBlocked === "function" && isUserBlocked(entry.userId, entry.nickname)) return;
 
-        if (fishingState.hasInitialPresenceSync && !fishingState.knownPeerIds.has(k) && k !== myKey) {
-          if (!(typeof isUserBlocked === "function" && isUserBlocked(entry.userId, entry.nickname))) {
-            appendFishingSystemMessage(`[${entry.nickname || "도전자"}]님이 입장하였습니다`);
-          }
+        presentKeys.add(k);
+        fishingState.recentLeftAt.delete(k);
+
+        const prev = fishingState.playersMap.get(k);
+        const entryTs = Number(entry.posTs) || Number(entry.joinedAt) || 0;
+        const prevTs = prev ? (Number(prev.posTs) || Number(prev.joinedAt) || 0) : -1;
+        const keepPrevPos = prev && prevTs > entryTs;
+
+        fishingState.playersMap.set(k, {
+          ...(prev || {}),
+          ...entry,
+          key: k,
+          avatarConfig: getPublicFishingAvatarConfig(entry.avatarConfig),
+          x: keepPrevPos ? prev.x : entry.x,
+          y: keepPrevPos ? prev.y : entry.y,
+          posTs: Math.max(entryTs, prevTs),
+          mode: entry.mode === "bg" ? "bg" : "fg"
+        });
+
+        if (fishingState.hasInitialPresenceSync && !fishingState.knownPeerIds.has(k)) {
+          appendFishingSystemMessage(`[${entry.nickname || "도전자"}]님이 입장하였습니다`);
         }
+        fishingState.knownPeerIds.add(k);
       });
 
-      if (!nextMap.has(myKey)) {
-        nextMap.set(myKey, {
-          ...myInitialPayload,
-          x: fishingState.myPos.x,
-          y: fishingState.myPos.y
-        });
-        nextKeys.add(myKey);
-      }
+      // 내가 항상 목록에 유지되도록 보장
+      fishingState.playersMap.set(myKey, {
+        ...myInitialPayload,
+        x: fishingState.myPos.x,
+        y: fishingState.myPos.y,
+        posTs: fishingState.myPosTs || Date.now(),
+        mode: document.hidden ? "bg" : "fg"
+      });
 
-      fishingState.playersMap = nextMap;
-      fishingState.knownPeerIds = nextKeys;
       fishingState.hasInitialPresenceSync = true;
       syncFishingPlayersDOM();
+      syncFishingGlobalRosterFromDb();
+    })
+    .on("presence", { event: "leave" }, ({ leftPresences }) => {
+      if (Array.isArray(leftPresences)) {
+        leftPresences.forEach(lp => {
+          const lk = (lp && (lp.key || lp.userId)) || "";
+          if (lk && lk !== myKey) {
+            const p = fishingState.playersMap.get(lk);
+            // 명시적 bg가 아니라 실시간 이탈이면 임시 제거 (knownPeerIds는 DB 대조에서 최종 정리해 재입장 메시지 오출력 방지)
+            if (!p || p.mode !== "bg") {
+              fishingState.playersMap.delete(lk);
+            }
+          }
+        });
+        syncFishingPlayersDOM();
+      }
+      syncFishingGlobalRosterFromDb();
     })
     .on("broadcast", { event: "fishing_move" }, ({ payload }) => {
       if (!payload || !payload.key) return;
-      if (payload.key === myKey) return;
+      if (payload.key === myKey || (userState.id && payload.userId === userState.id)) return;
+      fishingState.recentLeftAt.delete(payload.key);
       const existing = fishingState.playersMap.get(payload.key);
-      if (existing) {
-        existing.x = payload.x;
-        existing.y = payload.y;
-        syncFishingPlayersDOM();
-      }
+      const moveTs = Number(payload.ts) || Date.now();
+      fishingState.playersMap.set(payload.key, {
+        ...(existing || {}),
+        key: payload.key,
+        userId: payload.userId || existing?.userId,
+        nickname: payload.nickname || existing?.nickname || "도전자",
+        avatarConfig: getPublicFishingAvatarConfig(payload.avatarConfig || existing?.avatarConfig),
+        x: payload.x,
+        y: payload.y,
+        posTs: moveTs,
+        mode: payload.mode || "fg"
+      });
+      fishingState.knownPeerIds.add(payload.key);
+      syncFishingPlayersDOM();
+    })
+    .on("broadcast", { event: "fishing_leave" }, ({ payload }) => {
+      if (!payload || !payload.key) return;
+      if (payload.key === myKey || (userState.id && payload.userId === userState.id)) return;
+      fishingState.recentLeftAt.set(payload.key, Date.now());
+      fishingState.playersMap.delete(payload.key);
+      fishingState.knownPeerIds.delete(payload.key);
+      syncFishingPlayersDOM();
     })
     .on("broadcast", { event: "fishing_chat" }, ({ payload }) => {
       if (!payload || !payload.msg) return;
@@ -881,28 +1206,48 @@ function connectFishingRealtimeChannel() {
     })
     .subscribe(async status => {
       if (status === "SUBSCRIBED") {
-        await trackMyFishingPresence(false);
-        appendFishingSystemMessage(`[${userState.nickname || "도전자"}]님이 입장하였습니다`);
+        await trackMyFishingPresence(isReconnect);
+        if (!isReconnect) {
+          appendFishingSystemMessage(`[${userState.nickname || "도전자"}]님이 입장하였습니다`);
+        }
+        syncFishingGlobalRosterFromDb();
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        scheduleFishingReconnect();
       }
     });
 }
 
-function disconnectFishingRealtimeChannel() {
-  if (fishingState.channel && sbClient) {
+function disconnectFishingRealtimeChannel(opts = {}) {
+  const { keepPlayers = false, sendLeaveSignal = false } = opts;
+  const ch = fishingState.channel;
+  fishingState.channel = null;
+
+  if (ch && sbClient) {
     try {
-      sbClient.removeChannel(fishingState.channel);
+      if (sendLeaveSignal) {
+        const myKey = getMyFishingKey();
+        ch.send({
+          type: "broadcast",
+          event: "fishing_leave",
+          payload: { key: myKey, userId: userState.id, ts: Date.now() }
+        });
+        ch.untrack();
+      }
+      sbClient.removeChannel(ch);
     } catch (e) {}
   }
-  fishingState.channel = null;
-  fishingState.activeBubbles.forEach(b => {
-    clearTimeout(b.fadeTimer);
-    clearTimeout(b.removeTimer);
-  });
-  fishingState.activeBubbles.clear();
-  fishingState.playerNodeMap.clear();
-  fishingState.playerAvatarKeys.clear();
-  const layer = document.getElementById("fishingPlayersLayer");
-  if (layer) layer.innerHTML = "";
+
+  if (!keepPlayers) {
+    fishingState.activeBubbles.forEach(b => {
+      clearTimeout(b.fadeTimer);
+      clearTimeout(b.removeTimer);
+    });
+    fishingState.activeBubbles.clear();
+    fishingState.playerNodeMap.clear();
+    fishingState.playerAvatarKeys.clear();
+    const layer = document.getElementById("fishingPlayersLayer");
+    if (layer) layer.innerHTML = "";
+  }
 }
 
 window.sendFishingChat = function () {
@@ -926,6 +1271,7 @@ window.sendFishingChat = function () {
   appendFishingUserChat(payload.nickname, payload.msg, true);
   showFishingSpeechBubble(myKey, payload.msg);
 
+  ensureFishingRealtimeHealthy();
   if (fishingState.channel) {
     try {
       fishingState.channel.send({
@@ -938,7 +1284,7 @@ window.sendFishingChat = function () {
 };
 
 // ============================================================================
-// 5. 2초 로딩 오버레이 & 낚시터 입·퇴장 라이프사이클
+// 5. 2초 로딩 오버레이 · 폰 홈 유지 / 스와이프 강제종료 퇴장 라이프사이클
 // ============================================================================
 function showFishingLoadingOverlay(labelText) {
   const overlay = document.getElementById("fishingLoadingOverlay");
@@ -967,14 +1313,17 @@ function hideFishingLoadingOverlay() {
   if (overlay) overlay.classList.add("hidden");
 }
 
-window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id) {
-  if (fishingState.isTransitioning) return;
+window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {}) {
+  const skipLoading = !!(opts && opts.skipLoading);
+  const restorePos = opts && opts.restorePos ? opts.restorePos : null;
+  if (fishingState.isTransitioning && !skipLoading) return;
   if (typeof userState !== "undefined" && !userState.isLoggedIn) {
     gameConfirm("낚시터는 로그인한 계정으로만 입장할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
     return;
   }
 
-  fishingState.isTransitioning = true;
+  fishingState.isTransitioning = !skipLoading;
+  fishingState.hasRunForcedExit = false;
   currentFishingChannelId = channelId || FISHING_CHANNELS[0].id;
   fishingState.chatMessages = [];
   const logEl = document.getElementById("fishingChatLog");
@@ -987,32 +1336,124 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id) {
   loadFishingDailyFromUserState(Date.now());
   renderFishingHud();
 
-  showFishingLoadingOverlay("🎣 낚시터 가는중..");
+  if (!skipLoading) {
+    showFishingLoadingOverlay("🎣 낚시터 가는중..");
+  }
 
-  // 로딩 연출 중 화면 미리 전환 + Realtime 구독 준비 완료!
+  // 로딩 연출 중 화면 미리 전환 + 통합 서버 연결!
   if (typeof switchScreen === "function") {
-    switchScreen("fishingScreen");
+    switchScreen("fishingScreen", skipLoading ? { replaceHistory: true } : {});
   }
   fishingState.isInside = true;
-  connectFishingRealtimeChannel();
+  connectFishingRealtimeChannel(false, restorePos);
+  persistFishingSessionMarker();
+
+  if (typeof userState !== "undefined") {
+    userState.fishingLive = buildMyFishingLivePayload("fg", true);
+    if (typeof syncProfileToServer === "function") syncProfileToServer();
+  }
+
   startFishingBgLoop();
   startFishingRewardTimer();
+  startFishingNetworkSync();
+  syncFishingGlobalRosterFromDb();
 
-  setTimeout(() => {
-    hideFishingLoadingOverlay();
-    fishingState.isTransitioning = false;
+  if (skipLoading) {
     if (typeof syncFishingViewportLock === "function") syncFishingViewportLock();
-  }, FISHING_LOADING_DURATION_MS);
+  } else {
+    setTimeout(() => {
+      hideFishingLoadingOverlay();
+      fishingState.isTransitioning = false;
+      if (typeof syncFishingViewportLock === "function") syncFishingViewportLock();
+    }, FISHING_LOADING_DURATION_MS);
+  }
 };
+
+window.handleFishingVisibilityChange = function (isHidden) {
+  if (!fishingState.isInside) return;
+  if (typeof state !== "undefined" && state.currentScreen !== "fishingScreen") return;
+
+  if (isHidden) {
+    // 폰 홈버튼 전환: 낚시터에서 나가지 않고 방 + 경험치/CD 시계 + 백그라운드 상태 유지!
+    window.advanceFishingClockTo(Date.now());
+    persistFishingSessionMarker();
+    if (typeof userState !== "undefined") {
+      userState.fishingLive = buildMyFishingLivePayload("bg", true);
+    }
+    if (fishingState.channel) {
+      try {
+        fishingState.channel.send({
+          type: "broadcast",
+          event: "fishing_move",
+          payload: {
+            key: getMyFishingKey(),
+            userId: userState.id,
+            nickname: userState.nickname || "도전자",
+            avatarConfig: getPublicFishingAvatarConfig(),
+            x: fishingState.myPos.x,
+            y: fishingState.myPos.y,
+            ts: Date.now(),
+            mode: "bg"
+          }
+        });
+      } catch (e) {}
+    }
+    if (typeof sendProfileKeepalivePatch === "function") {
+      sendProfileKeepalivePatch();
+    } else if (typeof syncProfileToServer === "function") {
+      syncProfileToServer();
+    }
+  } else {
+    // 폰 홈에서 복귀: 경과 시간 즉시 반영 + 끊긴 WebSocket·전역 로스터 즉시 재동기화!
+    window.advanceFishingClockTo(Date.now());
+    persistFishingSessionMarker();
+    if (typeof userState !== "undefined") {
+      userState.fishingLive = buildMyFishingLivePayload("fg", true);
+      if (typeof syncProfileToServer === "function") syncProfileToServer();
+    }
+    ensureFishingRealtimeHealthy();
+    syncFishingGlobalRosterFromDb();
+  }
+};
+
+window.handleFishingForcedExit = function (ev) {
+  if (!fishingState.isInside || fishingState.hasRunForcedExit) return;
+  if (ev && ev.type === "pagehide" && ev.persisted) return;
+
+  fishingState.hasRunForcedExit = true;
+  clearFishingSessionMarker();
+  window.advanceFishingClockTo(Date.now());
+
+  if (typeof userState !== "undefined") {
+    userState.fishingLive = { active: false, leftAt: Date.now() };
+  }
+  if (typeof sendProfileKeepalivePatch === "function") {
+    sendProfileKeepalivePatch();
+  }
+  disconnectFishingRealtimeChannel({ keepPlayers: true, sendLeaveSignal: true });
+};
+
+window.addEventListener("online", () => {
+  if (fishingState.isInside && typeof state !== "undefined" && state.currentScreen === "fishingScreen") {
+    ensureFishingRealtimeHealthy();
+    syncFishingGlobalRosterFromDb();
+  }
+});
 
 window.cleanupFishingRuntime = function (shouldSyncServer = true) {
   if (fishingState.isInside) {
     window.advanceFishingClockTo(Date.now());
   }
   fishingState.isInside = false;
+  clearFishingSessionMarker();
   stopFishingRewardTimer();
+  stopFishingNetworkSync();
   stopFishingBgLoop();
-  disconnectFishingRealtimeChannel();
+  disconnectFishingRealtimeChannel({ keepPlayers: false, sendLeaveSignal: true });
+
+  if (typeof userState !== "undefined") {
+    userState.fishingLive = { active: false, leftAt: Date.now() };
+  }
 
   const chatInput = document.getElementById("fishingChatInput");
   if (chatInput) chatInput.blur();

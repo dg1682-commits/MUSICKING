@@ -9,8 +9,14 @@ const SUPABASE_URL = "https://szafomntmenppcbczrwl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_msR49lWjgSJQnMQxSzIaug_XXlJUd4Z";
 
 let sbClient = null;
+window.mkSupabaseAccessToken = "";
 if (window.supabase && window.supabase.createClient) {
   sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  try {
+    sbClient.auth.onAuthStateChange((_event, session) => {
+      window.mkSupabaseAccessToken = session?.access_token || "";
+    });
+  } catch (e) {}
 }
 
 // ============================================================================
@@ -115,6 +121,7 @@ const userState = {
   battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS),
   blockedUsers: [],
   fishingDaily: null,
+  fishingLive: null,
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
@@ -198,6 +205,7 @@ function resetUserStateToFreshDefaults() {
   userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
   userState.blockedUsers = [];
   userState.fishingDaily = null;
+  userState.fishingLive = null;
   userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
   userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
   userState.isLoggedIn = false;
@@ -506,6 +514,10 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
     rawCfg._fishingDaily && typeof rawCfg._fishingDaily === "object"
       ? { ...rawCfg._fishingDaily }
       : null;
+  userState.fishingLive =
+    rawCfg._fishingLive && typeof rawCfg._fishingLive === "object"
+      ? { ...rawCfg._fishingLive }
+      : null;
   userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
   userState.ownedItems = Array.isArray(prof?.owned_items)
     ? [...prof.owned_items]
@@ -534,6 +546,7 @@ async function restoreSupabaseSession() {
   }
   try {
     const { data } = await sbClient.auth.getSession();
+    window.mkSupabaseAccessToken = data?.session?.access_token || "";
     const sessionUser = data?.session?.user;
     if (sessionUser) {
       const { data: prof } = await sbClient
@@ -546,7 +559,31 @@ async function restoreSupabaseSession() {
         applyProfileRowToUserState(sessionUser.id, prof, prof.nickname);
         updateHeaderUserUI();
         if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
-        if (typeof showHome === "function") showHome({ replaceHistory: true });
+
+        let savedFishingSession = null;
+        try {
+          const rawSess = sessionStorage.getItem("mk_fishing_session");
+          if (rawSess) savedFishingSession = JSON.parse(rawSess);
+        } catch (e) {}
+
+        if (
+          savedFishingSession &&
+          savedFishingSession.uid === sessionUser.id &&
+          typeof enterFishingRoom === "function"
+        ) {
+          // 폰 홈버튼 전환 후 브라우저 탭 재로드 시에도 낚시터 유지!
+          enterFishingRoom(savedFishingSession.channelId, {
+            skipLoading: true,
+            restorePos: savedFishingSession.pos
+          });
+        } else {
+          // 강제종료(스와이프 종료) 후 새 앱 실행이면 기존 잔류 접속 상태 정리 후 홈으로 이동
+          if (userState.fishingLive && userState.fishingLive.active) {
+            userState.fishingLive = { active: false, leftAt: Date.now() };
+            syncProfileToServer();
+          }
+          if (typeof showHome === "function") showHome({ replaceHistory: true });
+        }
       }
     }
   } catch (e) {}
@@ -562,18 +599,51 @@ async function addCdCoins(amount) {
   await syncProfileToServer();
 }
 
+function buildProfilePayloadConfig() {
+  const cleanAvatar = { ...userState.avatarConfig };
+  delete cleanAvatar._exp;
+  delete cleanAvatar._claimedTopRanks;
+  delete cleanAvatar._battleStats;
+  delete cleanAvatar._blockedUsers;
+  delete cleanAvatar._fishingDaily;
+  delete cleanAvatar._fishingLive;
+  return {
+    ...cleanAvatar,
+    _exp: userState.exp,
+    _claimedTopRanks: userState.claimedTopRanks || {},
+    _battleStats: normalizeBattleStats(userState.battleStats),
+    _blockedUsers: userState.blockedUsers || [],
+    _fishingDaily: userState.fishingDaily || null,
+    _fishingLive: userState.fishingLive || null
+  };
+}
+
+window.sendProfileKeepalivePatch = function () {
+  if (!userState.isLoggedIn || !userState.id || !window.mkSupabaseAccessToken) return;
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userState.id)}`, {
+      method: "PATCH",
+      keepalive: true,
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${window.mkSupabaseAccessToken}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        cd_coins: userState.cdCoins,
+        avatar_config: buildProfilePayloadConfig(),
+        updated_at: new Date().toISOString()
+      })
+    }).catch(() => {});
+  } catch (e) {}
+};
+
 async function syncProfileToServer() {
   updateHeaderUserUI();
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
   try {
-    const payloadConfig = {
-      ...userState.avatarConfig,
-      _exp: userState.exp,
-      _claimedTopRanks: userState.claimedTopRanks || {},
-      _battleStats: normalizeBattleStats(userState.battleStats),
-      _blockedUsers: userState.blockedUsers || [],
-      _fishingDaily: userState.fishingDaily || null
-    };
+    const payloadConfig = buildProfilePayloadConfig();
     await sbClient.from("profiles").upsert({
       id: userState.id,
       nickname: userState.nickname,
@@ -640,6 +710,8 @@ window.handleAuthSubmit = async function (mode) {
         gameAlert("회원가입 처리 중 문제가 발생했습니다.");
         return;
       }
+      window.mkSupabaseAccessToken = data?.session?.access_token || "";
+      try { sessionStorage.removeItem("mk_fishing_session"); } catch (e) {}
 
       const starterAvatar = { ...DEFAULT_AVATAR_CONFIG, gender: chosenGender };
       const starterOwned = ["meadow", "default", "none", "basic", "mic_silver"];
@@ -699,6 +771,8 @@ window.handleAuthSubmit = async function (mode) {
       }
 
       const uid = data.user.id;
+      window.mkSupabaseAccessToken = data?.session?.access_token || "";
+      try { sessionStorage.removeItem("mk_fishing_session"); } catch (e) {}
       const { data: prof } = await sbClient
         .from("profiles")
         .select("*")
@@ -706,6 +780,10 @@ window.handleAuthSubmit = async function (mode) {
         .maybeSingle();
 
       applyProfileRowToUserState(uid, prof, nickInput);
+      if (userState.fishingLive && userState.fishingLive.active) {
+        userState.fishingLive = { active: false, leftAt: Date.now() };
+        syncProfileToServer();
+      }
       saveAuthPreferences(userState.nickname);
 
       updateHeaderUserUI();
@@ -736,6 +814,8 @@ window.handleLogout = async function () {
         await sbClient.auth.signOut();
       } catch (e) {}
     }
+    window.mkSupabaseAccessToken = "";
+    try { sessionStorage.removeItem("mk_fishing_session"); } catch (e) {}
     resetUserStateToFreshDefaults();
     const pwInput = document.getElementById("authPasswordInput");
     if (pwInput) pwInput.value = "";

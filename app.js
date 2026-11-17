@@ -948,7 +948,9 @@ document.addEventListener(
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+    if (typeof handleFishingVisibilityChange === "function") {
+      handleFishingVisibilityChange(true);
+    } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
       advanceFishingClockTo(Date.now());
       if (typeof syncProfileToServer === "function") syncProfileToServer();
     }
@@ -958,15 +960,26 @@ document.addEventListener("visibilitychange", () => {
       if (st) st.textContent = "⏸️ 백그라운드 전환으로 정지됨 · [▶ 1초 듣기]를 눌러주세요!";
     }
   } else if (!appExited) {
-    if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+    if (typeof handleFishingVisibilityChange === "function") {
+      handleFishingVisibilityChange(false);
+    } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
       advanceFishingClockTo(Date.now());
     }
     updateBgmForScreen(state.currentScreen);
   }
 });
 
-window.addEventListener("pagehide", () => {
+window.addEventListener("pagehide", e => {
+  if (typeof handleFishingForcedExit === "function") {
+    handleFishingForcedExit(e);
+  }
   stopAllAppAudio(false);
+});
+
+window.addEventListener("beforeunload", e => {
+  if (typeof handleFishingForcedExit === "function") {
+    handleFishingForcedExit(e);
+  }
 });
 
 // 쿠팡 파트너스 동적 배너가 body 루트 등 외부로 떨어졌을 경우 홈 하단 전용 슬롯(#homeCoupangFrameWrap)으로 안전 재배치

@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.22`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.23`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.22`)
-- **현재 버전**: **v10.22** (`SHOP_CATALOG_VERSION = 13`)
+- **앱 이름**: 음악왕 (`v10.23`)
+- **현재 버전**: **v10.23** (`SHOP_CATALOG_VERSION = 13`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -23,11 +23,11 @@
 | [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (홈 2×3 버튼 도크·16:10 와이드 홈 스테이지 + 낚시터 상/하 분할 및 키보드 입력창 부양 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `online.js`, `fishing.js`, `app.js`보다 **반드시 먼저** 로드 |
-| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링, `_fishingDaily` 프로필 저장) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
-| [fishing.js](file:///c:/Users/user1/Desktop/개발/음악왕/fishing.js) | **방치형 소셜 낚시터 모듈**: 채널 변수화(`fishing_room_1`), KST 오전 `06:00` 정각 즉시 초기화(`advanceFishingClockTo`), 6시간 최대 `+1,000 EXP / +3,000 CD` 누적 보상 + `getFishingBuffMultipliers()`(낚싯대/미끼 확장), 15fps 호수 캔버스·바닥 터치 이동·Presence/Broadcast 휘발성 채팅 & 5초 fade-out 최상단 말풍선, 입·퇴장 2초 바운스 로딩 오버레이 | `online.js` 다음, `app.js` 전에 로드 |
-| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진(랜덤 플레이 `startRandomGame` 포함), iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM(`main.mp3`/`shop.mp3`/`fish.mp3`)/클릭 효과음(`click.wav`), 백그라운드 음소거 및 낚시터 백그라운드 시계 유지(`visibilitychange`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어(`setupMobileKeyboardViewportHandler`), 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
+| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·낚시 인벤토리 슬롯·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링, `_fishingDaily`·`_fishingLive`·`keepalive` 저장) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
+| [fishing.js](file:///c:/Users/user1/Desktop/개발/음악왕/fishing.js) | **통합 방치형 소셜 낚시터 모듈 (`fishing_room_1`)**: Realtime(Presence/Broadcast) + 4초 DB 로스터(`_fishingLive`) 하이브리드 동기화 & WS 자동 재연결, 폰 홈버튼 유지(`mode: "bg"`, `💤`) & 스와이프 강제종료(`beforeunload`/`pagehide` keepalive) 자동 퇴장, KST 오전 `06:00` 초기화, 6시간 기본 `+1,000 EXP / +3,000 CD` + 낚싯대·미끼 버프 연동, 15fps 호수 캔버스·바닥 이동·5초 말풍선, 2초 바운스 로딩 | `online.js` 다음, `app.js` 전에 로드 |
+| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진(랜덤 플레이 `startRandomGame` 포함), iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM(`main.mp3`/`shop.mp3`/`fish.mp3`)/클릭 효과음(`click.wav`), 백그라운드 전환 시 낚시터 유지·강제종료 정리(`visibilitychange`/`pagehide`/`beforeunload`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어(`setupMobileKeyboardViewportHandler`), 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
 | [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**, **`📦 스토어 출시 정보`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
-| [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
+| [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, `launch_handler: focus-existing`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
 | [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 |
 | [.nojekyll](file:///c:/Users/user1/Desktop/개발/음악왕/.nojekyll) | GitHub Pages Jekyll 비활성화 (`.well-known` 폴더 404 방지) | 절대 삭제 금지 *(GitHub 웹 업로드 시 주의!)* |
 | [.well-known/assetlinks.json](file:///c:/Users/user1/Desktop/개발/음악왕/.well-known/assetlinks.json) | Android TWA 상단 주소창 완전 제거용 Digital Asset Links | PWABuilder 서명 키 지문 등록됨 |
@@ -64,7 +64,8 @@
        - `_battleStats`: `{ "1v1": { wins, losses }, "4p": { wins, losses } }` 온라인 대전 전적·승률
        - `_blockedUsers`: `[{ id, nickname, blockedAt }]` 차단한 유저 목록 *(로컬 `mk_blocked_users_<uid>`와 병합 유지)*
        - `_fishingDaily`: `{ date: "YYYY-MM-DD", seconds, earnedExp, earnedCd }` 낚시터 일일 누적 기록 *(KST 오전 `06:00` 주기 기준)*
-     - 따라서 `syncProfileToServer()` 수정 시 반드시 `...userState.avatarConfig, _exp, _claimedTopRanks, _battleStats, _blockedUsers, _fishingDaily` 형태를 유지해야 합니다.
+       - `_fishingLive`: `{ active, channelId, mode: "fg"|"bg", x, y, posTs, heartbeatAt, sessionTag }` 통합 서버 낚시터 실시간 로스터·위치 상태
+     - 따라서 `syncProfileToServer()` 수정 시 반드시 `buildProfilePayloadConfig()`를 통해 `_exp`, `_claimedTopRanks`, `_battleStats`, `_blockedUsers`, `_fishingDaily`, `_fishingLive`를 함께 유지해야 합니다.
    - **⚠️ 특수 시스템 행 (`nickname === "__ADMIN_CONFIG__"`)**:
      - [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html)에서 수정한 글로벌 상점 카탈로그와 문제 오버라이드를 저장하는 공용 설정 행입니다.
      - `avatar_config`: `{ shopCatalog: AVATAR_SHOP_ITEMS, catalogVersion: SHOP_CATALOG_VERSION }`

@@ -2351,6 +2351,10 @@ body.on-fishing-screen.keyboard-open .app-shell {
   border-color: #dcfce7;
 }
 
+.fishing-player-node.is-bg {
+  opacity: 0.78;
+}
+
 .fishing-bubble-slot {
   position: relative;
   width: 0;
