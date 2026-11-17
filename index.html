@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <!-- ⚠️ [원스토어 H5 Game SDK] 게임 코드/CSS보다 최상단 우선 로드 ({{version}} -> 임시 버전 '1.0.0'을 원스토어 최신 버전으로 수정) -->
+  <script type="module">
+    // ✏️ [버전 수정] 아래 URL의 '1.0.0' 부분을 원스토어 릴리즈 노트 최신 버전으로 교체하세요!
+    import { createSDK } from "https://h5sdk.onestore.net/lib/1.0.0/onestore-h5-sdk.js";
+    try {
+      window.onestoreSdk = createSDK();
+    } catch (e) {
+      window.onestoreSdk = null;
+      console.warn("[ONEstore H5 SDK] init skipped:", e);
+    }
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="mobile-web-app-capable" content="yes" />

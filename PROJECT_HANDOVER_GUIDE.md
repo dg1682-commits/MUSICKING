@@ -19,7 +19,7 @@
 
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
-| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`, OG 공유 메타태그·개인정보/외부탈퇴 URL 라우팅·상점 풀배경 캔버스 포함) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
+| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (최상단 `<head>` 원스토어 H5 Game SDK `<script type="module">` `window.onestoreSdk` + 14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`, OG 공유 메타태그·개인정보/외부탈퇴 URL 라우팅·상점 풀배경 캔버스 포함) | `<head>` 최상단 원스토어 SDK 및 `.hidden` 인라인 스타일 필수 |
 | [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (홈 2×3 버튼 도크·16:10 와이드 홈 스테이지 + 낚시터 상/하 분할 및 키보드 입력창 부양 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `online.js`, `fishing.js`, `app.js`보다 **반드시 먼저** 로드 |
