@@ -37,6 +37,7 @@ const state = {
   audioPending: false,
   itunesCache: new Map(),
   oneSecOffsetIndex: 0,
+  resultPlayingIndex: null,
   currentScreen: "loginScreen",
   autoFullscreenTried: false
 };
@@ -149,7 +150,7 @@ window.openModal = function (id) {
   const el = document.getElementById(id);
   if (el) {
     el.classList.remove("hidden");
-    pushAppHistoryState();
+    armAppBackGuard(false);
   }
 };
 
@@ -194,90 +195,167 @@ window.toggleFullscreenMode = function () {
 };
 
 // ============================================================================
-// 모바일 물리 '뒤로가기' 버튼 앱 종료 방지 트랩
+// 모바일 물리 '뒤로가기' 종료 · 로그인 회귀 방지 · 백그라운드 사운드 완전 정지
 // ============================================================================
-function pushAppHistoryState() {
+let allowAppExit = false;
+let appExited = false;
+let hasBackGuardPushed = false;
+
+function resetHistoryToExitBase() {
+  hasBackGuardPushed = false;
   try {
-    history.pushState({ mkScreen: state.currentScreen, ts: Date.now() }, "");
+    history.replaceState({ mkRole: "exit_base", mkScreen: state.currentScreen, ts: Date.now() }, "");
   } catch (e) {}
 }
 
-let allowAppExit = false;
+window.resetHistoryToExitBase = resetHistoryToExitBase;
+
+window.armAppBackGuard = function (forceWithGesture = false) {
+  if (appExited || hasBackGuardPushed || state.currentScreen === "loginScreen") return;
+  const hasActivation =
+    forceWithGesture || (typeof navigator !== "undefined" && navigator.userActivation && navigator.userActivation.hasBeenActive);
+  if (!hasActivation) return;
+  try {
+    history.replaceState({ mkRole: "exit_base", mkScreen: state.currentScreen, ts: Date.now() }, "");
+    history.pushState({ mkRole: "app_guard", mkScreen: state.currentScreen, ts: Date.now() }, "");
+    hasBackGuardPushed = true;
+  } catch (e) {}
+};
+
+function stopAllAppAudio(releaseSources = false) {
+  stopAudio();
+  stopTimeAttackTimer();
+  try {
+    bgmState.mainAudio.pause();
+    bgmState.shopAudio.pause();
+    if (releaseSources) {
+      bgmState.mainAudio.currentTime = 0;
+      bgmState.shopAudio.currentTime = 0;
+      bgmState.mainAudio.removeAttribute("src");
+      bgmState.shopAudio.removeAttribute("src");
+      bgmState.mainAudio.load();
+      bgmState.shopAudio.load();
+    }
+    (bgmState.clickPool || []).forEach(a => {
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch (e) {}
+    });
+    if (releaseSources && state.audioEl) {
+      state.audioEl.currentTime = 0;
+      state.audioEl.removeAttribute("src");
+      state.audioEl.load();
+    }
+  } catch (e) {}
+}
+window.stopAllAppAudio = stopAllAppAudio;
+
+function performCleanAppExit() {
+  appExited = true;
+  allowAppExit = true;
+  hasBackGuardPushed = false;
+
+  stopAllAppAudio(true);
+  try {
+    if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
+    if (typeof stopDmRealtime === "function") stopDmRealtime();
+  } catch (e) {}
+
+  if (!document.getElementById("appExitedOverlay")) {
+    const overlay = document.createElement("div");
+    overlay.id = "appExitedOverlay";
+    overlay.className = "app-exited-overlay";
+    overlay.innerHTML =
+      `<div style="font-size:2.4rem;">👑</div><h2 style="font-size:1.18rem; font-weight:900;">대한민국 음악왕이 종료되었습니다</h2><p style="font-size:0.86rem; color:#94a3b8; line-height:1.5;">모든 사운드와 연결이 정지되었습니다.<br/>앱 또는 브라우저 창을 닫아주세요.</p>`;
+    document.body.appendChild(overlay);
+  }
+
+  try {
+    window.close();
+  } catch (e) {}
+  try {
+    history.back();
+  } catch (e) {}
+}
 
 window.addEventListener("popstate", () => {
-  if (allowAppExit) return;
+  if (appExited || allowAppExit) {
+    stopAllAppAudio(true);
+    return;
+  }
+
+  hasBackGuardPushed = false;
 
   const dialog = document.getElementById("customDialogModal");
   if (dialog && !dialog.classList.contains("hidden")) {
+    if (dialog.dataset.isExitConfirm === "true") {
+      // 종료 확인 창이 열린 상태에서 뒤로가기를 한 번 더 누르면 모달만 닫지 않고 종료를 원할 수 있으므로 확인창 유지/재무장
+      dialog.classList.add("hidden");
+      delete dialog.dataset.isExitConfirm;
+      armAppBackGuard(true);
+      return;
+    }
     dialog.classList.add("hidden");
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
   if (openModals.length > 0) {
     window.closeAllModals();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (state.currentScreen === "battlePlayScreen") {
     if (typeof confirmExitOnlineBattle === "function") confirmExitOnlineBattle();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (state.currentScreen === "battleRoomScreen") {
     leaveBattleRoom();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (state.currentScreen === "dmChatScreen") {
     switchScreen("socialScreen");
     if (typeof loadFriendsData === "function") loadFriendsData();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (["gameScreen", "judgeScreen"].includes(state.currentScreen)) {
     confirmExitSingleGame();
-    pushAppHistoryState();
+    armAppBackGuard(true);
     return;
   }
 
   if (state.currentScreen === "homeScreen") {
-    pushAppHistoryState();
+    const dlg = document.getElementById("customDialogModal");
+    if (dlg) dlg.dataset.isExitConfirm = "true";
     gameConfirm(
       "음악왕을 종료하고 나가시겠습니까?",
       () => {
-        allowAppExit = true;
-        try {
-          bgmState.mainAudio.pause();
-          bgmState.shopAudio.pause();
-          state.audioEl.pause();
-        } catch (e) {}
-        try {
-          window.close();
-        } catch (e) {}
-        if (history.length > 1) {
-          history.go(-history.length);
-        } else {
-          history.back();
-        }
+        if (dlg) delete dlg.dataset.isExitConfirm;
+        performCleanAppExit();
       },
-      "👑 음악왕 종료"
+      "👑 음악왕 종료",
+      () => {
+        if (dlg) delete dlg.dataset.isExitConfirm;
+        armAppBackGuard(true);
+      }
     );
     return;
   }
-
-  pushAppHistoryState();
 });
 
 // ============================================================================
@@ -334,9 +412,19 @@ async function fetchItunesTrack(q) {
 const SILENT_AUDIO_URI =
   "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
+function syncResultPreviewButtons() {
+  document.querySelectorAll(".result-preview-btn").forEach(btn => {
+    const idx = Number(btn.dataset.histIdx);
+    const active = state.resultPlayingIndex === idx && !appExited;
+    btn.classList.toggle("is-playing", active);
+    btn.textContent = active ? (state.audioPending ? "⏳..." : "⏹ 정지") : "▶ 듣기";
+  });
+}
+
 function stopAudio() {
   state.audioRequestSeq = (state.audioRequestSeq || 0) + 1;
   state.audioPending = false;
+  state.resultPlayingIndex = null;
   if (state.audioStopTimer) {
     clearTimeout(state.audioStopTimer);
     state.audioStopTimer = null;
@@ -348,10 +436,11 @@ function stopAudio() {
     const disc = document.getElementById(id);
     if (disc) disc.classList.remove("spinning");
   });
+  syncResultPreviewButtons();
 }
 
 function unlockQuizAudio() {
-  if (state.audioUnlocked || !state.audioEl || state.audioPending) return;
+  if (appExited || state.audioUnlocked || !state.audioEl || state.audioPending) return;
   try {
     if (!state.audioEl.paused) return;
     const seqAtStart = state.audioRequestSeq || 0;
@@ -408,7 +497,55 @@ function startTimeAttackTimer() {
   }, 100);
 }
 
+async function startAudioStreamAt(previewUrl, startOffsetSec, durationSec, reqId, onBeforePlay, onFinished) {
+  if (appExited || reqId !== state.audioRequestSeq) return false;
+  if (state.audioEl.src !== previewUrl) {
+    state.audioEl.src = previewUrl;
+    await new Promise((resolve, reject) => {
+      const cleanup = () => {
+        state.audioEl.removeEventListener("loadedmetadata", onLoaded);
+        state.audioEl.removeEventListener("error", onError);
+      };
+      const onLoaded = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = e => {
+        cleanup();
+        reject(e);
+      };
+      state.audioEl.addEventListener("loadedmetadata", onLoaded);
+      state.audioEl.addEventListener("error", onError);
+      state.audioEl.load();
+    });
+  }
+
+  if (appExited || reqId !== state.audioRequestSeq) return false;
+
+  const safeOffset = Math.min(startOffsetSec, Math.max(0, (state.audioEl.duration || 29) - durationSec - 1));
+  state.audioEl.currentTime = safeOffset;
+  if (typeof onBeforePlay === "function") onBeforePlay();
+
+  await state.audioEl.play();
+  if (appExited || reqId !== state.audioRequestSeq) {
+    try {
+      state.audioEl.pause();
+    } catch (e) {}
+    return false;
+  }
+  state.audioUnlocked = true;
+  state.audioPending = false;
+
+  state.audioStopTimer = setTimeout(() => {
+    if (reqId !== state.audioRequestSeq) return;
+    state.audioEl.pause();
+    if (typeof onFinished === "function") onFinished();
+  }, durationSec * 1000);
+  return true;
+}
+
 async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null, customDisc = null, customStatus = null, opts = {}) {
+  if (appExited) return;
   stopAudio();
   const reqId = state.audioRequestSeq;
   const isAutoPlay = Boolean(opts && opts.isAutoPlay);
@@ -424,7 +561,7 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
   state.audioPending = true;
   try {
     const track = await fetchItunesTrack(q);
-    if (reqId !== state.audioRequestSeq) return;
+    if (appExited || reqId !== state.audioRequestSeq) return;
     if (!track || !track.previewUrl) {
       if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
       if (!isAutoPlay) {
@@ -433,52 +570,21 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
       return;
     }
 
-    if (state.audioEl.src !== track.previewUrl) {
-      state.audioEl.src = track.previewUrl;
-      await new Promise((resolve, reject) => {
-        const cleanup = () => {
-          state.audioEl.removeEventListener("loadedmetadata", onLoaded);
-          state.audioEl.removeEventListener("error", onError);
-        };
-        const onLoaded = () => {
-          cleanup();
-          resolve();
-        };
-        const onError = e => {
-          cleanup();
-          reject(e);
-        };
-        state.audioEl.addEventListener("loadedmetadata", onLoaded);
-        state.audioEl.addEventListener("error", onError);
-        state.audioEl.load();
-      });
-    }
-
-    if (reqId !== state.audioRequestSeq) return;
-
-    const safeOffset = Math.min(startOffsetSec, Math.max(0, (state.audioEl.duration || 29) - durationSec - 1));
-    state.audioEl.currentTime = safeOffset;
-
-    if (disc) disc.classList.add("spinning");
-    if (statusEl) statusEl.textContent = `🔊 ${durationSec}초 재생 중...`;
-
-    await state.audioEl.play();
-    if (reqId !== state.audioRequestSeq) {
-      try {
-        state.audioEl.pause();
-      } catch (e) {}
-      if (disc) disc.classList.remove("spinning");
-      return;
-    }
-    state.audioUnlocked = true;
-    state.audioPending = false;
-
-    state.audioStopTimer = setTimeout(() => {
-      if (reqId !== state.audioRequestSeq) return;
-      state.audioEl.pause();
-      if (disc) disc.classList.remove("spinning");
-      if (statusEl) statusEl.textContent = `✅ ${durationSec}초 재생 완료! (버튼으로 다시 듣기 가능)`;
-    }, durationSec * 1000);
+    const played = await startAudioStreamAt(
+      track.previewUrl,
+      startOffsetSec,
+      durationSec,
+      reqId,
+      () => {
+        if (disc) disc.classList.add("spinning");
+        if (statusEl) statusEl.textContent = `🔊 ${durationSec}초 재생 중...`;
+      },
+      () => {
+        if (disc) disc.classList.remove("spinning");
+        if (statusEl) statusEl.textContent = `✅ ${durationSec}초 재생 완료! (버튼으로 다시 듣기 가능)`;
+      }
+    );
+    if (!played && disc) disc.classList.remove("spinning");
   } catch (err) {
     if (reqId !== state.audioRequestSeq) return;
     if (disc) disc.classList.remove("spinning");
@@ -493,6 +599,55 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
     }
   }
 }
+
+window.toggleResultSongPreview = async function (idx) {
+  if (appExited) return;
+  if (state.resultPlayingIndex === idx && (state.audioPending || (state.audioEl && !state.audioEl.paused))) {
+    stopAudio();
+    return;
+  }
+
+  const item = state.history && state.history[idx];
+  if (!item || !item.q) return;
+
+  stopAudio();
+  const reqId = state.audioRequestSeq;
+  state.resultPlayingIndex = idx;
+  state.audioPending = true;
+  syncResultPreviewButtons();
+
+  try {
+    const track = await fetchItunesTrack(item.q);
+    if (appExited || reqId !== state.audioRequestSeq) return;
+    if (!track || !track.previewUrl) {
+      stopAudio();
+      gameAlert("이 곡의 미리듣기 음원을 찾을 수 없습니다.");
+      return;
+    }
+
+    const started = await startAudioStreamAt(
+      track.previewUrl,
+      5,
+      15,
+      reqId,
+      () => {
+        state.audioPending = false;
+        syncResultPreviewButtons();
+      },
+      () => {
+        stopAudio();
+      }
+    );
+    if (!started && reqId === state.audioRequestSeq) {
+      stopAudio();
+    }
+  } catch (err) {
+    if (reqId === state.audioRequestSeq) {
+      stopAudio();
+      gameAlert("미리듣기 재생을 시작할 수 없습니다.");
+    }
+  }
+};
 
 function shuffleArray(arr) {
   const copy = [...arr];
@@ -534,7 +689,7 @@ bgmState.shopAudio.loop = true;
 bgmState.shopAudio.volume = 0.22;
 
 window.playClickSfx = function () {
-  if (bgmState.muted) return;
+  if (appExited || document.hidden || bgmState.muted) return;
   try {
     const sfx = bgmState.clickPool[bgmState.clickIdx];
     bgmState.clickIdx = (bgmState.clickIdx + 1) % bgmState.clickPool.length;
@@ -601,7 +756,7 @@ window.toggleBgmMute = function () {
 function updateBgmForScreen(screenId) {
   syncFloatingSoundBtn(screenId);
 
-  if (bgmState.muted) {
+  if (appExited || document.hidden || bgmState.muted) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
     bgmState.currentType = "none";
@@ -634,6 +789,8 @@ function updateBgmForScreen(screenId) {
 document.addEventListener(
   "pointerdown",
   () => {
+    if (appExited || document.hidden) return;
+    armAppBackGuard(true);
     unlockQuizAudio();
     if (!bgmState.muted && bgmState.currentType !== "none") {
       const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
@@ -644,6 +801,22 @@ document.addEventListener(
   },
   { passive: true }
 );
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopAllAppAudio(false);
+    if ((state.mode === "onesec" || isOnlineOneSecRoomActive()) && state.currentScreen === "gameScreen") {
+      const st = document.getElementById("audioStatusText");
+      if (st) st.textContent = "⏸️ 백그라운드 전환으로 정지됨 · [▶ 1초 듣기]를 눌러주세요!";
+    }
+  } else if (!appExited) {
+    updateBgmForScreen(state.currentScreen);
+  }
+});
+
+window.addEventListener("pagehide", () => {
+  stopAllAppAudio(false);
+});
 
 // 쿠팡 파트너스 동적 배너가 body 루트 등 외부로 떨어졌을 경우 홈 하단 전용 슬롯(#homeCoupangFrameWrap)으로 안전 재배치
 function relocateCoupangAdBanner() {
@@ -689,24 +862,34 @@ window.syncHomeCornerFloatingButtons = function () {
     notiBtn.style.right = `${Math.round(sRect.right - hRect.right + 13)}px`;
   }
 
-  // .home-hero 우측 하단 모서리(쿠팡 배너 위, 하단 버튼 아래)에 🔊 정렬
+  // .home-hero 우측 하단 모서리 안쪽 위로 올려 하단 쿠팡 배너와 터치 영역이 겹치지 않도록 분리
   if (soundBtn) {
+    const adSlot = document.getElementById("homeAdBannerSlot");
+    let desiredTop = Math.round(hRect.bottom - sRect.top - 46);
+    if (adSlot) {
+      const adTopInShell = Math.round(adSlot.getBoundingClientRect().top - sRect.top);
+      desiredTop = Math.min(desiredTop, adTopInShell - 48);
+    }
     soundBtn.style.bottom = "auto";
-    soundBtn.style.top = `${Math.round(hRect.bottom - sRect.top - 29)}px`;
-    soundBtn.style.right = `${Math.round(sRect.right - hRect.right - 2)}px`;
+    soundBtn.style.top = `${Math.max(0, desiredTop)}px`;
+    soundBtn.style.right = `${Math.round(sRect.right - hRect.right + 10)}px`;
   }
 };
 
 // ============================================================================
 // 화면 전환
 // ============================================================================
-window.switchScreen = function (targetId) {
+window.switchScreen = function (targetId, opts = {}) {
   stopAudio();
   stopTimeAttackTimer();
   window.closeAllModals();
 
   state.currentScreen = targetId;
-  pushAppHistoryState();
+  if (opts && opts.replaceHistory) {
+    resetHistoryToExitBase();
+  } else if (targetId !== "loginScreen") {
+    armAppBackGuard(false);
+  }
 
   document.body.classList.toggle("on-home-screen", targetId === "homeScreen");
   // 싱글/멀티 전용 플레이 화면일 때 전자 미디(MIDI) 다크 스튜디오 배경 활성화
@@ -764,14 +947,14 @@ window.switchScreen = function (targetId) {
   });
 };
 
-window.showLoginScreen = function () {
-  switchScreen("loginScreen");
+window.showLoginScreen = function (opts = {}) {
+  switchScreen("loginScreen", opts);
   updateHeaderUserUI();
 };
 
-window.showHome = function () {
+window.showHome = function (opts = {}) {
   updateHeaderUserUI();
-  switchScreen("homeScreen");
+  switchScreen("homeScreen", opts);
 };
 
 window.showSetup = function () {
@@ -789,7 +972,7 @@ window.updateLobbyCounts = function () {
 
 function initEvents() {
   setupMobileKeyboardViewportHandler();
-  pushAppHistoryState();
+  resetHistoryToExitBase();
   updateHeaderUserUI();
 
   safeOn("headerMyProfileTrigger", "click", openMyProfileModal);
@@ -871,13 +1054,23 @@ function initEvents() {
   safeOn("skipQuestionBtn", "click", skipQuestion);
   safeOn("nextQuestionBtn", "click", nextQuestion);
 
-  ["artistInput", "titleInput"].forEach(id => {
-    safeOn(id, "keydown", e => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        checkUserAnswer();
+  safeOn("artistInput", "keydown", e => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      const titleEl = document.getElementById("titleInput");
+      if (state.stage === 3 && titleEl && !titleEl.value.trim()) {
+        titleEl.focus();
+        return;
       }
-    });
+      checkUserAnswer();
+    }
+  });
+
+  safeOn("titleInput", "keydown", e => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      checkUserAnswer();
+    }
   });
 
   syncDecadeChips();
@@ -1018,6 +1211,8 @@ function loadCurrentQuestion() {
 
   artistInput.value = "";
   titleInput.value = "";
+  artistInput.enterKeyHint = state.stage === 3 ? "next" : "done";
+  titleInput.enterKeyHint = "done";
 
   if (state.stage === 1) {
     artistGroup.classList.add("hidden");
@@ -1287,13 +1482,17 @@ async function showFinalResult() {
     rewardResult = { earnedCd, ...res };
   }
 
+  state.resultPlayingIndex = null;
   const listEl = document.getElementById("historyList");
   listEl.innerHTML = state.history
     .map(
       (item, idx) => `
-      <div class="hint-box" style="background:${item.correct ? "#ecfdf5" : "#fff1f2"}; border-color:${item.correct ? "#a7f3d0" : "#fecdd3"}; color:var(--text-main);">
-        <span><strong>#${idx + 1}</strong> [${item.q.year}] ${item.q.artist} - ${item.q.title}</span>
-        <span style="font-weight:800; color:${item.correct ? "var(--success)" : "var(--danger)"};">${item.correct ? "⭕ 정답" : "❌ 오답"}</span>
+      <div class="hint-box result-history-row" style="background:${item.correct ? "#ecfdf5" : "#fff1f2"}; border-color:${item.correct ? "#a7f3d0" : "#fecdd3"}; color:var(--text-main);">
+        <span class="result-history-title"><strong>#${idx + 1}</strong> [${item.q.year}] ${item.q.artist} - ${item.q.title}</span>
+        <span class="result-history-actions">
+          <button type="button" class="result-preview-btn" data-hist-idx="${idx}" onclick="toggleResultSongPreview(${idx})">▶ 듣기</button>
+          <span style="font-weight:800; color:${item.correct ? "var(--success)" : "var(--danger)"};">${item.correct ? "⭕ 정답" : "❌ 오답"}</span>
+        </span>
       </div>
     `
     )
@@ -1428,13 +1627,16 @@ async function shareResultImage() {
     return;
   }
 
+  const previewBtns = Array.from(target.querySelectorAll(".result-preview-btn"));
   try {
     bottomBtns.classList.add("hidden");
+    previewBtns.forEach(btn => btn.classList.add("hidden"));
     const canvas = await html2canvas(target, {
       backgroundColor: "#ffffff",
       scale: 2
     });
     bottomBtns.classList.remove("hidden");
+    previewBtns.forEach(btn => btn.classList.remove("hidden"));
 
     canvas.toBlob(async blob => {
       if (!blob) return;
@@ -1464,6 +1666,7 @@ async function shareResultImage() {
     }, "image/png");
   } catch (err) {
     bottomBtns.classList.remove("hidden");
+    previewBtns.forEach(btn => btn.classList.remove("hidden"));
     gameAlert("화면 캡처 중 오류가 발생했습니다.");
   }
 }

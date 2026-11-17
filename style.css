@@ -205,7 +205,7 @@ body.on-home-screen .app-shell {
   justify-content: flex-start;
   gap: clamp(8px, 1.35dvh, 12px);
   text-align: center;
-  padding: clamp(30px, 4.8dvh, 46px) 12px clamp(28px, 4dvh, 36px);
+  padding: clamp(30px, 4.8dvh, 46px) 12px clamp(36px, 5dvh, 46px);
   background: #ffffff;
   border: 3px solid var(--game-border);
   border-radius: 24px;
@@ -1024,18 +1024,31 @@ body.midi-play-theme .itunes-source-credit {
 
 .hint-btn {
   flex: 1;
-  padding: 7px 4px;
+  padding: 6px 4px;
   border-radius: 10px;
   background: #fef08a;
   border: 2px solid var(--game-border);
   color: var(--text-main);
   font-weight: 900;
   font-size: 0.76rem;
+  line-height: 1.18;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   cursor: pointer;
   box-shadow: 0 2px 0 var(--game-border);
 }
 
+.hint-cost {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #b91c1c;
+}
+
 .hint-btn.used { background: #e5e7eb; color: #9ca3af; box-shadow: none; }
+.hint-btn.used .hint-cost { color: inherit; }
 .hints-display { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
 
 .hint-box {
@@ -1400,6 +1413,10 @@ body.midi-play-theme .hint-btn {
   box-shadow: 0 2px 0 #0f172a;
 }
 
+body.midi-play-theme .hint-cost {
+  color: #fca5a5;
+}
+
 body.midi-play-theme .hint-btn.used {
   background: #1a2133;
   border-color: #334155;
@@ -1561,8 +1578,8 @@ body.midi-play-theme .score-plus {
 }
 
 body.on-home-screen .floating-sound-btn {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+  right: 16px;
   width: 36px;
   height: 36px;
   font-size: 0.96rem;
@@ -2002,4 +2019,63 @@ body.on-home-screen .floating-top-btn.right-noti {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* ==================== 결과표 노래 바로 미리듣기 & 앱 종료 화면 ==================== */
+.result-history-row {
+  gap: 6px;
+}
+
+.result-history-title {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.result-history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.result-preview-btn {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1.8px solid var(--game-border);
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-size: 0.7rem;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 0 var(--game-border);
+}
+
+.result-preview-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--game-border);
+}
+
+.result-preview-btn.is-playing {
+  background: #fee2e2;
+  color: #be123c;
+  border-color: #e11d48;
+  box-shadow: 0 2px 0 #9f1239;
+}
+
+.app-exited-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: #0f172a;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  gap: 10px;
 }

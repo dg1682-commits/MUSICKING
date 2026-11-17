@@ -16,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.14" />
+  <link rel="stylesheet" href="style.css?v=10.15" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -340,9 +340,9 @@
       </div>
 
       <div class="hints-bar">
-        <button class="hint-btn" id="hintLetterBtn">🔤 글자수 힌트</button>
-        <button class="hint-btn" id="hintKeywordBtn">🔑 단어 힌트</button>
-        <button class="hint-btn" id="hintAudioBtn">🎧 노래 힌트</button>
+        <button class="hint-btn" id="hintLetterBtn">🔤 글자수 힌트<span class="hint-cost">(-15점)</span></button>
+        <button class="hint-btn" id="hintKeywordBtn">🔑 단어 힌트<span class="hint-cost">(-15점)</span></button>
+        <button class="hint-btn" id="hintAudioBtn">🎧 노래 힌트<span class="hint-cost">(-20점)</span></button>
       </div>
 
       <div id="hintsDisplay" class="hints-display"></div>
@@ -508,11 +508,11 @@
         <div class="input-row">
           <div class="input-group hidden" id="battleArtistInputGroup">
             <label for="battleArtistInput">🎤 가수 이름</label>
-            <input type="text" id="battleArtistInput" class="text-input" placeholder="가수 입력" autocomplete="off" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+            <input type="text" id="battleArtistInput" class="text-input" placeholder="가수 입력" autocomplete="off" enterkeyhint="next" onkeydown="handleOnlineBattleInputEnter(event, 'artist')" />
           </div>
           <div class="input-group" id="battleTitleInputGroup">
             <label for="battleTitleInput">🎵 정답 입력</label>
-            <input type="text" id="battleTitleInput" class="text-input" placeholder="노래/정답 입력!" autocomplete="off" onkeydown="if(event.key==='Enter') submitOnlineBattleAnswer()" />
+            <input type="text" id="battleTitleInput" class="text-input" placeholder="노래/정답 입력!" autocomplete="off" enterkeyhint="send" onkeydown="handleOnlineBattleInputEnter(event, 'title')" />
           </div>
         </div>
         <div class="action-row">
@@ -621,6 +621,7 @@
           <div style="display:flex; gap:5px;">
             <button class="header-btn" onclick="loadCurrentDmConversation()" title="새로고침">🔄</button>
             <button class="header-btn" onclick="inspectOtherUser(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="프로필 보기">🪪</button>
+            <button class="header-btn" onclick="openReportBlockDialog(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="신고 및 차단" style="color:#be123c;">🚨</button>
           </div>
         </div>
 
@@ -727,10 +728,13 @@
         <label>💬 상태 메시지 (한줄 소개)</label>
         <input type="text" id="profileBioInput" class="text-input" maxlength="50" />
       </div>
+      <div class="action-row" style="margin-bottom:6px;">
+        <button class="btn btn-primary" onclick="saveMyBio()" style="flex:1.4;">소개글 저장</button>
+        <button class="btn" onclick="closeModal('profileModal'); openShopModal(); renderShopCategory('special');" style="flex:1;">🎫 변경권</button>
+      </div>
       <div class="action-row">
-        <button class="btn btn-primary" onclick="saveMyBio()" style="flex:1.6;">소개글 저장</button>
-        <button class="btn" onclick="closeModal('profileModal'); openShopModal(); renderShopCategory('special');" style="flex:1.2;">🎫 변경권</button>
         <button class="btn" onclick="handleLogout()" style="flex:1; color:var(--danger);">🚪 로그아웃</button>
+        <button class="btn" onclick="handleDeleteAccount()" style="flex:1; color:#be123c; background:#fff1f2; border-color:#f43f5e;">⚠️ 회원탈퇴</button>
       </div>
     </div>
   </div>
@@ -771,9 +775,10 @@
         </div>
       </div>
       <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:9px 10px; border-radius:10px; border:1.5px solid #e2e8f0; margin-bottom:12px; text-align:center;"></p>
-      <div class="action-row" id="inspectActionRow">
+      <div class="action-row" id="inspectActionRow" style="flex-wrap:wrap;">
         <button class="btn btn-primary" id="inspectFriendBtn" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
         <button class="btn btn-accent" id="inspectDmBtn" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
+        <button class="btn" id="inspectReportBlockBtn" style="flex:0.95; color:#be123c; background:#fff1f2; border-color:#f43f5e;" onclick="openReportBlockDialog(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">🚨 신고/차단</button>
       </div>
     </div>
   </div>
@@ -813,6 +818,14 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#dc2626; margin-bottom:4px;">🛡️ v10.15 편의성 · 랭킹 정비 · 스토어 안전 기능 고도화</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>랭킹 유저별 최고점 1개 정리</strong>: 전체 및 모드·단계별 랭킹에서 유저당 최고 기록 1개만 깔끔히 노출</li>
+          <li><strong>결과표 노래 미리듣기</strong>: 결과 화면 정오표 각 곡마다 <code>▶ 듣기 / ⏹ 정지</code> 버튼으로 앱 내 즉시 하이라이트 재생</li>
+          <li><strong>3단계 엔터 포커스 & 힌트 감점 표시</strong>: 가수+노래 입력 시 엔터로 제목 칸 즉시 이동, 힌트 버튼에 <code>(-15점 / -20점)</code> 표기</li>
+          <li><strong>UI·종료·안전 기능 강화</strong>: 홈 스피커 버튼 위치 상향 분리, 백그라운드 전환 시 BGM 즉시 정지 및 뒤로가기 종료 개선, <code>신고/차단</code>·<code>회원탈퇴(완전 삭제)</code> 탑재</li>
+        </ul>
+
         <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎧 v10.14 1초 듣기 자동재생 & 클릭음 충돌 방지</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>1초 듣기 자동재생 지원</strong>: 싱글 플레이 및 온라인 대전 <code>1초 듣기</code> 라운드 진입 시 음원이 자동 재생되며, 기존 <code>▶ 1초 듣기</code>·<code>🔄 다른 구간</code> 다시 듣기도 그대로 사용 가능</li>
@@ -890,14 +903,36 @@
           <strong style="color:var(--accent);">전환 ➔</strong>
         </div>
         <div class="pixel-list-item hidden" id="settingsAdminMenuBtn" onclick="location.href='admin.html'">
-          <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정)</span>
+          <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정/신고)</span>
           <strong style="color:#b45309;">이동 ➔</strong>
+        </div>
+        <div class="pixel-list-item" onclick="openBlockedUsersModal()">
+          <span>🚫 차단한 유저 목록 관리</span>
+          <strong style="color:var(--text-sub);">관리 ➔</strong>
         </div>
         <div class="pixel-list-item" onclick="handleLogout()" style="border-color:#f43f5e; background:#fff1f2;">
           <span style="color:var(--danger); font-weight:800;">🚪 계정 로그아웃</span>
           <strong style="color:var(--danger);">로그아웃</strong>
         </div>
+        <div class="pixel-list-item" onclick="handleDeleteAccount()" style="border-color:#e11d48; background:#fff1f2;">
+          <span style="color:#be123c; font-weight:800;">⚠️ 회원탈퇴 (계정 영구 삭제)</span>
+          <strong style="color:#be123c;">탈퇴</strong>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== [모달 8-B] 차단한 유저 목록 관리 ==================== -->
+  <div id="blockedUsersModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">🚫 차단한 유저 목록</h3>
+        <button class="header-btn" onclick="closeModal('blockedUsersModal')">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-sub); margin-bottom:8px;">
+        차단된 유저의 친구 신청, 1:1 DM, 알림, 대기실/랭킹 노출이 숨겨집니다.
+      </p>
+      <div id="blockedUsersListBox" class="history-scroll-box" style="max-height:300px;"></div>
     </div>
   </div>
 
@@ -1103,10 +1138,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.14"></script>
-  <script src="pixel_avatar.js?v=10.14"></script>
-  <script src="online.js?v=10.14"></script>
-  <script src="app.js?v=10.14"></script>
+  <script src="data.js?v=10.15"></script>
+  <script src="pixel_avatar.js?v=10.15"></script>
+  <script src="online.js?v=10.15"></script>
+  <script src="app.js?v=10.15"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

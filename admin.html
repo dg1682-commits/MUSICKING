@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.14" />
+  <link rel="stylesheet" href="style.css?v=10.15" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -67,15 +67,18 @@
     </header>
 
     <!-- 탭 메뉴 -->
-    <div class="option-grid cols-3" style="margin-bottom:14px;">
+    <div class="option-grid cols-4" style="margin-bottom:14px;">
       <div class="option-chip active" id="tabBtnSongs" onclick="switchAdminTab('songs')">
-        <span class="chip-title">🎵 음악 리스트 관리 (더블클릭 수정)</span>
+        <span class="chip-title">🎵 음악 리스트 관리</span>
       </div>
       <div class="option-chip" id="tabBtnItems" onclick="switchAdminTab('items')">
-        <span class="chip-title">👗 상점 아이템 추가/가격 설정</span>
+        <span class="chip-title">👗 상점 아이템 관리</span>
       </div>
       <div class="option-chip" id="tabBtnUsers" onclick="switchAdminTab('users')">
-        <span class="chip-title">👥 계정 정보 및 초기화 관리</span>
+        <span class="chip-title">👥 계정/초기화 관리</span>
+      </div>
+      <div class="option-chip" id="tabBtnReports" onclick="switchAdminTab('reports')">
+        <span class="chip-title">🚨 신고 내역 조회</span>
       </div>
     </div>
 
@@ -178,6 +181,31 @@
             </tr>
           </thead>
           <tbody id="adminUsersTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 4: 신고 내역 조회 (user_reports) ==================== -->
+    <section id="adminReportsSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:1rem;">🚨 유저 신고 내역 (<span id="adminReportsTotalCount">0</span>건)</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">유저가 [🚨 신고/차단]으로 접수한 내역입니다. 필요 시 [계정 관리] 탭에서 조치할 수 있습니다.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadAdminReports()">🔄 새로고침</button>
+      </div>
+
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width:140px;">신고 일시</th>
+              <th style="width:120px;">신고자</th>
+              <th style="width:130px;">대상 유저</th>
+              <th>신고 사유</th>
+            </tr>
+          </thead>
+          <tbody id="adminReportsTbody"></tbody>
         </table>
       </div>
     </section>
@@ -295,9 +323,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.14"></script>
-  <script src="pixel_avatar.js?v=10.14"></script>
-  <script src="online.js?v=10.14"></script>
+  <script src="data.js?v=10.15"></script>
+  <script src="pixel_avatar.js?v=10.15"></script>
+  <script src="online.js?v=10.15"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -335,6 +363,7 @@
       renderAdminSongsTable();
       renderAdminItemsTable();
       loadAdminUsers();
+      loadAdminReports();
     }
 
     async function fetchAdminConfigFromServer() {
@@ -392,10 +421,13 @@
       document.getElementById("tabBtnSongs").classList.toggle("active", tab === "songs");
       document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
       document.getElementById("tabBtnUsers").classList.toggle("active", tab === "users");
+      document.getElementById("tabBtnReports").classList.toggle("active", tab === "reports");
 
       document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
       document.getElementById("adminItemsSection").classList.toggle("hidden", tab !== "items");
       document.getElementById("adminUsersSection").classList.toggle("hidden", tab !== "users");
+      document.getElementById("adminReportsSection").classList.toggle("hidden", tab !== "reports");
+      if (tab === "reports") loadAdminReports();
     }
 
     // ==================== 1. 음악 리스트 렌더링 & 더블클릭 수정 ====================
@@ -660,6 +692,54 @@
         "🔄 계정 및 패스워드 재설정 초기화"
       );
     };
+
+    // ==================== 4. 유저 신고 내역 조회 (user_reports) ====================
+    async function loadAdminReports() {
+      const tbody = document.getElementById("adminReportsTbody");
+      const countEl = document.getElementById("adminReportsTotalCount");
+      if (!tbody || !sbClient) return;
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">신고 내역 불러오는 중...</td></tr>`;
+
+      try {
+        const [{ data: reports, error }, { data: profs }] = await Promise.all([
+          sbClient.from("user_reports").select("*").order("created_at", { ascending: false }).limit(200),
+          sbClient.from("profiles").select("id, nickname")
+        ]);
+
+        if (error) {
+          if (countEl) countEl.textContent = "0";
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:18px; color:var(--danger);">신고 내역을 조회할 수 없습니다 (${escapeMdHtml(error.message)}).</td></tr>`;
+          return;
+        }
+
+        const nickMap = new Map((profs || []).map(p => [p.id, p.nickname]));
+        const list = reports || [];
+        if (countEl) countEl.textContent = String(list.length);
+
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-sub);">접수된 신고 내역이 없습니다.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list
+          .map(r => {
+            const reporterNick = nickMap.get(r.reporter_id) || String(r.reporter_id || "-").slice(0, 8);
+            const targetNick = r.target_nickname || nickMap.get(r.target_id) || String(r.target_id || "-").slice(0, 8);
+            const timeStr = r.created_at ? new Date(r.created_at).toLocaleString() : "-";
+            return `
+              <tr>
+                <td style="font-size:0.75rem; color:var(--text-sub);">${escapeMdHtml(timeStr)}</td>
+                <td><strong>${escapeMdHtml(reporterNick)}</strong></td>
+                <td><strong style="color:#be123c;">${escapeMdHtml(targetNick)}</strong></td>
+                <td style="font-size:0.82rem; word-break:keep-all;">${escapeMdHtml(r.reason)}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:18px;">신고 내역 조회 중 오류가 발생했습니다.</td></tr>`;
+      }
+    }
 
     // ==================== 1-B. MD 파일/양식 일괄 추가 모달 ====================
     const mdImportState = {

@@ -30,7 +30,7 @@ window.gameAlert = function (message, title = "👑 음악왕 알림") {
   modal.classList.remove("hidden");
 };
 
-window.gameConfirm = function (message, onConfirm, title = "✨ 확인해주세요") {
+window.gameConfirm = function (message, onConfirm, title = "✨ 확인해주세요", onCancel = null) {
   const modal = document.getElementById("customDialogModal");
   if (!modal) return;
   document.getElementById("dialogTitle").textContent = title;
@@ -40,7 +40,10 @@ window.gameConfirm = function (message, onConfirm, title = "✨ 확인해주세�
   const cancelBtn = document.getElementById("dialogCancelBtn");
   cancelBtn.classList.remove("hidden");
   cancelBtn.textContent = "취소";
-  cancelBtn.onclick = () => modal.classList.add("hidden");
+  cancelBtn.onclick = () => {
+    modal.classList.add("hidden");
+    if (typeof onCancel === "function") onCancel();
+  };
 
   const okBtn = document.getElementById("dialogConfirmBtn");
   okBtn.textContent = "확인";
@@ -110,10 +113,68 @@ const userState = {
   exp: 0,
   claimedTopRanks: {},
   battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS),
+  blockedUsers: [],
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
 };
+
+function escapeJsSingleArg(str) {
+  return String(str || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, "&quot;");
+}
+
+function getBlockedStorageKey(uid = userState.id) {
+  return `mk_blocked_users_${uid || "guest"}`;
+}
+
+function normalizeBlockedList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set();
+  const res = [];
+  for (const item of arr) {
+    if (!item) continue;
+    const id = item.id ? String(item.id) : "";
+    const nickname = item.nickname ? String(item.nickname) : "";
+    const key = id || (nickname ? `nick:${nickname}` : "");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    res.push({ id, nickname, blockedAt: item.blockedAt || new Date().toISOString() });
+  }
+  return res;
+}
+
+function loadBlockedUsersFromStorage(profileBlocked = null) {
+  let localArr = [];
+  try {
+    localArr = JSON.parse(localStorage.getItem(getBlockedStorageKey()) || "[]");
+  } catch (e) {}
+  const merged = normalizeBlockedList([...(Array.isArray(profileBlocked) ? profileBlocked : []), ...(Array.isArray(localArr) ? localArr : [])]);
+  userState.blockedUsers = merged;
+  try {
+    localStorage.setItem(getBlockedStorageKey(), JSON.stringify(merged));
+  } catch (e) {}
+  return merged;
+}
+
+function saveBlockedUsersToStorage() {
+  userState.blockedUsers = normalizeBlockedList(userState.blockedUsers);
+  try {
+    localStorage.setItem(getBlockedStorageKey(), JSON.stringify(userState.blockedUsers));
+  } catch (e) {}
+}
+
+function isUserBlocked(targetId, targetNick = "") {
+  const list = userState.blockedUsers || [];
+  if (list.length === 0) return false;
+  return list.some(b => {
+    if (targetId && b.id && String(b.id) === String(targetId)) return true;
+    if (targetNick && b.nickname && !b.id && b.nickname === targetNick) return true;
+    return false;
+  });
+}
 
 const shopPreviewState = {
   config: { ...DEFAULT_AVATAR_CONFIG },
@@ -382,9 +443,10 @@ async function restoreSupabaseSession() {
           ? prof.owned_items
           : ["meadow", "default", "none", "basic", "mic_silver"];
         userState.isLoggedIn = true;
+        loadBlockedUsersFromStorage(rawCfg._blockedUsers);
         updateHeaderUserUI();
         if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
-        if (typeof showHome === "function") showHome();
+        if (typeof showHome === "function") showHome({ replaceHistory: true });
       }
     }
   } catch (e) {}
@@ -404,7 +466,8 @@ async function syncProfileToServer() {
       ...userState.avatarConfig,
       _exp: userState.exp,
       _claimedTopRanks: userState.claimedTopRanks || {},
-      _battleStats: normalizeBattleStats(userState.battleStats)
+      _battleStats: normalizeBattleStats(userState.battleStats),
+      _blockedUsers: userState.blockedUsers || []
     };
     await sbClient.from("profiles").upsert({
       id: userState.id,
@@ -475,6 +538,7 @@ window.handleAuthSubmit = async function (mode) {
       userState.exp = 0;
       userState.claimedTopRanks = {};
       userState.isLoggedIn = true;
+      loadBlockedUsersFromStorage([]);
       saveAuthPreferences(nickInput);
 
       await sbClient.from("profiles").upsert({
@@ -482,13 +546,14 @@ window.handleAuthSubmit = async function (mode) {
         nickname: nickInput,
         bio: userState.bio,
         cd_coins: userState.cdCoins,
-        avatar_config: { ...userState.avatarConfig, _exp: 0, _claimedTopRanks: {}, _battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS) },
+        avatar_config: { ...userState.avatarConfig, _exp: 0, _claimedTopRanks: {}, _battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS), _blockedUsers: [] },
         owned_items: userState.ownedItems
       });
 
       updateHeaderUserUI();
       if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
-      showHome();
+      showHome({ replaceHistory: true });
+      if (typeof armAppBackGuard === "function") armAppBackGuard(true);
       gameAlert(`환영합니다, [${nickInput}]님!\n웰컴 보너스 💿 100 CD가 지급되었습니다!`, "🎉 가입 완료");
     } else {
       const { data, error } = await sbClient.auth.signInWithPassword({
@@ -519,11 +584,13 @@ window.handleAuthSubmit = async function (mode) {
       userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...rawCfg };
       userState.ownedItems = prof?.owned_items || userState.ownedItems;
       userState.isLoggedIn = true;
+      loadBlockedUsersFromStorage(rawCfg._blockedUsers);
       saveAuthPreferences(userState.nickname);
 
       updateHeaderUserUI();
       if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
-      showHome();
+      showHome({ replaceHistory: true });
+      if (typeof armAppBackGuard === "function") armAppBackGuard(true);
     }
   } catch (err) {
     gameAlert("서버 통신 중 오류가 발생했습니다.");
@@ -533,16 +600,91 @@ window.handleAuthSubmit = async function (mode) {
 window.handleLogout = async function () {
   gameConfirm("정말 로그아웃 하시겠습니까?", async () => {
     if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
+    if (typeof stopDmRealtime === "function") stopDmRealtime();
     if (sbClient) {
       try { await sbClient.auth.signOut(); } catch (e) {}
     }
     userState.id = null;
     userState.isLoggedIn = false;
     userState.nickname = "도전자";
+    userState.blockedUsers = [];
     closeAllModals();
-    showLoginScreen();
+    showLoginScreen({ replaceHistory: true });
+    if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
     if (typeof initAuthPreferences === "function") initAuthPreferences();
   }, "🚪 로그아웃");
+};
+
+window.handleDeleteAccount = function () {
+  if (!userState.isLoggedIn || !userState.id || !sbClient) {
+    gameAlert("로그인 상태에서만 회원탈퇴를 진행할 수 있습니다.");
+    return;
+  }
+
+  gameConfirm(
+    `정말 회원탈퇴 하시겠습니까?\n탈퇴 시 [${userState.nickname}] 계정의 캐릭터·CD·경험치·랭킹·친구·DM 기록 및 로그인 계정이 모두 영구 삭제되며 복구할 수 없습니다.`,
+    async () => {
+      const targetUid = userState.id;
+      const targetNick = userState.nickname;
+
+      if (typeof stopAllAppAudio === "function") stopAllAppAudio(false);
+      if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
+      if (typeof stopDmRealtime === "function") stopDmRealtime();
+
+      try {
+        if (plazaState.currentRoom && typeof leaveBattleRoom === "function") {
+          await leaveBattleRoom();
+        }
+      } catch (e) {}
+
+      try {
+        const { error } = await sbClient.rpc("delete_my_account");
+        if (error) {
+          gameAlert(`회원탈퇴 처리 중 오류가 발생했습니다.\n(${error.message || "서버 오류"})`);
+          return;
+        }
+      } catch (err) {
+        gameAlert("회원탈퇴 요청 중 네트워크 오류가 발생했습니다.");
+        return;
+      }
+
+      try {
+        await sbClient.auth.signOut();
+      } catch (e) {}
+
+      try {
+        localStorage.removeItem(getBlockedStorageKey(targetUid));
+        localStorage.removeItem(`mk_dm_seen_map_${targetUid}`);
+        if (localStorage.getItem("mk_saved_nick") === targetNick) {
+          localStorage.removeItem("mk_saved_nick");
+        }
+      } catch (e) {}
+
+      userState.id = null;
+      userState.isLoggedIn = false;
+      userState.nickname = "게스트도전자";
+      userState.bio = "안녕하세요! 음악왕 도전자입니다.";
+      userState.cdCoins = 100;
+      userState.exp = 0;
+      userState.claimedTopRanks = {};
+      userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
+      userState.blockedUsers = [];
+      userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
+      userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
+
+      const nickInput = document.getElementById("authNicknameInput");
+      const pwInput = document.getElementById("authPasswordInput");
+      if (nickInput && nickInput.value.trim() === targetNick) nickInput.value = "";
+      if (pwInput) pwInput.value = "";
+
+      closeAllModals();
+      showLoginScreen({ replaceHistory: true });
+      if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
+      if (typeof initAuthPreferences === "function") initAuthPreferences();
+      gameAlert("회원탈퇴가 완료되었으며 모든 계정 및 게임 데이터가 영구 삭제되었습니다.", "👋 회원탈퇴 완료");
+    },
+    "⚠️ 회원탈퇴 (영구 삭제)"
+  );
 };
 
 // ============================================================================
@@ -637,6 +779,43 @@ async function checkAndProcessGameRewards(score, mode, stage) {
   };
 }
 
+function dedupeRankingRows(rows, maxCount = 20) {
+  const uniqueRows = [];
+  const seenUsers = new Set();
+  for (const row of rows || []) {
+    if (!row) continue;
+    if (isUserBlocked(row.user_id, row.nickname)) continue;
+    const key = row.user_id ? `id:${row.user_id}` : `nick:${row.nickname || ""}`;
+    if (seenUsers.has(key)) continue;
+    seenUsers.add(key);
+    uniqueRows.push(row);
+    if (uniqueRows.length >= maxCount) break;
+  }
+  return uniqueRows;
+}
+
+async function computeUserUniqueRank(targetId, bestScore) {
+  if (!sbClient || !(bestScore > 0)) return "기록 없음";
+  try {
+    const { data: higherRows } = await sbClient
+      .from("rankings")
+      .select("user_id, nickname")
+      .gt("score", bestScore)
+      .limit(1000);
+
+    const higherUsers = new Set();
+    (higherRows || []).forEach(r => {
+      if (!r) return;
+      if (targetId && r.user_id === targetId) return;
+      const key = r.user_id ? `id:${r.user_id}` : `nick:${r.nickname || ""}`;
+      if (key) higherUsers.add(key);
+    });
+    return `전체 ${higherUsers.size + 1}위`;
+  } catch (e) {
+    return "-";
+  }
+}
+
 window.loadRankingsList = async function () {
   const listEl = document.getElementById("rankingListContainer");
   if (!listEl) return;
@@ -652,23 +831,27 @@ window.loadRankingsList = async function () {
       .from("rankings")
       .select("*")
       .order("score", { ascending: false })
-      .limit(20);
+      .order("created_at", { ascending: true })
+      .limit(400);
 
     if (modeFilter !== "ALL") query = query.eq("game_mode", modeFilter);
     if (stageFilter !== "ALL") query = query.eq("stage", Number(stageFilter));
 
     const { data, error } = await query;
-    if (error || !data || data.length === 0) {
+    const rows = dedupeRankingRows(data, 20);
+    if (error || rows.length === 0) {
       listEl.innerHTML = `<div style="text-align:center; padding:32px; color:var(--text-sub); font-weight:700;">아직 해당 조건에 등록된 랭킹 기록이 없습니다.<br/>첫 번째 1등 주인공이 되어보세요!</div>`;
       return;
     }
 
     const modeLabel = { behind: "📖비하인드", lyrics: "📝가사", onesec: "⚡1초듣기" };
-    listEl.innerHTML = data
+    listEl.innerHTML = rows
       .map((row, idx) => {
         const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+        const safeId = escapeJsSingleArg(row.user_id);
+        const safeNick = escapeJsSingleArg(row.nickname);
         return `
-        <div class="pixel-list-item" onclick="inspectOtherUser('${row.user_id}', '${row.nickname}')">
+        <div class="pixel-list-item" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-weight:900; min-width:30px; font-size:0.95rem; color:var(--primary-dark);">${medal}</span>
             <canvas class="rank-mini-canvas" width="480" height="480" style="width:44px; height:44px; border-radius:10px; border:2px solid #1e1b18;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
@@ -1100,15 +1283,7 @@ window.openMyProfileModal = async function () {
       document.getElementById("statBestScore").textContent = `${bestScore}점`;
       document.getElementById("statAvgAcc").textContent = `${avgAcc}%`;
 
-      if (bestScore > 0) {
-        const { count } = await sbClient
-          .from("rankings")
-          .select("*", { count: "exact", head: true })
-          .gt("score", bestScore);
-        document.getElementById("statMyRank").textContent = `전체 ${(count || 0) + 1}위`;
-      } else {
-        document.getElementById("statMyRank").textContent = "기록 없음";
-      }
+      document.getElementById("statMyRank").textContent = await computeUserUniqueRank(userState.id, bestScore);
     } catch (e) {}
   }
 };
@@ -1192,15 +1367,7 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
       document.getElementById("inspectBestScore").textContent = `${bestScore}점`;
       document.getElementById("inspectAvgAcc").textContent = `${avgAcc}%`;
 
-      if (bestScore > 0) {
-        const { count } = await sbClient
-          .from("rankings")
-          .select("*", { count: "exact", head: true })
-          .gt("score", bestScore);
-        document.getElementById("inspectUserRank").textContent = `전체 ${(count || 0) + 1}위`;
-      } else {
-        document.getElementById("inspectUserRank").textContent = "기록 없음";
-      }
+      document.getElementById("inspectUserRank").textContent = await computeUserUniqueRank(targetId, bestScore);
 
       // 친구 여부 확인: 이미 친구면 친구추가 버튼 비활성화(숨김) + DM보내기 버튼으로 전환!
       if (!isSelf && userState.id && friendBtn && dmBtn) {
@@ -1220,6 +1387,105 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
       }
     } catch (e) {}
   }
+};
+
+window.openReportBlockDialog = function (targetId, targetNick) {
+  if (!userState.isLoggedIn || !userState.id) {
+    gameAlert("신고 및 차단 기능은 로그인 후 이용할 수 있습니다.");
+    return;
+  }
+  const cleanId = targetId && targetId !== "undefined" ? String(targetId) : "";
+  const cleanNick = String(targetNick || "유저").trim() || "유저";
+  if (cleanId && cleanId === userState.id) {
+    gameAlert("자기 자신은 신고 또는 차단할 수 없습니다.");
+    return;
+  }
+
+  gamePrompt(
+    `[${cleanNick}]님을 신고 및 차단하시겠습니까?\n차단 시 친구 목록·1:1 DM·알림에서 즉시 숨겨집니다.\n\n신고 사유를 입력해 주세요:`,
+    "부적절한 언어 / 비매너 행동",
+    async reasonInput => {
+      const reason = String(reasonInput || "").trim() || "부적절한 행동/비매너";
+      if (!isUserBlocked(cleanId, cleanNick)) {
+        userState.blockedUsers = [
+          ...(userState.blockedUsers || []),
+          { id: cleanId, nickname: cleanNick, blockedAt: new Date().toISOString() }
+        ];
+        saveBlockedUsersToStorage();
+      }
+
+      if (cleanId) {
+        dmNotiState.unreadList = dmNotiState.unreadList.filter(m => m.sender_id !== cleanId);
+        syncDmNotiBadgeUI();
+      }
+
+      if (sbClient && userState.id) {
+        try {
+          await syncProfileToServer();
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (cleanId && uuidRegex.test(cleanId)) {
+            await sbClient.from("user_reports").insert({
+              reporter_id: userState.id,
+              target_id: cleanId,
+              target_nickname: cleanNick,
+              reason
+            });
+          }
+        } catch (e) {}
+      }
+
+      closeModal("userInspectModal");
+      if (typeof state !== "undefined" && state.currentScreen === "dmChatScreen" && dmState.peerId === cleanId) {
+        if (typeof stopDmRealtime === "function") stopDmRealtime();
+        switchScreen("socialScreen");
+      }
+
+      if (typeof loadFriendsData === "function") loadFriendsData();
+      if (typeof state !== "undefined" && state.currentScreen === "rankingScreen") loadRankingsList();
+      if (typeof state !== "undefined" && state.currentScreen === "plazaScreen") renderLobbyOnlineUsers();
+
+      gameAlert(`[${cleanNick}]님이 신고 및 차단 처리되었습니다.\n내 화면의 친구·DM·알림·대기실 목록에서 즉시 숨겨집니다.`, "🚨 신고/차단 완료");
+    },
+    "🚨 유저 신고 및 차단"
+  );
+};
+
+window.unblockUserById = async function (targetId, targetNick = "") {
+  userState.blockedUsers = (userState.blockedUsers || []).filter(b => {
+    if (targetId && b.id) return String(b.id) !== String(targetId);
+    return b.nickname !== targetNick;
+  });
+  saveBlockedUsersToStorage();
+  await syncProfileToServer();
+  openBlockedUsersModal();
+  if (typeof loadFriendsData === "function") loadFriendsData();
+};
+
+window.openBlockedUsersModal = function () {
+  const box = document.getElementById("blockedUsersListBox");
+  if (!box) return;
+  const list = userState.blockedUsers || [];
+  if (list.length === 0) {
+    box.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub); font-size:0.84rem;">현재 차단된 유저가 없습니다.</div>`;
+  } else {
+    box.innerHTML = list
+      .map(b => {
+        const safeId = escapeJsSingleArg(b.id);
+        const safeNick = escapeJsSingleArg(b.nickname || "유저");
+        const dateStr = b.blockedAt ? new Date(b.blockedAt).toLocaleDateString() : "";
+        return `
+          <div class="pixel-list-item" style="cursor:default;">
+            <div>
+              <strong style="font-size:0.88rem;">🚫 ${b.nickname || "알 수 없는 유저"}</strong>
+              ${dateStr ? `<div style="font-size:0.72rem; color:var(--text-sub);">차단일: ${dateStr}</div>` : ""}
+            </div>
+            <button type="button" class="btn" style="padding:5px 10px; font-size:0.76rem;" onclick="unblockUserById('${safeId}', '${safeNick}')">차단 해제</button>
+          </div>
+        `;
+      })
+      .join("");
+  }
+  openModal("blockedUsersModal");
 };
 
 // ============================================================================
@@ -1304,8 +1570,9 @@ window.refreshUnreadDmNotis = async function () {
     const seenMap = getSeenDmMap();
     const curScreen = typeof state !== "undefined" ? state.currentScreen : "";
 
-    // 현재 해당 상대와 카톡 채팅방에 이미 들어가 있는 중이면 자동 읽음 처리
+    // 현재 해당 상대와 카톡 채팅방에 이미 들어가 있거나 차단한 유저면 알림 제외
     const unread = (msgs || []).filter(m => {
+      if (isUserBlocked(m.sender_id)) return false;
       if (curScreen === "dmChatScreen" && dmState.peerId === m.sender_id) {
         return false;
       }
@@ -1508,8 +1775,18 @@ async function loadFriendsData() {
   const { data: profs } = await sbClient.from("profiles").select("*").in("id", otherIds);
   const profMap = new Map((profs || []).map(p => [p.id, p]));
 
-  const acceptedRels = rels.filter(r => r.status === "accepted");
-  const pendingRels = rels.filter(r => r.status === "pending");
+  const acceptedRels = rels.filter(r => {
+    if (r.status !== "accepted") return false;
+    const otherId = r.requester_id === userState.id ? r.receiver_id : r.requester_id;
+    const prof = profMap.get(otherId);
+    return !isUserBlocked(otherId, prof?.nickname || "");
+  });
+  const pendingRels = rels.filter(r => {
+    if (r.status !== "pending") return false;
+    const otherId = r.requester_id === userState.id ? r.receiver_id : r.requester_id;
+    const prof = profMap.get(otherId);
+    return !isUserBlocked(otherId, prof?.nickname || "");
+  });
 
   if (countLabel) countLabel.textContent = `친구 ${acceptedRels.length}`;
 
@@ -1597,6 +1874,10 @@ window.removeFriendship = function (friendshipId, nick) {
 window.prepareDmTo = async function (receiverId, receiverNick) {
   if (!userState.isLoggedIn) {
     gameConfirm("1:1 채팅은 로그인 후 이용할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
+    return;
+  }
+  if (isUserBlocked(receiverId, receiverNick)) {
+    gameAlert("차단한 유저와는 1:1 대화를 이용할 수 없습니다.\n(환경설정 > 차단한 유저 목록 관리에서 해제 가능)");
     return;
   }
   closeModal("userInspectModal");
@@ -1804,7 +2085,9 @@ function renderLobbyOnlineUsers() {
   const listEl = document.getElementById("plazaUsersList");
   if (!listEl) return;
 
-  const players = Array.from(plazaState.onlinePlayers.values());
+  const players = Array.from(plazaState.onlinePlayers.values()).filter(
+    p => !isUserBlocked(p.userId, p.nickname)
+  );
   if (players.length === 0) {
     players.push({
       key: "me",
@@ -1819,7 +2102,7 @@ function renderLobbyOnlineUsers() {
   listEl.innerHTML = players
     .map(
       p => `
-      <div class="pixel-list-item" style="padding:6px 9px;" onclick="inspectOtherUser('${p.userId || ""}', '${p.nickname}')">
+      <div class="pixel-list-item" style="padding:6px 9px;" onclick="inspectOtherUser('${escapeJsSingleArg(p.userId || "")}', '${escapeJsSingleArg(p.nickname)}')">
         <div style="display:flex; align-items:center; gap:8px;">
           <canvas class="lobby-user-cv" width="480" height="480" style="width:36px; height:36px; border-radius:9px; border:1.5px solid #334155;" data-avatar='${JSON.stringify(p.avatarConfig || DEFAULT_AVATAR_CONFIG)}'></canvas>
           <strong style="font-size:0.86rem;">${p.nickname}</strong>
@@ -2052,6 +2335,7 @@ function subscribeToBattleRoom(room) {
     })
     .on("broadcast", { event: "room_char_sync" }, ({ payload }) => {
       if (payload && payload.id) {
+        if (isUserBlocked(payload.id, payload.nickname)) return;
         plazaState.roomPlayersMap.set(payload.id, payload);
         if (payload.newChatLine) {
           appendRoomChatLine(payload.nickname, payload.newChatLine);
@@ -2409,6 +2693,10 @@ function renderBattlePlayScreen(room) {
   document.getElementById("battlePlayYearTag").textContent = `${q.year}년`;
 
   const hintTextEl = document.getElementById("battlePlayHintText");
+  const battleArtistEl = document.getElementById("battleArtistInput");
+  const battleTitleEl = document.getElementById("battleTitleInput");
+  if (battleArtistEl) battleArtistEl.enterKeyHint = stage === 3 ? "next" : "send";
+  if (battleTitleEl) battleTitleEl.enterKeyHint = "send";
   if (stage === 1) {
     hintTextEl.textContent = `🎤 가수 힌트: ${q.artist}`;
     artistGroup.classList.add("hidden");
@@ -2539,6 +2827,20 @@ window.passOnlineBattleQuestion = async function () {
     });
   }
   renderBattleRoomState(room);
+};
+
+window.handleOnlineBattleInputEnter = function (e, field) {
+  if (!e || e.key !== "Enter" || e.isComposing) return;
+  e.preventDefault();
+  const stage = Number(plazaState.currentRoom?.game_config?.stage || 1);
+  if (field === "artist" && stage === 3) {
+    const titleEl = document.getElementById("battleTitleInput");
+    if (titleEl && !titleEl.value.trim()) {
+      titleEl.focus();
+      return;
+    }
+  }
+  submitOnlineBattleAnswer();
 };
 
 window.submitOnlineBattleAnswer = async function () {
