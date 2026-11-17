@@ -320,11 +320,11 @@ body.on-home-screen .app-shell {
 
 .home-sub-row .btn {
   width: 100%;
-  height: clamp(41px, 5.4dvh, 46px);
+  height: clamp(49px, 6.5dvh, 55px);
   padding: 0 4px;
-  border-radius: 20px;
+  border-radius: 22px;
   border-width: 2.5px;
-  font-size: clamp(0.7rem, 3.1vw, 0.82rem);
+  font-size: clamp(0.72rem, 3.2vw, 0.84rem);
   letter-spacing: -0.3px;
   box-shadow: 0 3px 0 var(--game-border);
   display: flex;

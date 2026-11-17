@@ -136,7 +136,6 @@ function safeOn(id, event, handler) {
 }
 
 window.closeAllModals = function () {
-  if (typeof stopMdPreviewAudio === "function") stopMdPreviewAudio();
   document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
   const confettiCv = document.getElementById("confettiCanvas");
   if (confettiCv) confettiCv.classList.add("hidden");

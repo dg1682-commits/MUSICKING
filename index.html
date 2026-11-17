@@ -16,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.12" />
+  <link rel="stylesheet" href="style.css?v=10.13" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -67,7 +67,6 @@
           <span>💿</span>
           <span id="headerCdCount">100</span>
         </div>
-        <button class="header-btn hidden" id="headerAdminMdBtn" onclick="openMdImportModal()" title="MD 문제 추가/관리 (관리자 전용)">📂</button>
         <button class="header-btn" id="openPatchBtn" onclick="openModal('patchNotesModal')" title="업데이트 내역">📢</button>
         <button class="header-btn" id="openSettingsBtn" onclick="openModal('settingsModal')" title="설정">⚙️</button>
       </div>
@@ -812,6 +811,12 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🧹 v10.13 하단 메뉴 버튼 크기 개선 & 관리자 UI 정리</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>하단 3단 버튼 상하 20% 확대</strong>: <code>상점·옷장</code>, <code>랭킹</code>, <code>친구·DM</code> 버튼 높이를 약 20% 키워 터치감 개선</li>
+          <li><strong>MD 문제 추가 백엔드 전담화</strong>: 메인 헤더/설정에서 MD 버튼을 숨기고 <code>admin.html</code> 관리자 백엔드 페이지 내부로 일원화</li>
+        </ul>
+
         <p style="font-weight:900; color:#2563eb; margin-bottom:4px;">🎨 v10.12 메인 홈 밀착 배치 & 도전 버튼 확대</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>메인 홈 간격 밀착 정렬</strong>: 타이틀·캐릭터·경험치 바·하단 버튼 사이의 불필요한 여백을 줄여 중앙에 깔끔히 모아 배치</li>
@@ -874,10 +879,6 @@
         <div class="pixel-list-item" onclick="toggleFullscreenMode()">
           <span>📱 전체화면(주소창 숨김) 전환</span>
           <strong style="color:var(--accent);">전환 ➔</strong>
-        </div>
-        <div class="pixel-list-item hidden" id="settingsAdminMdBtn" onclick="closeModal('settingsModal'); openMdImportModal();">
-          <span>📂 MD 문제 일괄 추가/관리 (관리자)</span>
-          <strong style="color:#0284c7;">열기 ➔</strong>
         </div>
         <div class="pixel-list-item hidden" id="settingsAdminMenuBtn" onclick="location.href='admin.html'">
           <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정)</span>
@@ -1093,10 +1094,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.12"></script>
-  <script src="pixel_avatar.js?v=10.12"></script>
-  <script src="online.js?v=10.12"></script>
-  <script src="app.js?v=10.12"></script>
+  <script src="data.js?v=10.13"></script>
+  <script src="pixel_avatar.js?v=10.13"></script>
+  <script src="online.js?v=10.13"></script>
+  <script src="app.js?v=10.13"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

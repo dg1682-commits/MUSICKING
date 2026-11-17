@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.12`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.13`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
 - **앱 이름**: 대한민국 음악왕 (`MUSIC KING · K-POP QUIZ & ARENA`)
-- **현재 버전**: **v10.12** (`SHOP_CATALOG_VERSION = 11`)
+- **현재 버전**: **v10.13** (`SHOP_CATALOG_VERSION = 11`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -23,15 +23,15 @@
 | [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (메인 가로 알약 도크·정사각형 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v11), 캐릭터·배경·정밀 악기·도트 로고 캔버스 렌더러 | `online.js`, `app.js`보다 **반드시 먼저** 로드 |
-| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션, 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매, 1:1/4인 대결 전적·승률 프로필, 카톡 친구/1:1 DM, 전역 DM 알림, 멀티 대기실·방·전용 플레이·패스·5초 DB 폴링, **관리자 전용 MD 일괄 등록 모달**) | `userState`, `dmState`, `dmNotiState`, `plazaState`, `mdImportState` 관리 |
+| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션, 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매, 1:1/4인 대결 전적·승률 프로필, 카톡 친구/1:1 DM, 전역 DM 알림, 멀티 대기실·방·전용 플레이·패스·5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
 | [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진, iTunes 음원 검색/1초 듣기, BGM/클릭 효과음(`click.wav`), 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어, 물리 뒤로가기 종료/트랩, 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
-| [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·추가·삭제, **`📂 MD 문제 일괄 추가`**, 상점 시세 관리, 유저 CD/계정 초기화) | 닉네임 `"관리자"` 세션 이중 잠금 |
+| [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화) | 닉네임 `"관리자"` 세션 이중 잠금 |
 | [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
 | [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 |
 | [.nojekyll](file:///c:/Users/user1/Desktop/개발/음악왕/.nojekyll) | GitHub Pages Jekyll 비활성화 (`.well-known` 폴더 404 방지) | 절대 삭제 금지 *(GitHub 웹 업로드 시 주의!)* |
 | [.well-known/assetlinks.json](file:///c:/Users/user1/Desktop/개발/음악왕/.well-known/assetlinks.json) | Android TWA 상단 주소창 완전 제거용 Digital Asset Links | PWABuilder 서명 키 지문 등록됨 |
 | [가수목록.md](file:///c:/Users/user1/Desktop/개발/음악왕/가수목록.md) | 1990s~2020s 연대별 50팀씩 총 200팀 가수 리스트 & 제외 가수·동의어 규칙 메모 | 문제 확장 참고 목록 |
-| [문제추가_양식.md](file:///c:/Users/user1/Desktop/개발/음악왕/문제추가_양식.md) | 나무위키 등에서 복사한 곡 정보를 문제 양식으로 정리하는 가이드 | `"관리자"` 로그인 시 헤더 `📂` 또는 [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) `[📂 MD 문제 일괄 추가]`에서 바로 불러오기 지원 |
+| [문제추가_양식.md](file:///c:/Users/user1/Desktop/개발/음악왕/문제추가_양식.md) | 나무위키 등에서 복사한 곡 정보를 문제 양식으로 정리하는 가이드 | [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) `[📂 MD 파일 일괄 추가]`에서 바로 불러오기 지원 |
 | `icons/` | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, [icon.svg](file:///c:/Users/user1/Desktop/개발/음악왕/icons/icon.svg), [make_icons.html](file:///c:/Users/user1/Desktop/개발/음악왕/icons/make_icons.html) | APK 아이콘 생성용 자산 |
 | `bgm/` | `main.mp3`, `shop.mp3`, `click.wav` | GitHub 저장소 내 `bgm/` 폴더에 실파일 위치 |
 
@@ -87,14 +87,14 @@
 
 ---
 
-## 4. 화면 구성 (13개 전체화면 + 14개 모달)
+## 4. 화면 구성 (13개 전체화면 + 13개 모달)
 
-`switchScreen(targetId)`가 모든 화면 전환의 단일 진입점입니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L612-L674)).
+`switchScreen(targetId)`가 모든 화면 전환의 단일 진입점입니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L611-L673)).
 
 | 화면 ID | 설명 | 상단 헤더 | BGM 상태 |
 | :--- | :--- | :---: | :--- |
 | `loginScreen` | 대형 3D 칼각 도트 `"음악왕"` 로고 + 아이디 저장/자동로그인 + 회원가입 시 성별 모달 | 숨김 | `main.mp3` |
-| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`1:1` 정사각형 파노라마 캐릭터(`560×560`, `240px`)·EXP 바·**하단 가로 알약 도크(`🚀 음악왕 도전` 62px + 3열 46px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 (`"관리자"` 전용 `📂` 포함) | `main.mp3` |
+| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`1:1` 정사각형 파노라마 캐릭터(`560×560`, `240px`)·EXP 바·**하단 가로 알약 도크(`🚀 음악왕 도전` 62px + 3열 49~55px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 | `main.mp3` |
 | `shopScreen` | 액션퍼즐패밀리풍 7개 탭 상점 (입어보기 ➔ 단일/다중 선택 구매·장착 + 배경 실시간 미리보기 + 고스트 스크롤) | 숨김 | `shop.mp3` |
 | `setupScreen` | 싱글 게임 설정 (연대/모드/단계/문제수/타임어택/하드모드) | 표시 | `main.mp3` |
 | `gameScreen` | 싱글 퀴즈 진행 (**전자 미디 다크 스튜디오 테마** 자동 적용) | 표시 | **정지(무음)** |
@@ -107,9 +107,9 @@
 | `socialScreen` | 카카오톡 스타일 전체화면 친구 목록 + 친구 추가/요청 | 숨김 | `main.mp3` |
 | `dmChatScreen` | 카카오톡 스타일 전체화면 1:1 DM 채팅방 (노란/흰 말풍선 + 실시간) | 숨김 | `main.mp3` |
 
-### 주요 모달 (14개)
+### 주요 모달 (13개, + `admin.html` 전용 2개)
 - `signupGenderModal`: 회원가입 버튼 클릭 시 뜨는 남/여 캐릭터 선택 모달 (성별 변경권 `10,000 CD` 안내 일치)
-- `mdImportModal`: `"관리자"` 계정 전용 MD 문제 일괄 추가 모달 (`online.js` 동적 DOM 생성, `.md` 파일/붙여넣기 파싱·정답 마스킹·글자수/빈칸 확인·iTunes 음원 테스트·Supabase `__ADMIN_CONFIG__` 일괄 반영·`data.js` 복사)
+- *(관리자 백엔드 전용)* [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) 내부에 **`songEditModal`** (1곡 직접 추가·더블클릭 수정) 및 **`mdImportModal`** (`.md` 파일 일괄 파싱·정답 마스킹·iTunes 음원 매칭 테스트·서버 일괄 반영) 탑재
 - `playModeSelectModal`: `[음악왕 도전]` 클릭 시 싱글 / 멀티(대기실) 선택
 - `profileModal`: 좌측 상단 투명 닉네임(최대 5자+`..`) 클릭 시 열리는 내 프로필·통산 전적·1:1/4인 승률·EXP
 - `userInspectModal`: 타 유저 프로필·통산 전적·1:1/4인 승률(내 프로필과 동일 UI, 친구면 `💬 DM 보내기` 전환)
@@ -233,10 +233,11 @@
    - `homeScreen`에서 물리 뒤로가기 시 종료 확인 후 BGM/음원을 정지하고 앱을 빠져나가도록 [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L205-L279)의 `allowAppExit` 로직이 적용되어 있습니다.
    - 화면/버튼을 터치할 때 자동으로 `requestFullscreen()`을 걸면 안드로이드 크롬/APK 하단에 `"전체 화면을 종료하려면 위에서 드래그..."` 시스템 토스트가 계속 뜹니다. APK/홈 화면 앱은 `assetlinks.json` + `manifest.json`만으로 원래 주소창이 없으므로 자동 풀스크린 코드는 넣지 마세요. (설정 메뉴 수동 전환만 유지)
 
-5. **관리자 페이지(`admin.html`) & `"관리자"` 전용 MD 일괄 추가 · 쿠팡 배너 주의사항**
-   - 환경설정 내 백엔드 이동 버튼(`#settingsAdminMenuBtn`), MD 관리 버튼(`#headerAdminMdBtn`, `#settingsAdminMdBtn`)은 `userState.nickname === "관리자"`일 때만 노출되며, `admin.html` 진입 시에도 세션 닉네임이 `"관리자"`가 아니면 메인으로 리다이렉트됩니다 ([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L2680-L2999), [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js#L3210-L3430)).
-   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L126-L138)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L555-L565))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
-   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L571-L607))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리(하단 버튼과 배너 사이)에 자동 정렬합니다.
+5. **관리자 페이지(`admin.html`) & MD 문제 일괄 추가 · 쿠팡 배너 주의사항**
+   - 환경설정 내 백엔드 이동 버튼(`#settingsAdminMenuBtn`)은 `userState.nickname === "관리자"`일 때만 노출되며, `admin.html` 진입 시에도 세션 닉네임이 `"관리자"`가 아니면 메인으로 리다이렉트됩니다.
+   - MD 문제 일괄 추가 UI([admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L252-L282)) 및 파서([data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js#L3210-L3430))는 백엔드 페이지(`admin.html`) 내부에서만 접근 가능하며(메인 화면에는 버튼 없음), 기존 `1곡 직접 추가`와 구분되어 여러 곡 일괄 파싱·자동 마스킹·음원 매칭을 담당합니다.
+   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L124-L136)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L557-L567))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
+   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L570-L606))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리(하단 버튼과 배너 사이)에 자동 정렬합니다.
 
 6. **보안·개발 환경 안내**
    - 회사/특정 작업 PC 정책에 따라 터미널(`run_command` / PowerShell) 실행이 제한된 환경에서는 파일 읽기/편집 도구(`read_file`, `edit_file`, `write_file`)만 사용해 작업할 수 있으며, 이 프로젝트는 빌드 과정이 없는 순수 HTML/CSS/JS 구조이므로 별도 터미널 없이도 모든 수정·유지보수가 가능합니다.
