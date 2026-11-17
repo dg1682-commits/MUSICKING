@@ -1082,12 +1082,98 @@ window.openShopModal = function () {
   updateShopPreviewCanvas();
 };
 
+function getShopCatConfigKey(cat) {
+  return (typeof AVATAR_CONFIG_KEY_BY_CAT !== "undefined" && AVATAR_CONFIG_KEY_BY_CAT[cat]) || cat;
+}
+
+function getEquippableShopCatsList() {
+  return typeof EQUIPPABLE_SHOP_CATS !== "undefined"
+    ? EQUIPPABLE_SHOP_CATS
+    : ["bg", "hair", "hat", "face", "outfit", "acc", "fishing_rod", "fishing_bait"];
+}
+
+window.renderShopInventorySlots = function () {
+  const rodSlot = document.getElementById("shopInvRodSlot");
+  const rodCanvas = document.getElementById("shopInvRodCanvas");
+  const rodBadge = document.getElementById("shopInvRodBadge");
+  const rodName = document.getElementById("shopInvRodName");
+
+  const baitSlot = document.getElementById("shopInvBaitSlot");
+  const baitCanvas = document.getElementById("shopInvBaitCanvas");
+  const baitBadge = document.getElementById("shopInvBaitBadge");
+  const baitName = document.getElementById("shopInvBaitName");
+
+  const cfg = userState.avatarConfig || DEFAULT_AVATAR_CONFIG;
+
+  const rodId = cfg.fishingRod || "none";
+  const rodItem = getItemById("fishing_rod", rodId);
+  const rodEquipped = rodId !== "none" && rodItem && rodItem.id !== "none";
+  if (rodSlot) rodSlot.classList.toggle("is-equipped", rodEquipped);
+  if (rodBadge) {
+    const pct = rodEquipped ? Math.round(((Number(rodItem.expMultiplier) || 1) - 1) * 100) : 0;
+    rodBadge.textContent = rodEquipped ? `EXP+${pct}%` : "미착용";
+  }
+  if (rodName) rodName.textContent = rodEquipped ? rodItem.name : "낚싯대";
+  if (rodCanvas && typeof renderItemThumbnail === "function") {
+    renderItemThumbnail(rodCanvas, "fishing_rod", rodItem);
+  }
+
+  const baitId = cfg.fishingBait || "none";
+  const baitItem = getItemById("fishing_bait", baitId);
+  const baitEquipped = baitId !== "none" && baitItem && baitItem.id !== "none";
+  if (baitSlot) baitSlot.classList.toggle("is-equipped", baitEquipped);
+  if (baitBadge) {
+    const pct = baitEquipped ? Math.round(((Number(baitItem.cdMultiplier) || 1) - 1) * 100) : 0;
+    baitBadge.textContent = baitEquipped ? `CD+${pct}%` : "미착용";
+  }
+  if (baitName) baitName.textContent = baitEquipped ? baitItem.name : "미끼";
+  if (baitCanvas && typeof renderItemThumbnail === "function") {
+    renderItemThumbnail(baitCanvas, "fishing_bait", baitItem);
+  }
+};
+
+window.inspectShopFishingSlot = function (cat) {
+  const cfgKey = getShopCatConfigKey(cat);
+  const equippedId = (userState.avatarConfig && userState.avatarConfig[cfgKey]) || "none";
+  const list = AVATAR_SHOP_ITEMS[cat] || [];
+  const target = (equippedId !== "none" && list.find(x => x.id === equippedId)) || list[0];
+  if (target) {
+    shopPreviewState.selectedItem = { cat, ...target };
+    shopPreviewState.config[cfgKey] = target.id;
+  }
+  renderShopCategory(cat);
+  updateShopPreviewCanvas();
+};
+
+async function equipOwnedFishingGear(sel) {
+  if (!sel || !sel.cat || !sel.id) return;
+  const cfgKey = getShopCatConfigKey(sel.cat);
+  userState.avatarConfig[cfgKey] = sel.id;
+  shopPreviewState.config[cfgKey] = sel.id;
+  await syncProfileToServer();
+  renderShopCategory(shopPreviewState.selectedCat);
+  updateShopPreviewCanvas();
+  gameAlert(`[${sel.name}] 아이템을 장착했습니다!\n상점 캐릭터 왼쪽 아래 슬롯에서 착용 여부를 확인할 수 있습니다.`, "🎣 장착 완료");
+}
+
+window.unequipFishingGear = async function (cat) {
+  const cfgKey = getShopCatConfigKey(cat);
+  userState.avatarConfig[cfgKey] = "none";
+  shopPreviewState.config[cfgKey] = "none";
+  await syncProfileToServer();
+  renderShopCategory(shopPreviewState.selectedCat);
+  updateShopPreviewCanvas();
+  const label = cat === "fishing_rod" ? "낚싯대" : "미끼";
+  gameAlert(`[${label}] 장착이 해제되어 미착용 상태로 변경되었습니다.`);
+};
+
 function updateShopPreviewCanvas() {
   shopPreviewState.config = sanitizeAvatarConfigShape(shopPreviewState.config);
   const cv = document.getElementById("shopAvatarCanvas");
   if (cv) {
     renderPixelAvatar(cv, shopPreviewState.config, { transparentBg: true });
   }
+  renderShopInventorySlots();
 
   // 선택한 배경(bg) 고디테일 풀 일러스트 & 컬러를 상점 상단 스테이지에도 실시간 반영!
   const topBackdrop = document.getElementById("shopTopBackdrop");
@@ -1123,7 +1209,7 @@ function updateShopPreviewCanvas() {
   descEl.textContent = sel.desc || "아이템을 눌러 먼저 입어보세요!";
 
   if (sel.cat === "special" && sel.id === "nickname_ticket") {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
     confirmBtn.textContent = "🛍️ 구매 · 닉변하기";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseNicknameTicket;
@@ -1131,7 +1217,7 @@ function updateShopPreviewCanvas() {
   }
 
   if (sel.cat === "special" && sel.id === "gender_ticket") {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
     confirmBtn.textContent = "🛍️ 구매 · 성별변경";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = purchaseGenderTicket;
@@ -1139,13 +1225,35 @@ function updateShopPreviewCanvas() {
   }
 
   const isOwned = !sel.price || sel.price === 0 || userState.ownedItems.includes(sel.id);
+  if (sel.cat === "fishing_rod" || sel.cat === "fishing_bait") {
+    const cfgKey = getShopCatConfigKey(sel.cat);
+    const isEquipped = userState.avatarConfig && userState.avatarConfig[cfgKey] === sel.id;
+    if (!isOwned) {
+      if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
+      confirmBtn.textContent = "🛍️ 구매하기";
+      confirmBtn.className = "btn btn-gold";
+      confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
+    } else if (isEquipped) {
+      if (priceBadgeEl) priceBadgeEl.textContent = "✅ 착용중";
+      confirmBtn.textContent = "❎ 착용 해제";
+      confirmBtn.className = "btn";
+      confirmBtn.onclick = () => unequipFishingGear(sel.cat);
+    } else {
+      if (priceBadgeEl) priceBadgeEl.textContent = "✅ 보유중";
+      confirmBtn.textContent = "✅ 장착하기";
+      confirmBtn.className = "btn btn-primary";
+      confirmBtn.onclick = () => equipOwnedFishingGear(sel);
+    }
+    return;
+  }
+
   if (isOwned) {
     if (priceBadgeEl) priceBadgeEl.textContent = "✅ 보유중";
     confirmBtn.textContent = "✅ 장착 저장";
     confirmBtn.className = "btn btn-primary";
     confirmBtn.onclick = saveCurrentPreviewLook;
   } else {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price} CD`;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
     confirmBtn.textContent = "🛍️ 구매하기";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
@@ -1161,8 +1269,10 @@ window.resetShopPreview = function () {
 };
 
 async function saveCurrentPreviewLook() {
-  for (const cat of ["bg", "hair", "hat", "face", "outfit", "acc"]) {
-    const id = shopPreviewState.config[cat];
+  for (const cat of getEquippableShopCatsList()) {
+    const cfgKey = getShopCatConfigKey(cat);
+    const id = shopPreviewState.config[cfgKey];
+    if (!id || id === "none") continue;
     const item = getItemById(cat, id);
     if (item && item.price > 0 && !userState.ownedItems.includes(id)) {
       gameAlert(`[${item.name}] 아이템은 아직 구매하지 않았습니다!\n우측 보드의 [구매하기] 버튼을 먼저 눌러주세요.`);
@@ -1182,13 +1292,17 @@ const SHOP_CAT_LABELS = {
   hat: "모자",
   face: "얼굴",
   outfit: "의상",
-  acc: "악기"
+  acc: "악기",
+  fishing_rod: "낚싯대",
+  fishing_bait: "미끼"
 };
 
 function getUnownedPreviewItems() {
   const list = [];
-  for (const cat of ["bg", "hair", "hat", "face", "outfit", "acc"]) {
-    const id = shopPreviewState.config[cat];
+  for (const cat of getEquippableShopCatsList()) {
+    const cfgKey = getShopCatConfigKey(cat);
+    const id = shopPreviewState.config[cfgKey];
+    if (!id || id === "none") continue;
     const item = getItemById(cat, id);
     if (item && item.price > 0 && !userState.ownedItems.includes(item.id)) {
       list.push({ cat, ...item });
@@ -1200,11 +1314,16 @@ function getUnownedPreviewItems() {
 function sanitizeAvatarConfigToOwned(previewCfg) {
   const safe = sanitizeAvatarConfigShape(userState.avatarConfig);
   const cleanPreview = sanitizeAvatarConfigShape(previewCfg);
-  for (const cat of ["bg", "hair", "hat", "face", "outfit", "acc"]) {
-    const id = cleanPreview[cat];
+  for (const cat of getEquippableShopCatsList()) {
+    const cfgKey = getShopCatConfigKey(cat);
+    const id = cleanPreview[cfgKey];
+    if (id === "none") {
+      safe[cfgKey] = "none";
+      continue;
+    }
     const item = getItemById(cat, id);
     if (item && (!item.price || item.price === 0 || userState.ownedItems.includes(item.id))) {
-      safe[cat] = id;
+      safe[cfgKey] = id;
     }
   }
   return safe;
@@ -1296,11 +1415,17 @@ async function purchaseAndEquipPreviewItem(sel) {
   }
 
   if (userState.cdCoins < sel.price) {
-    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins} CD / 필요: ${sel.price} CD)\n문제를 풀고 점수를 얻으면 CD가 지급됩니다!`);
+    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${sel.price.toLocaleString()} CD)\n문제를 풀고 점수를 얻으면 CD가 지급됩니다!`);
     return;
   }
 
-  gameConfirm(`[${sel.name}] 코스튬을 💿 ${sel.price} CD에 구매하고 장착할까요?`, async () => {
+  const buyTitle =
+    sel.cat === "fishing_rod"
+      ? "🎣 낚싯대 구매"
+      : sel.cat === "fishing_bait"
+      ? "🪱 미끼 구매"
+      : "🛍️ 코스튬 구매";
+  gameConfirm(`[${sel.name}] 아이템을 💿 ${sel.price.toLocaleString()} CD에 구매하고 장착할까요?`, async () => {
     userState.cdCoins -= sel.price;
     if (!userState.ownedItems.includes(sel.id)) {
       userState.ownedItems.push(sel.id);
@@ -1311,7 +1436,7 @@ async function purchaseAndEquipPreviewItem(sel) {
     renderShopCategory(shopPreviewState.selectedCat);
     updateShopPreviewCanvas();
     gameAlert(`🎉 [${sel.name}] 구매 및 장착 완료!`, "🛍️ 구매 성공");
-  }, "🛍️ 코스튬 구매");
+  }, buyTitle);
 }
 
 function purchaseNicknameTicket() {
@@ -1387,22 +1512,46 @@ window.renderShopCategory = function (cat) {
   const grid = document.getElementById("shopItemsGrid");
   if (!grid) return;
 
+  const cfgKey = getShopCatConfigKey(cat);
+  const isFishingGearCat = cat === "fishing_rod" || cat === "fishing_bait";
   const items = AVATAR_SHOP_ITEMS[cat] || [];
   grid.innerHTML = items
     .map((item, idx) => {
       const owned = item.price === 0 || userState.ownedItems.includes(item.id);
+      const isEquipped =
+        isFishingGearCat &&
+        userState.avatarConfig &&
+        userState.avatarConfig[cfgKey] === item.id;
       const previewing =
         cat === "special"
           ? shopPreviewState.selectedItem?.id === item.id
-          : shopPreviewState.config[cat] === item.id;
+          : shopPreviewState.config[cfgKey] === item.id;
       const grade = item.grade || "C";
-      const priceText = owned && cat !== "special" ? "보유" : `💿${item.price}`;
+      const priceText =
+        cat === "special"
+          ? `💿${item.price.toLocaleString()}`
+          : isEquipped
+          ? "착용중"
+          : owned
+          ? "보유"
+          : `💿${item.price.toLocaleString()}`;
+
+      let buffHtml = "";
+      if (cat === "fishing_rod" && Number(item.expMultiplier) > 1) {
+        const pct = Math.round((Number(item.expMultiplier) - 1) * 100);
+        buffHtml = `<span class="apf-tile-buff">EXP +${pct}%</span>`;
+      } else if (cat === "fishing_bait" && Number(item.cdMultiplier) > 1) {
+        const pct = Math.round((Number(item.cdMultiplier) - 1) * 100);
+        buffHtml = `<span class="apf-tile-buff is-cd">CD +${pct}%</span>`;
+      }
+      const thumbSize = isFishingGearCat ? 40 : 52;
 
       return `
       <div class="apf-tile ${owned && cat !== "special" ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
-        <span class="apf-tile-price ${owned && cat !== "special" ? "is-owned" : ""}">${priceText}</span>
+        <span class="apf-tile-price ${isEquipped ? "is-equipped" : owned && cat !== "special" ? "is-owned" : ""}">${priceText}</span>
         ${previewing ? `<div class="apf-tile-check">✔</div>` : `<div class="apf-tile-grade grade-${grade}">${grade}</div>`}
-        <canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:52px; height:52px; margin-top:8px;"></canvas>
+        <canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:${thumbSize}px; height:${thumbSize}px; margin-top:7px;"></canvas>
+        ${buffHtml}
         <span class="apf-tile-name">${item.name}</span>
       </div>
     `;
@@ -1419,7 +1568,7 @@ window.previewShopItem = function (cat, itemId) {
   const item = getItemById(cat, itemId);
   shopPreviewState.selectedItem = { cat, ...item };
   if (cat !== "special") {
-    shopPreviewState.config[cat] = itemId;
+    shopPreviewState.config[getShopCatConfigKey(cat)] = itemId;
   } else if (itemId === "gender_ticket") {
     // 성별 변경권 선택 시 피팅룸에서 반대 성별 미리보기 제공
     shopPreviewState.config.gender = userState.avatarConfig.gender === "female" ? "male" : "female";

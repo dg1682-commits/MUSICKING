@@ -69,7 +69,7 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 12;
+const SHOP_CATALOG_VERSION = 13;
 
 const BASE_AVATAR_SHOP_ITEMS = {
   bg: [
@@ -185,6 +185,82 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "xmas_gift", name: "X-Mas 선물", price: 1450, grade: "S", desc: "선명한 레드 선물 상자에 큼직한\n황금 왕리본이 묶인 크리스마스 선물", color: "#dc2626" },
     { id: "trophy", name: "음악왕 트로피", price: 1800, grade: "S", desc: "1위 가수만 거머쥘 수 있는\n영광의 순금 음방 1위 트로피", color: "#fbbf24" }
   ],
+  fishing_rod: [
+    {
+      id: "rod_c",
+      name: "나무 낚싯대",
+      price: 5000,
+      grade: "C",
+      expMultiplier: 1.05,
+      color: "#b45309",
+      desc: "소박하지만 튼튼한 입문용 대나무 낚싯대\n[낚시터 버프] 경험치 획득량 +5%"
+    },
+    {
+      id: "rod_b",
+      name: "카본 낚싯대",
+      price: 10000,
+      grade: "B",
+      expMultiplier: 1.10,
+      color: "#0284c7",
+      desc: "가볍고 탄성이 뛰어난 중급 카본 릴 낚싯대\n[낚시터 버프] 경험치 획득량 +10%"
+    },
+    {
+      id: "rod_a",
+      name: "루비 낚싯대",
+      price: 20000,
+      grade: "A",
+      expMultiplier: 1.20,
+      color: "#e11d48",
+      desc: "붉은 보석 가이드가 빛나는 상급 전문가 낚싯대\n[낚시터 버프] 경험치 획득량 +20%"
+    },
+    {
+      id: "rod_s",
+      name: "황금 낚싯대",
+      price: 30000,
+      grade: "S",
+      expMultiplier: 1.30,
+      color: "#facc15",
+      desc: "전설의 낚시왕 전용 24K 황금 스피닝 낚싯대\n[낚시터 버프] 경험치 획득량 +30%"
+    }
+  ],
+  fishing_bait: [
+    {
+      id: "bait_c",
+      name: "지렁이 미끼",
+      price: 4000,
+      grade: "C",
+      cdMultiplier: 1.10,
+      color: "#fb7185",
+      desc: "물고기들이 좋아하는 싱싱한 기본 지렁이 미끼\n[낚시터 버프] CD 획득량 +10%"
+    },
+    {
+      id: "bait_b",
+      name: "새우 미끼",
+      price: 8000,
+      grade: "B",
+      cdMultiplier: 1.20,
+      color: "#f97316",
+      desc: "통통하고 향긋한 특제 바닷새우 떡밥 미끼\n[낚시터 버프] CD 획득량 +20%"
+    },
+    {
+      id: "bait_a",
+      name: "루어 미끼",
+      price: 16000,
+      grade: "A",
+      cdMultiplier: 1.30,
+      color: "#38bdf8",
+      desc: "수면 아래서 반짝이며 대어를 유혹하는 루어 미끼\n[낚시터 버프] CD 획득량 +30%"
+    },
+    {
+      id: "bait_s",
+      name: "황금 떡밥",
+      price: 24000,
+      grade: "S",
+      cdMultiplier: 1.50,
+      color: "#facc15",
+      desc: "황금 가루가 배합되어 대박 CD를 부르는 전설의 미끼\n[낚시터 버프] CD 획득량 +50%"
+    }
+  ],
   special: [
     {
       id: "nickname_ticket",
@@ -207,6 +283,19 @@ const BASE_AVATAR_SHOP_ITEMS = {
 
 let AVATAR_SHOP_ITEMS = JSON.parse(JSON.stringify(BASE_AVATAR_SHOP_ITEMS));
 
+const AVATAR_CONFIG_KEY_BY_CAT = {
+  bg: "bg",
+  hair: "hair",
+  hat: "hat",
+  face: "face",
+  outfit: "outfit",
+  acc: "acc",
+  fishing_rod: "fishingRod",
+  fishing_bait: "fishingBait"
+};
+
+const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "fishing_rod", "fishing_bait"];
+
 const DEFAULT_AVATAR_CONFIG = {
   gender: "male",
   bg: "meadow",
@@ -214,7 +303,9 @@ const DEFAULT_AVATAR_CONFIG = {
   hat: "none",
   face: "default",
   outfit: "basic",
-  acc: "mic_silver"
+  acc: "mic_silver",
+  fishingRod: "none",
+  fishingBait: "none"
 };
 
 function sanitizeAvatarConfigShape(config) {
@@ -226,6 +317,14 @@ function sanitizeAvatarConfigShape(config) {
       cfg[cat] = DEFAULT_AVATAR_CONFIG[cat] || list[0].id;
     }
   });
+  const rodList = AVATAR_SHOP_ITEMS.fishing_rod || [];
+  if (cfg.fishingRod !== "none" && !rodList.some(item => item.id === cfg.fishingRod)) {
+    cfg.fishingRod = "none";
+  }
+  const baitList = AVATAR_SHOP_ITEMS.fishing_bait || [];
+  if (cfg.fishingBait !== "none" && !baitList.some(item => item.id === cfg.fishingBait)) {
+    cfg.fishingBait = "none";
+  }
   return cfg;
 }
 
@@ -248,6 +347,12 @@ function applyServerShopCatalog(customCatalog, catalogVersion = 0) {
 }
 
 function getItemById(category, id) {
+  if (category === "fishing_rod" && (!id || id === "none")) {
+    return { id: "none", name: "미착용", price: 0, grade: "C", expMultiplier: 1.0, desc: "낚싯대가 장착되어 있지 않습니다." };
+  }
+  if (category === "fishing_bait" && (!id || id === "none")) {
+    return { id: "none", name: "미착용", price: 0, grade: "C", cdMultiplier: 1.0, desc: "미끼가 장착되어 있지 않습니다." };
+  }
   const list = AVATAR_SHOP_ITEMS[category] || [];
   if (category === "face" && id === "singing") {
     return list.find(item => item.id === "default") || list[0];
@@ -2086,6 +2191,231 @@ function renderItemThumbnail(canvas, category, item) {
     ctx.translate(-240, -320);
     drawDetailedOutfit(ctx, item, false, { isThumb: true });
     ctx.restore();
+  } else if (category === "fishing_rod") {
+    if (!item || item.id === "none") {
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 8;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.moveTo(56, 184);
+      ctx.quadraticCurveTo(116, 118, 184, 54);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      const rodCol =
+        item.id === "rod_s" ? "#facc15" : item.id === "rod_a" ? "#e11d48" : item.id === "rod_b" ? "#0284c7" : "#b45309";
+      const gripCol =
+        item.id === "rod_s" ? "#92400e" : item.id === "rod_a" ? "#1e1b4b" : item.id === "rod_b" ? "#0f172a" : "#78350f";
+
+      // 휘어진 낚싯대 본체 (굵은 윤곽선)
+      ctx.lineCap = "round";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 17;
+      ctx.beginPath();
+      ctx.moveTo(46, 192);
+      ctx.quadraticCurveTo(106, 126, 182, 48);
+      ctx.stroke();
+
+      ctx.strokeStyle = rodCol;
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(46, 192);
+      ctx.quadraticCurveTo(106, 126, 182, 48);
+      ctx.stroke();
+
+      // 손잡이 그립 + 릴
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 22;
+      ctx.beginPath();
+      ctx.moveTo(42, 196);
+      ctx.lineTo(74, 164);
+      ctx.stroke();
+      ctx.strokeStyle = gripCol;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(42, 196);
+      ctx.lineTo(74, 164);
+      ctx.stroke();
+
+      ctx.fillStyle = item.id === "rod_s" ? "#fde047" : "#cbd5e1";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(84, 174, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = rodCol;
+      ctx.beginPath();
+      ctx.arc(84, 174, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 가이드 링 & 낚싯줄 + 바늘 + 등급 반짝이
+      [
+        [114, 122],
+        [148, 84],
+        [182, 48]
+      ].forEach(([gx, gy]) => {
+        ctx.fillStyle = "#fef08a";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(gx - 3, gy - 3, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(182, 48);
+      ctx.quadraticCurveTo(196, 108, 178, 166);
+      ctx.stroke();
+
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(172, 173, 9, 0, Math.PI * 1.15);
+      ctx.stroke();
+
+      if (item.id === "rod_a" || item.id === "rod_s") {
+        drawStar(ctx, 118, 62, 14, 6, 5, item.id === "rod_s" ? "#fde047" : "#fb7185", outline, 3.5);
+      }
+    }
+  } else if (category === "fishing_bait") {
+    if (!item || item.id === "none") {
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 8;
+      ctx.setLineDash([8, 7]);
+      ctx.beginPath();
+      ctx.arc(120, 120, 42, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (item.id === "bait_c") {
+      // 지렁이 미끼
+      ctx.lineCap = "round";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 36;
+      ctx.beginPath();
+      ctx.moveTo(54, 152);
+      ctx.bezierCurveTo(78, 86, 128, 168, 158, 104);
+      ctx.quadraticCurveTo(176, 78, 188, 98);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#fb7185";
+      ctx.lineWidth = 24;
+      ctx.beginPath();
+      ctx.moveTo(54, 152);
+      ctx.bezierCurveTo(78, 86, 128, 168, 158, 104);
+      ctx.quadraticCurveTo(176, 78, 188, 98);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#fda4af";
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(92, 112);
+      ctx.lineTo(100, 124);
+      ctx.moveTo(128, 130);
+      ctx.lineTo(136, 120);
+      ctx.stroke();
+
+      ctx.fillStyle = outline;
+      ctx.beginPath();
+      ctx.arc(178, 92, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (item.id === "bait_b") {
+      // 새우 미끼
+      ctx.fillStyle = "#f97316";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(64, 146);
+      ctx.quadraticCurveTo(52, 90, 116, 66);
+      ctx.quadraticCurveTo(182, 58, 184, 110);
+      ctx.quadraticCurveTo(164, 132, 126, 116);
+      ctx.quadraticCurveTo(96, 130, 88, 162);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#fdba74";
+      ctx.beginPath();
+      ctx.ellipse(122, 86, 30, 12, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = outline;
+      ctx.beginPath();
+      ctx.arc(166, 94, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(182, 102);
+      ctx.quadraticCurveTo(208, 88, 210, 62);
+      ctx.moveTo(178, 112);
+      ctx.quadraticCurveTo(208, 118, 212, 142);
+      ctx.stroke();
+    } else if (item.id === "bait_a") {
+      // 루어 미끼 (청록 반짝 물고기 루어 + 트레블 훅)
+      ctx.fillStyle = "#38bdf8";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.ellipse(118, 112, 62, 30, -0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#e0f2fe";
+      ctx.beginPath();
+      ctx.ellipse(120, 122, 46, 12, -0.18, 0, Math.PI);
+      ctx.fill();
+
+      ctx.fillStyle = "#f43f5e";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(60, 124);
+      ctx.lineTo(34, 102);
+      ctx.lineTo(38, 148);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#fde047";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(154, 102, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(114, 152, 10, 0, Math.PI * 1.2);
+      ctx.stroke();
+      drawStar(ctx, 168, 66, 12, 5, 5, "#ffffff", outline, 3);
+    } else {
+      // 황금 떡밥
+      ctx.fillStyle = "#fef08a";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(120, 134, 48, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      ctx.arc(106, 124, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(98, 114, 9, 0, Math.PI * 2);
+      ctx.fill();
+
+      fillRoundRect(ctx, 94, 74, 52, 22, 10, "#f59e0b", outline, 6);
+      drawStar(ctx, 64, 82, 13, 5.5, 5, "#fde047", outline, 3.5);
+      drawStar(ctx, 178, 86, 11, 5, 5, "#fde047", outline, 3);
+    }
   } else if (category === "bg") {
     // 상점 배경 타일도 2색 사각형 대신 실제 배경 일러스트 축소본 둥근 카드 렌더링!
     ctx.save();

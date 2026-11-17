@@ -164,6 +164,15 @@ function renderFishingHud() {
     const pct = Math.min(100, Math.max(0, (earnedCd / Math.max(1, mults.maxCd)) * 100));
     cdFillEl.style.width = `${pct.toFixed(1)}%`;
   }
+
+  const buffEl = document.getElementById("fishingBuffBadge");
+  if (buffEl) {
+    const parts = [];
+    if (mults.expMultiplier > 1) parts.push(`🎣EXP+${Math.round((mults.expMultiplier - 1) * 100)}%`);
+    if (mults.cdMultiplier > 1) parts.push(`🪱CD+${Math.round((mults.cdMultiplier - 1) * 100)}%`);
+    buffEl.textContent = parts.join(" · ");
+    buffEl.classList.toggle("hidden", parts.length === 0);
+  }
 }
 
 // 낚시터 안에 머문 상태에서만 시간 흐름 (화면 내려놓기·오전 06:00 돌파 모두 정확히 분할 계산!)

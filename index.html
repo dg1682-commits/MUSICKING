@@ -30,7 +30,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.21" />
+  <link rel="stylesheet" href="style.css?v=10.22" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -175,7 +175,23 @@
 
           <div class="apf-shop-stage-row">
             <div class="apf-char-zone">
-              <canvas id="shopAvatarCanvas" width="480" height="480" style="width:142px; height:142px; display:block;"></canvas>
+              <canvas id="shopAvatarCanvas" width="480" height="480" style="width:104px; height:104px; display:block;"></canvas>
+              <div class="shop-fishing-inv-row">
+                <button type="button" id="shopInvRodSlot" class="shop-inv-slot" onclick="inspectShopFishingSlot('fishing_rod')" title="낚싯대 착용 여부 확인">
+                  <div class="shop-inv-top">
+                    <canvas id="shopInvRodCanvas" width="480" height="480" class="shop-inv-canvas"></canvas>
+                    <span id="shopInvRodBadge" class="shop-inv-badge">미착용</span>
+                  </div>
+                  <span id="shopInvRodName" class="shop-inv-name">낚싯대</span>
+                </button>
+                <button type="button" id="shopInvBaitSlot" class="shop-inv-slot" onclick="inspectShopFishingSlot('fishing_bait')" title="미끼 착용 여부 확인">
+                  <div class="shop-inv-top">
+                    <canvas id="shopInvBaitCanvas" width="480" height="480" class="shop-inv-canvas"></canvas>
+                    <span id="shopInvBaitBadge" class="shop-inv-badge">미착용</span>
+                  </div>
+                  <span id="shopInvBaitName" class="shop-inv-name">미끼</span>
+                </button>
+              </div>
             </div>
 
             <div class="apf-info-board">
@@ -194,7 +210,7 @@
           </div>
         </div>
 
-        <!-- 중단 탭 바 (배경 포함 7개 카테고리 전부 화면에 쏙 들어가게 2줄 아이콘+텍스트 스택!) -->
+        <!-- 중단 탭 바 (낚싯대·미끼 포함 9개 카테고리 1줄 균등 배치) -->
         <div class="apf-tab-bar">
           <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="tab-ico">🏞️</span><span>배경</span></div>
           <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="tab-ico">💇</span><span>헤어</span></div>
@@ -202,6 +218,8 @@
           <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>얼굴</span></div>
           <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="tab-ico">🎸</span><span>악기</span></div>
           <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="tab-ico">👕</span><span>의상</span></div>
+          <div class="apf-tab" data-shop-cat="fishing_rod" onclick="renderShopCategory('fishing_rod')"><span class="tab-ico">🎣</span><span>낚싯대</span></div>
+          <div class="apf-tab" data-shop-cat="fishing_bait" onclick="renderShopCategory('fishing_bait')"><span class="tab-ico">🪱</span><span>미끼</span></div>
           <div class="apf-tab" data-shop-cat="special" onclick="renderShopCategory('special')"><span class="tab-ico">🎫</span><span>변경권</span></div>
         </div>
 
@@ -708,6 +726,7 @@
                 <div id="fishingCdBarFill" class="fishing-hp-fill is-cd" style="width:0%"></div>
               </div>
             </div>
+            <div id="fishingBuffBadge" class="fishing-buff-pill hidden"></div>
           </div>
 
           <div id="fishingUsersOverlay" class="fishing-users-overlay">
@@ -934,6 +953,13 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">🎣 v10.22 상점 낚싯대·미끼 각 4종 출시 &amp; 캐릭터 착용 인벤토리 슬롯</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>낚싯대 4종 출시 (경험치 버프)</strong>: 나무(5,000 CD · +5%), 카본(10,000 CD · +10%), 루비(20,000 CD · +20%), 황금 낚싯대(30,000 CD · +30%)</li>
+          <li><strong>미끼 4종 출시 (CD 버프)</strong>: 지렁이(4,000 CD · +10%), 새우(8,000 CD · +20%), 루어(16,000 CD · +30%), 황금 떡밥(24,000 CD · +50%)</li>
+          <li><strong>상점 캐릭터 하단 인벤토리 2칸</strong>: 낚싯대·미끼 전용 슬롯에서 <code>착용중(+버프%)</code> / <code>미착용</code> 여부를 즉시 확인하고 터치 한 번으로 탭 이동·장착 해제 가능</li>
+        </ul>
+
         <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 v10.21 낚시터 채팅·말풍선·배경 라인·상단 여백 &amp; 퇴장 확인 개선</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>실시간 채팅 &amp; 말풍선 즉시 반영</strong>: 전송 시 내 말풍선·채팅창 즉시 출력(<code>&lt;form&gt;</code> + <code>enterkeyhint="send"</code> 모바일 전송 키 완벽 대응)</li>
@@ -1341,11 +1367,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.21"></script>
-  <script src="pixel_avatar.js?v=10.21"></script>
-  <script src="online.js?v=10.21"></script>
-  <script src="fishing.js?v=10.21"></script>
-  <script src="app.js?v=10.21"></script>
+  <script src="data.js?v=10.22"></script>
+  <script src="pixel_avatar.js?v=10.22"></script>
+  <script src="online.js?v=10.22"></script>
+  <script src="fishing.js?v=10.22"></script>
+  <script src="app.js?v=10.22"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

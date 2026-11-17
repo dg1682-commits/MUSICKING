@@ -473,18 +473,94 @@ body.on-home-screen .app-shell {
 }
 
 .apf-char-zone {
-  flex: 0.85;
+  flex: 0.94;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
 }
 
 #shopAvatarCanvas {
-  width: clamp(100px, 28vw, 138px) !important;
-  height: clamp(100px, 28vw, 138px) !important;
+  width: clamp(86px, 23vw, 110px) !important;
+  height: clamp(86px, 23vw, 110px) !important;
   filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.28));
+}
+
+/* 상점 캐릭터 하단 2칸 RPG 인벤토리 슬롯 (낚싯대 / 미끼 착용 여부 확인) */
+.shop-fishing-inv-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.shop-inv-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 9px;
+  border: 2px dashed rgba(51, 65, 85, 0.72);
+  background: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  min-width: 0;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.shop-inv-slot:active {
+  transform: scale(0.95);
+}
+
+.shop-inv-slot.is-equipped {
+  border: 2px solid #16a34a;
+  background: #f0fdf4;
+  box-shadow: 0 2px 0 rgba(21, 128, 61, 0.35);
+}
+
+.shop-inv-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.shop-inv-canvas {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.shop-inv-badge {
+  font-size: 0.54rem;
+  font-weight: 900;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  border: 1px solid #94a3b8;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+
+.shop-inv-slot.is-equipped .shop-inv-badge {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #14532d;
+}
+
+.shop-inv-name {
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #1e1b18;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.35px;
 }
 
 .apf-info-board {
@@ -556,9 +632,9 @@ body.on-home-screen .app-shell {
 
 .apf-tab-bar {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 3px;
-  padding: 0 6px;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 2px;
+  padding: 0 4px;
   background: transparent;
   flex-shrink: 0;
 }
@@ -566,14 +642,15 @@ body.on-home-screen .app-shell {
 .apf-tab {
   min-width: 0;
   padding: 5px 1px 4px;
-  border-radius: 10px 10px 0 0;
+  border-radius: 9px 9px 0 0;
   background: #3f8a08;
-  border: 2.5px solid var(--game-border);
+  border: 2px solid var(--game-border);
   border-bottom: none;
   color: #d9f99d;
-  font-size: 0.65rem;
+  font-size: clamp(0.54rem, 2.3vw, 0.64rem);
   font-weight: 900;
-  line-height: 1.15;
+  line-height: 1.12;
+  letter-spacing: -0.5px;
   text-align: center;
   cursor: pointer;
   white-space: nowrap;
@@ -585,7 +662,7 @@ body.on-home-screen .app-shell {
 }
 
 .apf-tab .tab-ico {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   line-height: 1;
 }
 
@@ -693,6 +770,29 @@ body.on-home-screen .app-shell {
 .apf-tile-price.is-owned {
   background: #dcfce7;
   color: #15803d;
+}
+
+.apf-tile-price.is-equipped {
+  background: #fde047;
+  color: #92400e;
+  border-color: #92400e;
+}
+
+.apf-tile-buff {
+  font-size: 0.6rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #16a34a;
+  line-height: 1.15;
+}
+
+.apf-tile-buff.is-cd {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #d97706;
 }
 
 /* 우측 상단: 체크 표시 또는 등급 배지 */
@@ -2444,6 +2544,20 @@ body.on-fishing-screen.keyboard-open .app-shell {
 
 .fishing-hp-fill.is-cd {
   background: linear-gradient(90deg, #facc15, #f97316);
+}
+
+.fishing-buff-pill {
+  font-size: 0.56rem;
+  font-weight: 900;
+  color: #fde047;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 6px;
+  padding: 2px 5px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fishing-users-overlay {

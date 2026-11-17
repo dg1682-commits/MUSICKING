@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.21`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.22`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.21`)
-- **현재 버전**: **v10.21** (`SHOP_CATALOG_VERSION = 12`)
+- **앱 이름**: 음악왕 (`v10.22`)
+- **현재 버전**: **v10.22** (`SHOP_CATALOG_VERSION = 13`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -175,22 +175,25 @@
 
 ---
 
-## 6. 캐릭터 · 상점(v12 카탈로그) & 사운드(BGM/SFX) 규격
+## 6. 캐릭터 · 상점(v13 카탈로그) & 사운드(BGM/SFX) 규격
 
 ### 캐릭터 & 상점 시스템 ([pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js))
 - **정배율 · 16:10 와이드 직사각형 홈 배경 & 최소 480×480+ 고해상도 렌더링**: `#homeScreen`의 `.home-wide-stage`는 가로 100% `16:10` 직사각형(`aspect-ratio: 16 / 10; min-height: 152px; max-height: min(246px, 29dvh);`) 비율로 배경 일러스트 좌우 디테일 전체가 시원하게 노출되며, `#loginScreen` / `#signupGenderModal`의 `.home-wide-stage`는 기존 고정 높이 직사각 비율(`flex: 0 0 auto`)을 유지합니다. `renderPixelAvatar` 내부에서도 CSS 비율과 맞추면서 단변 최소 `480px`(목록 소형 아이콘은 `280px`) 및 고DPR(`2~3x`)을 보장하고, 상점 상단 스테이지(`#shopBgCanvas`)에도 선택한 배경 풀 일러스트를 실시간 렌더링합니다.
-- **상점 시세 & 보유 수 (`SHOP_CATALOG_VERSION = 12`)**:
+- **상점 시세 & 보유 수 (`SHOP_CATALOG_VERSION = 13`)**:
   - `🏞️ 배경 (bg)`: **12종** (`0 ~ 2,000 CD`) — *해변·골목·지하실·구름 신규 4종 포함, 전종 타일 미니 일러스트화*
   - `💇 헤어 (hair)`: **15종** (`0 ~ 1,100 CD`) — *바가지/금발/쉼표/양갈래 3종/포니테일/불꽃샤기컷/실버펌/만두/삐삐 등 15종 전부 개별 앞·뒷머리 실루엣 & 엔젤링 고디테일화*
   - `🎧 모자 (hat)`: **20종** (`0 ~ 2,000 CD`) — *구름모자·태양모자·별 모자·파티모자·펑키스타일·트리 모자 6종 신규*
   - `👓 얼굴 (face)`: **19종** (`0 ~ 1,500 CD`) — *기존 "표정" ➔ "얼굴" 개명, 중복 `열창 표정` 제거(`default` 자동 폴백), `심쿵 윙크` 아이콘 버그 수정, 터프 수염·산타 수염·상처·잠자리안경·개구리 눈·가면 6종 신규*
   - `🎸 악기 (acc)`: **20종** (`0 ~ 1,800 CD`) — *해골·키보드·선풍기·스노우보드·X-Mas 선물 5종 신규*
   - `👕 의상 (outfit)`: **15종** (`0 ~ 1,800 CD`) — *배관공·5살유치원·파자마·노란네모·방울고양이·드레스 6종 신규, 전종 소매·장갑·신발·패턴 디테일화*
+  - `🎣 낚싯대 (fishing_rod)`: **4종** (`avatarConfig.fishingRod` 저장, 낚시터 경험치 버프) — *나무 낚싯대(C, 5,000 CD, +5%), 카본 낚싯대(B, 10,000 CD, +10%), 루비 낚싯대(A, 20,000 CD, +20%), 황금 낚싯대(S, 30,000 CD, +30%)*
+  - `🪱 미끼 (fishing_bait)`: **4종** (`avatarConfig.fishingBait` 저장, 낚시터 CD 버프) — *지렁이 미끼(C, 4,000 CD, +10%), 새우 미끼(B, 8,000 CD, +20%), 루어 미끼(A, 16,000 CD, +30%), 황금 떡밥(S, 24,000 CD, +50%)*
   - `🎫 변경권 (special)`: **닉네임 변경권 `5,000 CD`**, **성별 변경권 `10,000 CD`**
-- **선택 일괄 구매 & 미구매 저장 방어** ([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L1095-L1200)):
-  - 피팅룸에서 여러 미구매 아이템을 입어본 상태에서 구매를 누르면 `shopMultiBuyModal`이 떠서 체크박스로 원하는 항목만 골라 결제할 수 있으며, `sanitizeAvatarConfigToOwned()`가 미구매 미리보기 파츠 및 삭제된 구형 `face("singing")`을 자동 정리합니다.
+- **캐릭터 하단 낚시터 인벤토리 2슬롯 & 선택 일괄 구매** ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L176-L196), [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L1085-L1290)):
+  - 상점 캐릭터 아래에 `#shopInvRodSlot` · `#shopInvBaitSlot` 인벤토리 슬롯을 배치하여 현재 실제 착용 여부(`착용중(+버프%)` / `미착용`)를 즉시 확인하고 터치 한 번으로 해당 탭 이동·장착 해제가 가능합니다.
+  - 피팅룸에서 여러 미구매 아이템을 입어본 상태에서 구매를 누르면 `shopMultiBuyModal`이 떠서 체크박스로 원하는 항목만 골라 결제할 수 있으며(`AVATAR_CONFIG_KEY_BY_CAT` 매핑), `sanitizeAvatarConfigToOwned()`가 미구매 미리보기 파츠 및 삭제된 구형 `face("singing")`을 자동 정리합니다.
 - **상점 고스트 스크롤 & 탭**:
-  - 7개 탭이 좁은 화면에서도 짤리지 않도록 7열 균등 그리드(`.apf-tab-bar`) + 2줄 아이콘·라벨 스택 적용
+  - 9개 탭이 좁은 화면에서도 짤리지 않도록 9열 균등 그리드(`.apf-tab-bar`) + 2줄 아이콘·라벨 스택 적용
   - `#shopItemsGrid`는 스크롤할 때(`.is-scrolling`)만 얇은 흰색 스크롤바가 나타납니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L64-L74), [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L585-L621)).
 - **신규 아이템 추가 시 주의**: `BASE_AVATAR_SHOP_ITEMS`에 아이템을 추가할 때는 **반드시** [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js)의 `drawDetailedInstrument()` / `renderApfWideBackground()` / `drawHairBack()` / `drawHairFront()` / `drawDetailedOutfit()` / `drawDetailedFace()` / `drawDetailedHat()` 및 `renderItemThumbnail()`에 해당 `id` 드로잉 분기를 함께 작성하고 `SHOP_CATALOG_VERSION`을 올리세요.
 
