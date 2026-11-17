@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.13`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.14`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
 - **앱 이름**: 대한민국 음악왕 (`MUSIC KING · K-POP QUIZ & ARENA`)
-- **현재 버전**: **v10.13** (`SHOP_CATALOG_VERSION = 11`)
+- **현재 버전**: **v10.14** (`SHOP_CATALOG_VERSION = 11`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -183,11 +183,12 @@
   - `#shopItemsGrid`는 스크롤할 때(`.is-scrolling`)만 얇은 흰색 스크롤바가 나타납니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L60-L70), [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L585-L621)).
 - **신규 아이템 추가 시 주의**: `BASE_AVATAR_SHOP_ITEMS`에 아이템을 추가할 때는 **반드시** [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js)의 `renderPixelAvatar()` / `drawDetailedInstrument()` / `renderApfWideBackground()` 및 `renderItemThumbnail()` 4곳에 해당 `id` 드로잉 분기를 함께 작성하고 `SHOP_CATALOG_VERSION`을 올리세요.
 
-### 사운드(BGM & 효과음) 규격 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L469-L539))
+### 사운드(BGM & 효과음) 및 1초 듣기 규격 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L516-L646))
 - **`bgm/main.mp3`** (volume `0.22`, loop): `loginScreen`, `homeScreen`, `setupScreen`, `plazaScreen`, `battleRoomScreen`, `rankingScreen`, `socialScreen`, `dmChatScreen`에서 **이미 재생 중이면 끊기지 않고 계속 유지**됩니다.
 - **`bgm/shop.mp3`** (volume `0.22`, loop): `shopScreen` 전용 배경음
 - **무음 화면**: `gameScreen`, `judgeScreen`, `resultScreen`, `battlePlayScreen` 진입 시 두 BGM 모두 일시정지
-- **`bgm/click.wav`** (volume `0.45`, 4채널 라운드로빈 풀): 버튼·칩·타일·리스트 클릭 시 즉시 효과음 재생
+- **`bgm/click.wav`** (volume `0.45`, 4채널 라운드로빈 풀): 버튼·칩·타일·리스트 클릭 시 즉시 효과음 재생 *(단, 싱글/온라인 대전 **`1초 듣기`(`onesec`)** 시작·재도전·플레이·정답공개 전환 시에는 음원 충돌 방지를 위해 무음 처리, 타임어택 타이머는 그대로 유지)*
+- **`1초 듣기` 자동재생 & 출처 표기**: 싱글(`loadCurrentQuestion`, [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L988-L993)) 및 온라인 대전(`renderBattlePlayScreen`, [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L2277-L2278))의 `1초 듣기` 라운드 진입 시 `playAudioSnippet()`으로 자동재생(사파리·모바일 차단 시 팝업 없이 상태 안내 후 수동 `[▶ 1초 듣기]` / `[🔄 다른 구간]` 재청취 가능)되며, 두 플레이어 하단에 iTunes/Apple Music 공식 출처 문구(`.itunes-source-credit`)를 작게 표기합니다.
 - **음소거 토글**: `floatingSoundBtn` (`.app-shell` 내부, `loginScreen`, `homeScreen`, `rankingScreen`, `shopScreen`, `socialScreen` 노출 — `homeScreen`에서는 `.home-hero` 우측 하단 모서리에 자동 정렬) 클릭 시 `localStorage` `mk_bgm_muted` 저장 및 BGM·클릭음 일괄 제어
 
 ---
@@ -225,7 +226,7 @@
 3. **모바일 키보드 올라올 때 허공 밀림 & 문제 찌그러짐 방지 규약**
    - `<meta name="viewport">`의 `interactive-widget=resizes-content` ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L5)) 유지
    - `html, body` 및 `.app-shell`의 `position: fixed` 유지 ([style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L67-L102))
-   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L85-L131))에서 **`shell.style.top = ${vv.offsetTop}px` 및 `shell.style.height = ${vv.height}px`** 동기화 유지
+   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L87-L133))에서 **`shell.style.top = ${vv.offsetTop}px` 및 `shell.style.height = ${vv.height}px`** 동기화 유지
    - **❌ 금지**: `document.activeElement.scrollIntoView()`를 전역으로 호출하면 안드로이드 웹뷰에서 화면 상단이 잘리고 하단에 초록색 빈 허공이 생기는 버그가 발생하므로 절대 재도입 금지!
    - **문제 카드 비압축**: `body.keyboard-open`일 때 `.question-card`가 납작해지지 않도록 `flex: 0 0 auto; min-height: 132px; max-height: none;` 및 `#gameScreen, #battlePlayScreen`의 `overflow-y: auto` + `touchmove` 화이트리스트를 유지하세요.
 
@@ -236,8 +237,8 @@
 5. **관리자 페이지(`admin.html`) & MD 문제 일괄 추가 · 쿠팡 배너 주의사항**
    - 환경설정 내 백엔드 이동 버튼(`#settingsAdminMenuBtn`)은 `userState.nickname === "관리자"`일 때만 노출되며, `admin.html` 진입 시에도 세션 닉네임이 `"관리자"`가 아니면 메인으로 리다이렉트됩니다.
    - MD 문제 일괄 추가 UI([admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L252-L282)) 및 파서([data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js#L3210-L3430))는 백엔드 페이지(`admin.html`) 내부에서만 접근 가능하며(메인 화면에는 버튼 없음), 기존 `1곡 직접 추가`와 구분되어 여러 곡 일괄 파싱·자동 마스킹·음원 매칭을 담당합니다.
-   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L124-L136)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L557-L567))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
-   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L570-L606))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리(하단 버튼과 배너 사이)에 자동 정렬합니다.
+   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L124-L136)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L649-L659))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
+   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L662-L698))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리(하단 버튼과 배너 사이)에 자동 정렬합니다.
 
 6. **보안·개발 환경 안내**
    - 회사/특정 작업 PC 정책에 따라 터미널(`run_command` / PowerShell) 실행이 제한된 환경에서는 파일 읽기/편집 도구(`read_file`, `edit_file`, `write_file`)만 사용해 작업할 수 있으며, 이 프로젝트는 빌드 과정이 없는 순수 HTML/CSS/JS 구조이므로 별도 터미널 없이도 모든 수정·유지보수가 가능합니다.

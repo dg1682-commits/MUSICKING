@@ -32,6 +32,9 @@ const state = {
 
   audioEl: new Audio(),
   audioStopTimer: null,
+  audioRequestSeq: 0,
+  audioUnlocked: false,
+  audioPending: false,
   itunesCache: new Map(),
   oneSecOffsetIndex: 0,
   currentScreen: "loginScreen",
@@ -328,7 +331,12 @@ async function fetchItunesTrack(q) {
   return info;
 }
 
+const SILENT_AUDIO_URI =
+  "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
 function stopAudio() {
+  state.audioRequestSeq = (state.audioRequestSeq || 0) + 1;
+  state.audioPending = false;
   if (state.audioStopTimer) {
     clearTimeout(state.audioStopTimer);
     state.audioStopTimer = null;
@@ -336,8 +344,32 @@ function stopAudio() {
   try {
     state.audioEl.pause();
   } catch (e) {}
-  const disc = document.getElementById("vinylDisc");
-  if (disc) disc.classList.remove("spinning");
+  ["vinylDisc", "battleVinylDisc"].forEach(id => {
+    const disc = document.getElementById(id);
+    if (disc) disc.classList.remove("spinning");
+  });
+}
+
+function unlockQuizAudio() {
+  if (state.audioUnlocked || !state.audioEl || state.audioPending) return;
+  try {
+    if (!state.audioEl.paused) return;
+    const seqAtStart = state.audioRequestSeq || 0;
+    if (!state.audioEl.src) {
+      state.audioEl.src = SILENT_AUDIO_URI;
+    }
+    const p = state.audioEl.play();
+    if (p && typeof p.then === "function") {
+      p.then(() => {
+        state.audioUnlocked = true;
+        if (state.audioEl.src === SILENT_AUDIO_URI && (state.audioRequestSeq || 0) === seqAtStart && !state.audioPending) {
+          try {
+            state.audioEl.pause();
+          } catch (e) {}
+        }
+      }).catch(() => {});
+    }
+  } catch (e) {}
 }
 
 function stopTimeAttackTimer() {
@@ -376,22 +408,31 @@ function startTimeAttackTimer() {
   }, 100);
 }
 
-async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null, customDisc = null, customStatus = null) {
+async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null, customDisc = null, customStatus = null, opts = {}) {
   stopAudio();
+  const reqId = state.audioRequestSeq;
+  const isAutoPlay = Boolean(opts && opts.isAutoPlay);
   const q = customQ || state.currentQ;
   if (!q) return;
 
+  const disc = customDisc || document.getElementById("vinylDisc");
   const statusEl = customStatus || document.getElementById("audioStatusText");
-  if (statusEl) statusEl.textContent = "음원 불러오는 중...";
-
-  const track = await fetchItunesTrack(q);
-  if (!track || !track.previewUrl) {
-    if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
-    gameAlert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
-    return;
+  if (statusEl) {
+    statusEl.textContent = isAutoPlay ? "🎵 1초 음원 자동재생 준비 중..." : "음원 불러오는 중...";
   }
 
+  state.audioPending = true;
   try {
+    const track = await fetchItunesTrack(q);
+    if (reqId !== state.audioRequestSeq) return;
+    if (!track || !track.previewUrl) {
+      if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
+      if (!isAutoPlay) {
+        gameAlert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
+      }
+      return;
+    }
+
     if (state.audioEl.src !== track.previewUrl) {
       state.audioEl.src = track.previewUrl;
       await new Promise((resolve, reject) => {
@@ -399,30 +440,57 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
           state.audioEl.removeEventListener("loadedmetadata", onLoaded);
           state.audioEl.removeEventListener("error", onError);
         };
-        const onLoaded = () => { cleanup(); resolve(); };
-        const onError = e => { cleanup(); reject(e); };
+        const onLoaded = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = e => {
+          cleanup();
+          reject(e);
+        };
         state.audioEl.addEventListener("loadedmetadata", onLoaded);
         state.audioEl.addEventListener("error", onError);
         state.audioEl.load();
       });
     }
 
+    if (reqId !== state.audioRequestSeq) return;
+
     const safeOffset = Math.min(startOffsetSec, Math.max(0, (state.audioEl.duration || 29) - durationSec - 1));
     state.audioEl.currentTime = safeOffset;
 
-    const disc = customDisc || document.getElementById("vinylDisc");
     if (disc) disc.classList.add("spinning");
     if (statusEl) statusEl.textContent = `🔊 ${durationSec}초 재생 중...`;
 
     await state.audioEl.play();
+    if (reqId !== state.audioRequestSeq) {
+      try {
+        state.audioEl.pause();
+      } catch (e) {}
+      if (disc) disc.classList.remove("spinning");
+      return;
+    }
+    state.audioUnlocked = true;
+    state.audioPending = false;
 
     state.audioStopTimer = setTimeout(() => {
+      if (reqId !== state.audioRequestSeq) return;
       state.audioEl.pause();
       if (disc) disc.classList.remove("spinning");
-      if (statusEl) statusEl.textContent = `✅ ${durationSec}초 재생 완료!`;
+      if (statusEl) statusEl.textContent = `✅ ${durationSec}초 재생 완료! (버튼으로 다시 듣기 가능)`;
     }, durationSec * 1000);
   } catch (err) {
-    if (statusEl) statusEl.textContent = "⚠️ 오디오 재생 버튼을 다시 눌러주세요.";
+    if (reqId !== state.audioRequestSeq) return;
+    if (disc) disc.classList.remove("spinning");
+    if (statusEl) {
+      statusEl.textContent = isAutoPlay
+        ? "🔇 자동재생이 차단되었습니다. [▶ 1초 듣기]를 눌러주세요!"
+        : "⚠️ 오디오 재생 버튼을 다시 눌러주세요.";
+    }
+  } finally {
+    if (reqId === state.audioRequestSeq) {
+      state.audioPending = false;
+    }
   }
 }
 
@@ -475,14 +543,37 @@ window.playClickSfx = function () {
   } catch (e) {}
 };
 
-// 모든 버튼·탭·칩·리스트 클릭 시 즉시 bgm/click.wav 재생
+function isOnlineOneSecRoomActive() {
+  return (
+    typeof plazaState !== "undefined" &&
+    plazaState.currentRoom &&
+    plazaState.currentRoom.game_config &&
+    plazaState.currentRoom.game_config.mode === "onesec"
+  );
+}
+
+function shouldSuppressClickSfx(clickable) {
+  if (!clickable) return false;
+  // 1초 듣기 모드(싱글/온라인 대전)에서는 재생 충돌 방지를 위해 클릭 효과음(click.wav) 무음 처리
+  if (state.mode === "onesec") {
+    if (clickable.closest("#gameScreen, #judgeScreen")) return true;
+    if (clickable.id === "startGameBtn" || clickable.id === "restartSameBtn") return true;
+  }
+  if (isOnlineOneSecRoomActive()) {
+    if (clickable.closest("#battlePlayScreen")) return true;
+    if (clickable.id === "battleHostStartBtn") return true;
+  }
+  return false;
+}
+
+// 모든 버튼·탭·칩·리스트 클릭 시 즉시 bgm/click.wav 재생 (1초 듣기 컨텍스트 제외)
 document.addEventListener(
   "click",
   e => {
     const clickable = e.target.closest(
       "button, .btn, .header-btn, .option-chip, .apf-tab, .apf-tile, .apf-back-circle, .rank-chip, .pixel-list-item, .kakao-friend-row, .kakao-send-btn, .toggle-banner, .user-profile-trigger, .home-title-pill, .floating-sound-btn, .hint-btn, .auth-check-label"
     );
-    if (clickable) {
+    if (clickable && !shouldSuppressClickSfx(clickable)) {
       playClickSfx();
     }
   },
@@ -543,6 +634,7 @@ function updateBgmForScreen(screenId) {
 document.addEventListener(
   "pointerdown",
   () => {
+    unlockQuizAudio();
     if (!bgmState.muted && bgmState.currentType !== "none") {
       const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
       if (targetAudio.paused) {
@@ -813,6 +905,7 @@ function syncDecadeChips() {
 // ============================================================================
 window.startGame = function () {
   stopAudio();
+  unlockQuizAudio();
   const candidates = getFilteredQuestions();
   if (candidates.length === 0) {
     gameAlert("선택한 조건에 해당하는 문제가 없습니다.");
@@ -844,7 +937,9 @@ function loadCurrentQuestion() {
   state.questionEnded = false;
   state.oneSecOffsetIndex = 0;
 
-  fetchItunesTrack(q);
+  if (state.mode !== "onesec") {
+    fetchItunesTrack(q);
+  }
 
   const modeNames = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" };
   const stageNames = { 1: "1단계·노래", 2: "2단계·가수", 3: "3단계·모두" };
@@ -894,7 +989,7 @@ function loadCurrentQuestion() {
     qTypeTag.textContent = "⚡ 1초 듣고 맞히기";
     qContent.classList.add("hidden");
     oneSecBox.classList.remove("hidden");
-    document.getElementById("audioStatusText").textContent = "아래 [▶ 1초 듣기] 버튼을 눌러주세요!";
+    playAudioSnippet(1.0, 6, q, null, null, { isAutoPlay: true });
   }
 
   const btnLetter = document.getElementById("hintLetterBtn");

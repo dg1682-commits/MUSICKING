@@ -2245,6 +2245,7 @@ function renderBattleRoomState(room) {
   const isHost = room.host_id === userState.id;
 
   if (room.status === "waiting") {
+    plazaState.lastRenderedQIndex = null;
     if (startBtn) startBtn.classList.toggle("hidden", !isHost);
     if (waitBanner) waitBanner.classList.toggle("hidden", isHost);
     if (typeof state !== "undefined" && state.currentScreen === "battlePlayScreen") {
@@ -2273,6 +2274,8 @@ function renderBattlePlayScreen(room) {
 
   const prevIdx = plazaState.lastRenderedQIndex;
   const roundChanged = prevIdx !== null && prevIdx !== curIdx;
+  const shouldAutoPlayOneSec =
+    room.status === "playing" && mode === "onesec" && (prevIdx === null || roundChanged);
   if (roundChanged || (prevIdx === null && room.status === "playing")) {
     const aInp = document.getElementById("battleArtistInput");
     const tInp = document.getElementById("battleTitleInput");
@@ -2314,6 +2317,7 @@ function renderBattlePlayScreen(room) {
   const titleGroup = document.getElementById("battleTitleInputGroup");
 
   if (room.status === "finished") {
+    if (typeof stopAudio === "function") stopAudio();
     if (inputBox) inputBox.classList.add("hidden");
     if (finishedBox) finishedBox.classList.remove("hidden");
     if (oneSecBox) oneSecBox.classList.add("hidden");
@@ -2439,11 +2443,13 @@ function renderBattlePlayScreen(room) {
     document.getElementById("battlePlayTypeTag").textContent = "⚡ STUDIO LIVE · 1초 듣기";
     qTextEl.classList.add("hidden");
     oneSecBox.classList.remove("hidden");
-    document.getElementById("battleAudioStatusText").textContent = "▶ 버튼을 눌러 1초 음원을 들어보세요!";
+    if (shouldAutoPlayOneSec) {
+      playOnlineBattleAudio(0, true);
+    }
   }
 }
 
-window.playOnlineBattleAudio = function (offsetIdx = 0) {
+window.playOnlineBattleAudio = function (offsetIdx = 0, isAutoPlay = false) {
   const room = plazaState.currentRoom;
   if (!room) return;
   const qId = (room.question_ids || [])[room.current_q_index || 0];
@@ -2454,7 +2460,8 @@ window.playOnlineBattleAudio = function (offsetIdx = 0) {
       offsetIdx === 1 ? 15 : 6,
       q,
       document.getElementById("battleVinylDisc"),
-      document.getElementById("battleAudioStatusText")
+      document.getElementById("battleAudioStatusText"),
+      { isAutoPlay: Boolean(isAutoPlay) }
     );
   }
 };
@@ -2462,6 +2469,7 @@ window.playOnlineBattleAudio = function (offsetIdx = 0) {
 window.hostStartOnlineBattle = async function () {
   const room = plazaState.currentRoom;
   if (!room) return;
+  if (typeof unlockQuizAudio === "function") unlockQuizAudio();
   const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
   let pool = cfg.decade && cfg.decade !== "ALL" ? QUESTIONS_DB.filter(q => q.decade === cfg.decade) : QUESTIONS_DB;
   if (pool.length < 10) pool = QUESTIONS_DB;

@@ -16,7 +16,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.13" />
+  <link rel="stylesheet" href="style.css?v=10.14" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -317,6 +317,7 @@
             <button class="btn btn-primary" onclick="playOneSecMain()">▶ 1초 듣기</button>
             <button class="btn" onclick="playOneSecAltOffset()">🔄 다른 구간 1초</button>
           </div>
+          <p class="itunes-source-credit">Audio preview provided courtesy of iTunes · Apple Music</p>
         </div>
       </div>
 
@@ -498,6 +499,7 @@
             <button class="btn btn-primary" onclick="playOnlineBattleAudio(0)">▶ 1초 듣기</button>
             <button class="btn" onclick="playOnlineBattleAudio(1)">🔄 다른 구간</button>
           </div>
+          <p class="itunes-source-credit">Audio preview provided courtesy of iTunes · Apple Music</p>
         </div>
       </div>
 
@@ -811,6 +813,13 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎧 v10.14 1초 듣기 자동재생 & 클릭음 충돌 방지</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>1초 듣기 자동재생 지원</strong>: 싱글 플레이 및 온라인 대전 <code>1초 듣기</code> 라운드 진입 시 음원이 자동 재생되며, 기존 <code>▶ 1초 듣기</code>·<code>🔄 다른 구간</code> 다시 듣기도 그대로 사용 가능</li>
+          <li><strong>1초 듣기 전용 클릭음 분리</strong>: <code>1초 듣기</code> 진행 중에는 버튼 클릭 효과음(<code>click.wav</code>)을 끄고 음원 재생과 충돌 없이 깔끔하게 재생</li>
+          <li><strong>음원 출처 표기</strong>: 1초 듣기 하단에 Apple Music / iTunes 공식 미리듣기 출처 문구 표시</li>
+        </ul>
+
         <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🧹 v10.13 하단 메뉴 버튼 크기 개선 & 관리자 UI 정리</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
           <li><strong>하단 3단 버튼 상하 20% 확대</strong>: <code>상점·옷장</code>, <code>랭킹</code>, <code>친구·DM</code> 버튼 높이를 약 20% 키워 터치감 개선</li>
@@ -1094,10 +1103,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.13"></script>
-  <script src="pixel_avatar.js?v=10.13"></script>
-  <script src="online.js?v=10.13"></script>
-  <script src="app.js?v=10.13"></script>
+  <script src="data.js?v=10.14"></script>
+  <script src="pixel_avatar.js?v=10.14"></script>
+  <script src="online.js?v=10.14"></script>
+  <script src="app.js?v=10.14"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

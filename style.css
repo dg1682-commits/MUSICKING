@@ -1006,6 +1006,20 @@ body.keyboard-open .question-content {
 .vinyl-disc.spinning { animation: spin 1.1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+.itunes-source-credit {
+  margin-top: 7px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #64748b;
+  letter-spacing: 0.01em;
+  opacity: 0.88;
+}
+
+body.midi-play-theme .itunes-source-credit {
+  color: #94a3b8;
+}
+
 .hints-bar { display: flex; gap: 5px; flex-shrink: 0; }
 
 .hint-btn {
