@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.15" />
+  <link rel="stylesheet" href="style.css?v=10.16" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -49,6 +49,62 @@
       border-radius: 12px;
       background: #ffffff;
     }
+    .admin-tabs-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 720px) {
+      .admin-tabs-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .store-info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .store-info-card {
+      background: #f8fafc;
+      border: 2px solid var(--game-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .store-info-card h4 {
+      font-size: 0.92rem;
+      font-weight: 900;
+      color: var(--primary-dark);
+      margin-bottom: 8px;
+    }
+    .store-copy-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 7px 10px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .store-copy-meta {
+      flex: 1;
+      min-width: 210px;
+    }
+    .store-copy-label {
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #475569;
+    }
+    .store-copy-val {
+      font-family: monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #0f172a;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -67,7 +123,7 @@
     </header>
 
     <!-- 탭 메뉴 -->
-    <div class="option-grid cols-4" style="margin-bottom:14px;">
+    <div class="admin-tabs-grid">
       <div class="option-chip active" id="tabBtnSongs" onclick="switchAdminTab('songs')">
         <span class="chip-title">🎵 음악 리스트 관리</span>
       </div>
@@ -79,6 +135,9 @@
       </div>
       <div class="option-chip" id="tabBtnReports" onclick="switchAdminTab('reports')">
         <span class="chip-title">🚨 신고 내역 조회</span>
+      </div>
+      <div class="option-chip" id="tabBtnStore" onclick="switchAdminTab('store')">
+        <span class="chip-title">📦 스토어 출시 정보</span>
       </div>
     </div>
 
@@ -209,6 +268,99 @@
         </table>
       </div>
     </section>
+
+    <!-- ==================== 탭 5: 스토어 심사·출시 필수 제출 정보 ==================== -->
+    <section id="adminStoreSection" class="card hidden">
+      <div style="margin-bottom:12px;">
+        <h3 style="font-size:1rem;">📦 Google Play / App Store · PWABuilder 스토어 제출 정보</h3>
+        <p style="font-size:0.78rem; color:var(--text-sub);">콘솔 심사 제출 시 아래 URL·식별값·데이터 보안 문구를 [📋 복사] 버튼으로 바로 복사해 사용하세요.</p>
+      </div>
+
+      <div class="store-info-grid">
+        <div class="store-info-card">
+          <h4>1️⃣ 스토어 제출 및 PC 관리 필수 URL</h4>
+
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🌐 앱 메인(웹/TWA 시작) URL</div>
+              <div class="store-copy-val" id="storeUrlMain">https://dg1682-commits.github.io/MUSICKING/</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeUrlMain', '앱 메인 URL')">📋 복사</button>
+          </div>
+
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🔒 개인정보처리방침 URL (Play Console / App Store 필수)</div>
+              <div class="store-copy-val" id="storeUrlPrivacy">https://dg1682-commits.github.io/MUSICKING/?page=privacy</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeUrlPrivacy', '개인정보처리방침 URL')">📋 복사</button>
+          </div>
+
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🗑️ 웹 계정 삭제 요청 URL (Google Play 데이터 보안 필수)</div>
+              <div class="store-copy-val" id="storeUrlDelete">https://dg1682-commits.github.io/MUSICKING/?page=delete</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeUrlDelete', '계정 삭제 URL')">📋 복사</button>
+          </div>
+
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🛠️ PC용 관리자 백엔드 URL (먼저 메인에서 '관리자' 로그인 필요)</div>
+              <div class="store-copy-val" id="storeUrlAdmin">https://dg1682-commits.github.io/MUSICKING/admin.html</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeUrlAdmin', '관리자 페이지 URL')">📋 복사</button>
+          </div>
+
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🔗 Android Digital Asset Links 확인 URL</div>
+              <div class="store-copy-val" id="storeUrlAssetLinks">https://dg1682-commits.github.io/MUSICKING/.well-known/assetlinks.json</div>
+            </div>
+            <button type="button" class="btn" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeUrlAssetLinks', 'Asset Links URL')">📋 복사</button>
+          </div>
+        </div>
+
+        <div class="store-info-card">
+          <h4>2️⃣ Android / TWA 패키징 · 서명 식별 정보</h4>
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">📱 앱 이름 / 매니페스트 표기 (`manifest.json`)</div>
+              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v10.16)</div>
+            </div>
+            <button type="button" class="btn" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeAppName', '앱 이름')">📋 복사</button>
+          </div>
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">📦 Android 패키지명 (Package ID)</div>
+              <div class="store-copy-val" id="storePkgName">io.github.dg1682_commits.twa</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storePkgName', '패키지명')">📋 복사</button>
+          </div>
+          <div class="store-copy-row">
+            <div class="store-copy-meta">
+              <div class="store-copy-label">🔐 APK 서명 SHA-256 지문 (`assetlinks.json` 등록됨)</div>
+              <div class="store-copy-val" id="storeSha256">9C:BB:08:16:F2:E7:CC:3F:37:64:47:13:50:4A:8E:F4:44:CA:C2:BB:94:94:E0:D7:C5:DF:7C:01:CC:6C:30:27</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeSha256', 'SHA-256 지문')">📋 복사</button>
+          </div>
+        </div>
+
+        <div class="store-info-card">
+          <h4>3️⃣ 스토어 데이터 보안 · UGC 정책 · 외부 API 심사 체크리스트</h4>
+          <ul style="padding-left:18px; font-size:0.8rem; line-height:1.65; color:var(--text-main);">
+            <li><strong>수집 데이터 항목 (개인정보처리방침)</strong>: 닉네임, 게임 플레이 기록(점수·랭킹), 유저 간 채팅 내역 (전송 구간 HTTPS 암호화 / 제3자 미제공)</li>
+            <li><strong>계정·데이터 삭제 경로</strong>: 인게임 <code>[내 프로필 ➔ ⚠️ 회원탈퇴]</code>, <code>[⚙️ 설정 ➔ ⚠️ 회원탈퇴]</code> 및 웹 외부 URL(<code>?page=delete</code>)에서 본인 확인 후 즉시 파기(<code>delete_my_account</code> RPC)</li>
+            <li><strong>유저 생성 콘텐츠(UGC) 안전 장치</strong>: 타 유저 프로필 및 1:1 DM 채팅방 <code>[🚨 신고/차단]</code> ➔ <code>user_reports</code> 서버 저장 + 차단 목록 즉시 숨김·해제 제공</li>
+            <li><strong>음원 출처 & 제휴 광고 고지</strong>: 1초 듣기 플레이어 하단 <code>Audio preview provided courtesy of iTunes · Apple Music</code> 표기 / 홈 하단 쿠팡 파트너스(ID <code>1051148</code>) 대가성 안내문 표기</li>
+            <li><strong>심사관 테스트 계정 팁</strong>: Google Play / Apple 심사 제출 시 일반 테스트 계정(닉네임·비밀번호)을 1개 미리 가입해 두고 심사 메모에 적어 제출하세요. <em>(개발/운영용 <code>"관리자"</code> 계정 비번은 제출 금지)</em></li>
+          </ul>
+          <div style="margin-top:8px;">
+            <button type="button" class="btn btn-gold" onclick="copyPrivacyPolicyTemplate()" style="font-size:0.78rem; padding:6px 12px;">📋 개인정보처리방침 전문 복사</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- ==================== [모달] 음악 문제 상세 수정/추가 ==================== -->
@@ -323,9 +475,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.15"></script>
-  <script src="pixel_avatar.js?v=10.15"></script>
-  <script src="online.js?v=10.15"></script>
+  <script src="data.js?v=10.16"></script>
+  <script src="pixel_avatar.js?v=10.16"></script>
+  <script src="online.js?v=10.16"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -422,13 +574,42 @@
       document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
       document.getElementById("tabBtnUsers").classList.toggle("active", tab === "users");
       document.getElementById("tabBtnReports").classList.toggle("active", tab === "reports");
+      document.getElementById("tabBtnStore").classList.toggle("active", tab === "store");
 
       document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
       document.getElementById("adminItemsSection").classList.toggle("hidden", tab !== "items");
       document.getElementById("adminUsersSection").classList.toggle("hidden", tab !== "users");
       document.getElementById("adminReportsSection").classList.toggle("hidden", tab !== "reports");
+      document.getElementById("adminStoreSection").classList.toggle("hidden", tab !== "store");
       if (tab === "reports") loadAdminReports();
     }
+
+    window.copyStoreText = async function (elId, label) {
+      const txt = document.getElementById(elId)?.textContent?.trim() || "";
+      if (!txt) return;
+      try {
+        await navigator.clipboard.writeText(txt);
+        gameAlert(`📋 [${label}] 복사 완료:\n${txt}`);
+      } catch (e) {
+        gameAlert(`복사 권한이 없습니다. 직접 드래그해 복사해 주세요:\n${txt}`);
+      }
+    };
+
+    window.copyPrivacyPolicyTemplate = async function () {
+      const text = [
+        "[음악왕 개인정보처리방침]",
+        "- 수집하는 개인정보 항목: 닉네임, 게임 플레이 기록, 유저 간 채팅 내역",
+        "- 수집 및 이용 목적: 게임 랭킹 운영, 원활한 서비스 제공 및 불량 이용자 제재",
+        "- 보유 및 이용 기간: 회원의 '계정 탈퇴' 시 즉시 파기합니다.",
+        "- 제3자 제공: 유저의 동의 없이 외부 제3자에게 제공하지 않습니다."
+      ].join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        gameAlert("📋 [음악왕 개인정보처리방침] 전문이 클립보드에 복사되었습니다!");
+      } catch (e) {
+        gameAlert("클립보드 복사 권한이 없어 복사할 수 없습니다.");
+      }
+    };
 
     // ==================== 1. 음악 리스트 렌더링 & 더블클릭 수정 ====================
     function renderAdminSongsTable() {

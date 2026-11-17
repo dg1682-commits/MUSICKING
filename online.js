@@ -196,7 +196,8 @@ const plazaState = {
   myRoomX: 130,
   myRoomChat: "",
   myRoomChatExpire: 0,
-  roomAnimFrame: null
+  roomAnimFrame: null,
+  roomFilter: "ALL"
 };
 
 window.selectSignupGender = function (gender) {
@@ -413,10 +414,46 @@ function applyServerSongsOverride(serverSongs) {
   if (typeof updateLobbyCounts === "function") updateLobbyCounts();
 }
 
+function getRequestedLegalAction() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const page = (params.get("page") || params.get("action") || "").toLowerCase();
+    const hash = (window.location.hash || "").toLowerCase();
+    if (page === "privacy" || hash === "#privacy") return "privacy";
+    if (page === "delete" || hash === "#delete" || hash === "#delete-account") return "delete";
+  } catch (e) {}
+  return "";
+}
+
+window.openPrivacyPolicyModal = function () {
+  if (typeof openModal === "function") openModal("privacyPolicyModal");
+};
+
+window.openExternalDeleteAccountModal = function () {
+  const nickInput = document.getElementById("extDeleteNickInput");
+  const pwInput = document.getElementById("extDeletePwInput");
+  const authNick = document.getElementById("authNicknameInput")?.value?.trim() || "";
+  if (nickInput) {
+    nickInput.value = (userState.isLoggedIn ? userState.nickname : authNick) || localStorage.getItem("mk_saved_nick") || "";
+  }
+  if (pwInput) pwInput.value = "";
+  if (typeof openModal === "function") openModal("externalDeleteModal");
+};
+
 async function restoreSupabaseSession() {
   await loadServerGlobalConfigs();
-  if (!sbClient) return;
+  const reqAction = getRequestedLegalAction();
+  if (reqAction === "delete") {
+    openExternalDeleteAccountModal();
+    return;
+  }
+
+  if (!sbClient) {
+    if (reqAction === "privacy") openPrivacyPolicyModal();
+    return;
+  }
   if (localStorage.getItem("mk_auto_login") === "false") {
+    if (reqAction === "privacy") openPrivacyPolicyModal();
     return;
   }
   try {
@@ -450,6 +487,10 @@ async function restoreSupabaseSession() {
       }
     }
   } catch (e) {}
+
+  if (reqAction === "privacy") {
+    openPrivacyPolicyModal();
+  }
 }
 
 async function addCdCoins(amount) {
@@ -615,6 +656,44 @@ window.handleLogout = async function () {
   }, "🚪 로그아웃");
 };
 
+async function finalizeAccountDeletionSession(targetUid, targetNick) {
+  try {
+    await sbClient.auth.signOut();
+  } catch (e) {}
+
+  try {
+    if (targetUid) {
+      localStorage.removeItem(getBlockedStorageKey(targetUid));
+      localStorage.removeItem(`mk_dm_seen_map_${targetUid}`);
+    }
+    if (targetNick && localStorage.getItem("mk_saved_nick") === targetNick) {
+      localStorage.removeItem("mk_saved_nick");
+    }
+  } catch (e) {}
+
+  userState.id = null;
+  userState.isLoggedIn = false;
+  userState.nickname = "게스트도전자";
+  userState.bio = "안녕하세요! 음악왕 도전자입니다.";
+  userState.cdCoins = 100;
+  userState.exp = 0;
+  userState.claimedTopRanks = {};
+  userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
+  userState.blockedUsers = [];
+  userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
+  userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
+
+  const nickInput = document.getElementById("authNicknameInput");
+  const pwInput = document.getElementById("authPasswordInput");
+  if (nickInput && nickInput.value.trim() === targetNick) nickInput.value = "";
+  if (pwInput) pwInput.value = "";
+
+  if (typeof closeAllModals === "function") closeAllModals();
+  if (typeof showLoginScreen === "function") showLoginScreen({ replaceHistory: true });
+  if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
+  if (typeof initAuthPreferences === "function") initAuthPreferences();
+}
+
 window.handleDeleteAccount = function () {
   if (!userState.isLoggedIn || !userState.id || !sbClient) {
     gameAlert("로그인 상태에서만 회원탈퇴를 진행할 수 있습니다.");
@@ -648,42 +727,63 @@ window.handleDeleteAccount = function () {
         return;
       }
 
-      try {
-        await sbClient.auth.signOut();
-      } catch (e) {}
-
-      try {
-        localStorage.removeItem(getBlockedStorageKey(targetUid));
-        localStorage.removeItem(`mk_dm_seen_map_${targetUid}`);
-        if (localStorage.getItem("mk_saved_nick") === targetNick) {
-          localStorage.removeItem("mk_saved_nick");
-        }
-      } catch (e) {}
-
-      userState.id = null;
-      userState.isLoggedIn = false;
-      userState.nickname = "게스트도전자";
-      userState.bio = "안녕하세요! 음악왕 도전자입니다.";
-      userState.cdCoins = 100;
-      userState.exp = 0;
-      userState.claimedTopRanks = {};
-      userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
-      userState.blockedUsers = [];
-      userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
-      userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
-
-      const nickInput = document.getElementById("authNicknameInput");
-      const pwInput = document.getElementById("authPasswordInput");
-      if (nickInput && nickInput.value.trim() === targetNick) nickInput.value = "";
-      if (pwInput) pwInput.value = "";
-
-      closeAllModals();
-      showLoginScreen({ replaceHistory: true });
-      if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
-      if (typeof initAuthPreferences === "function") initAuthPreferences();
+      await finalizeAccountDeletionSession(targetUid, targetNick);
       gameAlert("회원탈퇴가 완료되었으며 모든 계정 및 게임 데이터가 영구 삭제되었습니다.", "👋 회원탈퇴 완료");
     },
     "⚠️ 회원탈퇴 (영구 삭제)"
+  );
+};
+
+window.submitExternalDeleteAccount = function () {
+  const nick = document.getElementById("extDeleteNickInput")?.value?.trim() || "";
+  const pw = document.getElementById("extDeletePwInput")?.value?.trim() || "";
+
+  if (!nick || nick.length < 2) {
+    gameAlert("삭제할 계정의 닉네임을 2글자 이상 입력해주세요.");
+    return;
+  }
+  if (!pw || pw.length < 6) {
+    gameAlert("본인 확인을 위해 비밀번호 6자리 이상을 입력해주세요.");
+    return;
+  }
+  if (!sbClient) {
+    gameAlert("서버 연결을 초기화할 수 없습니다.");
+    return;
+  }
+
+  gameConfirm(
+    `[${nick}] 계정을 영구 삭제하시겠습니까?\n본인 확인 후 캐릭터·CD·랭킹·친구·DM 및 로그인 계정이 즉시 파기되며 복구할 수 없습니다.`,
+    async () => {
+      if (typeof stopAllAppAudio === "function") stopAllAppAudio(false);
+      if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
+      if (typeof stopDmRealtime === "function") stopDmRealtime();
+
+      try {
+        const email = nicknameToEmail(nick);
+        const { data: authData, error: signInErr } = await sbClient.auth.signInWithPassword({
+          email,
+          password: pw
+        });
+        if (signInErr || !authData?.user) {
+          gameAlert("닉네임 또는 비밀번호가 일치하지 않습니다.\n본인 계정의 정보를 정확히 입력해주세요.");
+          return;
+        }
+
+        const verifiedUid = authData.user.id;
+        const { error: delErr } = await sbClient.rpc("delete_my_account");
+        if (delErr) {
+          await sbClient.auth.signOut().catch(() => {});
+          gameAlert(`계정 삭제 처리 중 오류가 발생했습니다.\n(${delErr.message || "서버 오류"})`);
+          return;
+        }
+
+        await finalizeAccountDeletionSession(verifiedUid, nick);
+        gameAlert(`[${nick}] 계정 및 모든 서버 데이터가 영구 삭제되었습니다.`, "👋 계정 삭제 완료");
+      } catch (err) {
+        gameAlert("계정 삭제 요청 중 네트워크 오류가 발생했습니다.");
+      }
+    },
+    "⚠️ 외부 계정 영구 삭제 확인"
   );
 };
 
@@ -2027,8 +2127,31 @@ window.sendDirectMessage = async function () {
 // ============================================================================
 // 6. 대기실 로비 (방 목록 + 접속 유저 아이콘 리스트) vs 방 내부 (맵 캐릭터 + 방 채팅 + 방 삭제)
 // ============================================================================
+function syncPlazaRoomFilterUI() {
+  const filter = plazaState.roomFilter || "ALL";
+  document.querySelectorAll("[data-plaza-filter]").forEach(el => {
+    el.classList.toggle("active", el.getAttribute("data-plaza-filter") === filter);
+  });
+  const labelEl = document.getElementById("plazaRoomListLabel");
+  if (labelEl) {
+    labelEl.textContent =
+      filter === "1v1"
+        ? "⚡ 입장 가능한 1:1 대전 방 목록"
+        : filter === "4p"
+        ? "🏆 입장 가능한 4인 대전 방 목록"
+        : "⚔️ 입장 가능한 대전 방 목록";
+  }
+}
+
+window.setPlazaRoomFilter = function (filterType = "ALL") {
+  plazaState.roomFilter = ["1v1", "4p", "ALL"].includes(filterType) ? filterType : "ALL";
+  syncPlazaRoomFilterUI();
+  refreshRoomsList();
+};
+
 window.enterPlazaScreen = async function () {
   switchScreen("plazaScreen");
+  syncPlazaRoomFilterUI();
   await refreshRoomsList();
   renderLobbyOnlineUsers();
 
@@ -2131,11 +2254,17 @@ window.refreshRoomsList = async function () {
     .order("created_at", { ascending: false })
     .limit(15);
 
-  // 인원이 0명인 유령 방이 있으면 자동 정리
-  const validRooms = (rooms || []).filter(r => Array.isArray(r.players) && r.players.length > 0);
+  // 인원이 0명인 유령 방 제외 + 선택된 1:1 / 4인 모드 필터 적용
+  const filter = plazaState.roomFilter || "ALL";
+  const validRooms = (rooms || []).filter(r => {
+    if (!Array.isArray(r.players) || r.players.length === 0) return false;
+    if (filter !== "ALL" && r.room_type !== filter) return false;
+    return true;
+  });
 
   if (validRooms.length === 0) {
-    box.innerHTML = `<div style="text-align:center; padding:22px; color:var(--text-sub); font-size:0.84rem;">현재 생성된 대기 방이 없습니다.<br/>하단 <strong>[방 만들기]</strong> 버튼으로 새 방을 열어보세요!</div>`;
+    const modeEmptyLabel = filter === "1v1" ? "1:1" : filter === "4p" ? "4인" : "대기 중인";
+    box.innerHTML = `<div style="text-align:center; padding:22px; color:var(--text-sub); font-size:0.84rem;">현재 ${modeEmptyLabel} 방이 없습니다.<br/>하단 <strong>[방 만들기]</strong> 버튼으로 새 방을 열어보세요!</div>`;
     return;
   }
 
@@ -2716,19 +2845,19 @@ function renderBattlePlayScreen(room) {
   }
 
   if (mode === "behind") {
-    document.getElementById("battlePlayTypeTag").textContent = "🎹 STUDIO LIVE · 비하인드 퀴즈";
+    document.getElementById("battlePlayTypeTag").textContent = "🎹 음악왕 라이브 · 비하인드 퀴즈";
     qTextEl.className = "question-content";
     qTextEl.textContent = q.behindQuestion;
     qTextEl.classList.remove("hidden");
     oneSecBox.classList.add("hidden");
   } else if (mode === "lyrics") {
-    document.getElementById("battlePlayTypeTag").textContent = "🎶 STUDIO LIVE · 하이라이트 가사";
+    document.getElementById("battlePlayTypeTag").textContent = "🎶 음악왕 라이브 · 하이라이트 가사";
     qTextEl.className = "question-content lyrics-style";
     qTextEl.innerHTML = `" ${q.lyricsQuestion.replace(/\//g, "<br>")} "`;
     qTextEl.classList.remove("hidden");
     oneSecBox.classList.add("hidden");
   } else {
-    document.getElementById("battlePlayTypeTag").textContent = "⚡ STUDIO LIVE · 1초 듣기";
+    document.getElementById("battlePlayTypeTag").textContent = "⚡ 음악왕 라이브 · 1초 듣기";
     qTextEl.classList.add("hidden");
     oneSecBox.classList.remove("hidden");
     if (shouldAutoPlayOneSec) {

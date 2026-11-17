@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.15`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.16`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 대한민국 음악왕 (`MUSIC KING · K-POP QUIZ & ARENA`)
-- **현재 버전**: **v10.15** (`SHOP_CATALOG_VERSION = 11`)
+- **앱 이름**: 음악왕 (`v10.16`)
+- **현재 버전**: **v10.16** (`SHOP_CATALOG_VERSION = 11`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -19,13 +19,13 @@
 
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
-| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (13개 전체화면 `<section>`/`<main>` + 13개 모달) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
-| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (메인 가로 알약 도크·정사각형 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
+| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (13개 전체화면 `<section>`/`<main>` + 16개 모달, 개인정보/외부탈퇴 URL 라우팅 지원) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
+| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (싱글·멀티 분할 도크·정사각형 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v11), 캐릭터·배경·정밀 악기·도트 로고 캔버스 렌더러 | `online.js`, `app.js`보다 **반드시 먼저** 로드 |
-| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·탈퇴 RPC `delete_my_account`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매, 1:1/4인 대결 전적·승률 프로필, 카톡 친구/1:1 DM, 전역 DM 알림, 멀티 대기실·방·전용 플레이·패스·5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
-| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진, iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM/클릭 효과음(`click.wav`), 백그라운드 음소거(`visibilitychange`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어, 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
-| [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
+| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
+| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진(랜덤 플레이 `startRandomGame` 포함), iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM/클릭 효과음(`click.wav`), 백그라운드 음소거(`visibilitychange`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어, 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
+| [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**, **`📦 스토어 출시 정보`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
 | [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
 | [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 |
 | [.nojekyll](file:///c:/Users/user1/Desktop/개발/음악왕/.nojekyll) | GitHub Pages Jekyll 비활성화 (`.well-known` 폴더 404 방지) | 절대 삭제 금지 *(GitHub 웹 업로드 시 주의!)* |
@@ -56,7 +56,7 @@
 1. **`profiles`**
    - 컬럼: `id` (uuid, auth.users.id), `nickname`, `bio`, `cd_coins`, `avatar_config` (jsonb), `owned_items` (jsonb), `updated_at`
    - **⚠️ 중요 — EXP · 랭킹 달성 · 대전 전적 · 차단 목록 무중단 저장 방식**:
-     - DB 테이블에 별도 컬럼을 추가하지 않고 에러 없이 저장하기 위해 **`avatar_config` JSONB 내부에 다음 메타 필드를 함께 저장**합니다 ([syncProfileToServer](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L455-L478)):
+     - DB 테이블에 별도 컬럼을 추가하지 않고 에러 없이 저장하기 위해 **`avatar_config` JSONB 내부에 다음 메타 필드를 함께 저장**합니다 ([syncProfileToServer](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L502-L523)):
        - `_exp`: 누적 경험치 (`number`)
        - `_claimedTopRanks`: `{ "behind_1": 1, ... }` 형태로 `(mode_stage)`별 보너스를 수령한 최고 순위
        - `_battleStats`: `{ "1v1": { wins, losses }, "4p": { wins, losses } }` 온라인 대전 전적·승률
@@ -70,7 +70,7 @@
 
 2. **`rankings`**
    - 컬럼: `user_id`, `nickname`, `avatar_config`, `decade_filter`, `game_mode` (`behind` | `lyrics` | `onesec`), `stage` (`1` | `2` | `3`), `question_limit`, `time_attack`, `score`, `accuracy`
-   - 랭킹 화면 조회는 `limit(400)`을 받아 `dedupeRankingRows()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L782-L877))로 차단 유저 제외 및 **유저(`user_id || nickname`)당 최고점 1건만 추출해 최대 TOP 20**을 노출합니다(전체 모드/개별 모드·단계 모두 동일, 프로필 순위 계산 `computeUserUniqueRank` 포함).
+   - **랭킹 & 프로필 저장**: `dedupeRankingRows()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L882-L977)), `syncProfileToServer()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L502-L523)), **`delete_my_account()` RPC** ([handleDeleteAccount / submitExternalDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L697-L788)) — 로그인 하단 `?page=privacy` / `?page=delete` 딥링크 라우팅 포함([getRequestedLegalAction](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L417-L441))
 
 3. **`friendships`**
    - 컬럼: `id`, `requester_id`, `receiver_id`, `status` (`pending` | `accepted`)
@@ -87,21 +87,21 @@
    - **방 자동 삭제**: `leaveBattleRoom()` 시 남은 인원이 `0명`이면 즉시 `rooms` 테이블에서 해당 방을 삭제(`delete`)합니다.
 
 6. **`user_reports` (신고 내역) & RPC `delete_my_account()` (회원탈퇴)**
-   - **`user_reports`**: `id`, `reporter_id`, `target_id`, `target_nickname`, `reason`, `created_at` (일반 로그인 유저 `INSERT` 허용 + 닉네임 `"관리자"` 계정만 `SELECT` 허용하는 RLS 정책 적용 — [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L189-L210) 4번째 탭에서 바로 조회 가능)
-   - **`delete_my_account()` RPC (`SECURITY DEFINER`)**: 로그인 본인(`auth.uid()`)의 `direct_messages`, `friendships`, `rankings`, `rooms`, `profiles` 및 `auth.users`까지 서버 측에서 일괄 완전 삭제하므로 탈퇴 후 동일 닉네임 재가입 가능([handleDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L618-L688)).
+   - **`user_reports`**: `id`, `reporter_id`, `target_id`, `target_nickname`, `reason`, `created_at` (일반 로그인 유저 `INSERT` 허용 + 닉네임 `"관리자"` 계정만 `SELECT` 허용하는 RLS 정책 적용 — [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L248-L260) 4번째 탭에서 바로 조회 가능)
+   - **`delete_my_account()` RPC (`SECURITY DEFINER`)**: 로그인 본인(`auth.uid()`)의 `direct_messages`, `friendships`, `rankings`, `rooms`, `profiles` 및 `auth.users`까지 서버 측에서 일괄 완전 삭제하므로 탈퇴 후 동일 닉네임 재가입 가능([handleDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L697-L788)).
 
 ---
 
-## 4. 화면 구성 (13개 전체화면 + 14개 모달)
+## 4. 화면 구성 (13개 전체화면 + 주요 모달)
 
-`switchScreen(targetId, opts)`가 모든 화면 전환의 단일 진입점입니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L882-L950)).
+`switchScreen(targetId, opts)`가 모든 화면 전환의 단일 진입점입니다 ([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L887-L953)).
 
 | 화면 ID | 설명 | 상단 헤더 | BGM 상태 |
 | :--- | :--- | :---: | :--- |
-| `loginScreen` | 대형 3D 칼각 도트 `"음악왕"` 로고 + 아이디 저장/자동로그인 + 회원가입 시 성별 모달 | 숨김 | `main.mp3` |
-| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`1:1` 정사각형 파노라마 캐릭터(`560×560`, `240px`)·EXP 바·**하단 가로 알약 도크(`🚀 음악왕 도전` 62px + 3열 49~55px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 | `main.mp3` |
+| `loginScreen` | 대형 3D 칼각 도트 `"음악왕"` 로고 + 아이디 저장/자동로그인 + 회원가입 시 성별 모달 + 하단 `[개인정보처리방침]`·`[계정 탈퇴/삭제 요청]` 링크 | 숨김 | `main.mp3` |
+| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`1:1` 정사각형 파노라마 캐릭터(`560×560`, `240px`)·EXP 바·**하단 가로 알약 도크(`🎯 싱글 플레이` · `⚔️ 멀티 플레이` 2분할 62px + 3열 49~55px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 | `main.mp3` |
 | `shopScreen` | 액션퍼즐패밀리풍 7개 탭 상점 (입어보기 ➔ 단일/다중 선택 구매·장착 + 배경 실시간 미리보기 + 고스트 스크롤) | 숨김 | `shop.mp3` |
-| `setupScreen` | 싱글 게임 설정 (연대/모드/단계/문제수/타임어택/하드모드) | 표시 | `main.mp3` |
+| `setupScreen` | 싱글 게임 설정 (**최상단 `[🎲 랜덤 플레이]` 10문제 즉시 시작** + 연대/모드/단계/문제수/타임어택/하드모드) | 표시 | `main.mp3` |
 | `gameScreen` | 싱글 퀴즈 진행 (**전자 미디 다크 스튜디오 테마** 자동 적용) | 표시 | **정지(무음)** |
 | `judgeScreen` | 문제별 정/오답 해설 & 앨범 커버 & 10초 미리듣기 | 표시 | **정지(무음)** |
 | `resultScreen` | 최종 점수표 + 도전자 닉네임 + 이미지 캡처 공유 + 보상 정산 모달 | 표시 | **정지(무음)** |
@@ -112,10 +112,12 @@
 | `socialScreen` | 카카오톡 스타일 전체화면 친구 목록 + 친구 추가/요청 | 숨김 | `main.mp3` |
 | `dmChatScreen` | 카카오톡 스타일 전체화면 1:1 DM 채팅방 (노란/흰 말풍선 + 실시간) | 숨김 | `main.mp3` |
 
-### 주요 모달 (13개, + `admin.html` 전용 2개)
+### 주요 모달 (`index.html` 16개 + `admin.html` 3개)
 - `signupGenderModal`: 회원가입 버튼 클릭 시 뜨는 남/여 캐릭터 선택 모달 (성별 변경권 `10,000 CD` 안내 일치)
-- *(관리자 백엔드 전용)* [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) 내부에 **`songEditModal`** (1곡 직접 추가·더블클릭 수정) 및 **`mdImportModal`** (`.md` 파일 일괄 파싱·정답 마스킹·iTunes 음원 매칭 테스트·서버 일괄 반영) 탑재
-- `playModeSelectModal`: `[음악왕 도전]` 클릭 시 싱글 / 멀티(대기실) 선택
+- *(관리자 백엔드 전용)* [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) 내부에 **`songEditModal`**, **`mdImportModal`** 및 **`📦 스토어 출시 정보`** 탭(심사 제출 URL·패키지 ID·SHA-256·체크리스트) 탑재
+- `multiModeSelectModal`: 홈 `[⚔️ 멀티 플레이]` 클릭 시 **`⚡ 1:1 선착순 대결`** / **`🏆 4인 점수제 대결`** 선택 후 해당 필터 대기실(`#plazaScreen`)로 이동
+- `privacyPolicyModal` / `externalDeleteModal`: 로그인 하단 링크 및 `?page=privacy`, `?page=delete` URL로 바로 열리는 개인정보처리방침 & 웹 외부 본인인증 탈퇴 모달
+- `blockedUsersModal`: 환경설정 내 `[🚫 차단한 유저 목록 관리]` 차단 해제 모달
 - `profileModal`: 좌측 상단 투명 닉네임(최대 5자+`..`) 클릭 시 열리는 내 프로필·통산 전적·1:1/4인 승률·EXP
 - `userInspectModal`: 타 유저 프로필·통산 전적·1:1/4인 승률(내 프로필과 동일 UI, 친구면 `💬 DM 보내기` 전환)
 - `shopMultiBuyModal`: 여러 미구매 아이템을 동시에 입어본 뒤 구매할 때 뜨는 체크박스 선택 일괄 구매·총합 확인 모달
@@ -136,7 +138,7 @@
 - **싱글 정답 점수**: 기본 `+100점`, 3단계 `+20점` 추가, 타임어택(15초) ON 시 `×2배`, 힌트 사용 시(`글자수 -15`, `단어 -15`, `노래 -20`) 차감
 - **CD 보상**: 싱글 `Math.max(정답 > 0 ? 5 : 0, Math.floor(score / 10))`, 멀티 우승 `30 CD` / 참여 득점 `10 CD`
 - **기본 경험치(EXP)**: `Math.round(score * 0.1)` (싱글·멀티 공통)
-- **랭킹 TOP 3 1회성 보너스 & 폭죽 파티클** ([checkAndProcessGameRewards](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L583-L638)):
+- **랭킹 TOP 3 1회성 보너스 & 폭죽 파티클** ([checkAndProcessGameRewards](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L825-L880)):
   - 게임 종료 직후 해당 `(모드 + 단계)` 랭킹을 **유저별 최고 기록 기준**으로 집계하여, 내가 해당 순위(또는 더 높은 순위)에 **방금 처음으로 도달한 순간(1회)** 에만 발동합니다:
     - 🥇 **1위**: 기본 EXP **×5배** + 폭죽 파티클
     - 🥈 **2위**: 기본 EXP **×3배** + 폭죽 파티클
@@ -192,9 +194,9 @@
 - **`bgm/main.mp3`** (volume `0.22`, loop): `loginScreen`, `homeScreen`, `setupScreen`, `plazaScreen`, `battleRoomScreen`, `rankingScreen`, `socialScreen`, `dmChatScreen`에서 **이미 재생 중이면 끊기지 않고 계속 유지**됩니다.
 - **`bgm/shop.mp3`** (volume `0.22`, loop): `shopScreen` 전용 배경음
 - **무음 화면**: `gameScreen`, `judgeScreen`, `resultScreen`, `battlePlayScreen` 진입 시 두 BGM 모두 일시정지
-- **백그라운드/종료 시 완전 차단**: `visibilitychange`(`document.hidden === true`) 및 `pagehide`, 앱 종료(`performCleanAppExit()`) 시 모든 BGM·클릭음·미리듣기를 즉시 정지하며, 종료 시에는 리소스 해제 및 `#appExitedOverlay`로 덮어 좀비 BGM·로그인 회귀를 원천 차단합니다([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L225-L280), [L805-L819](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L805-L819)).
+- **백그라운드/종료 시 완전 차단**: `visibilitychange`(`document.hidden === true`) 및 `pagehide`, 앱 종료(`performCleanAppExit()`) 시 모든 BGM·클릭음·미리듣기를 즉시 정지하며, 종료 시에는 리소스 해제 및 `#appExitedOverlay`로 덮어 좀비 BGM·로그인 회귀를 원천 차단합니다([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L230-L285), [L810-L824](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L810-L824)).
 - **`bgm/click.wav`** (volume `0.45`, 4채널 라운드로빈 풀): 버튼·칩·타일·리스트 클릭 시 즉시 효과음 재생 *(단, 싱글/온라인 대전 **`1초 듣기`(`onesec`)** 시작·재도전·플레이·정답공개 전환 시에는 음원 충돌 방지를 위해 무음 처리, 타임어택 타이머는 그대로 유지)*
-- **`1초 듣기` 자동재생 · 결과표 미리듣기 · 출처 표기**: 싱글(`loadCurrentQuestion`, [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L1181-L1186)) 및 온라인 대전(`renderBattlePlayScreen`, [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L2561-L2562))의 `1초 듣기` 라운드 진입 시 `playAudioSnippet()`으로 자동재생(차단 시 팝업 없이 상태 안내 후 수동 재청취 가능)되며, 두 플레이어 하단에 iTunes/Apple Music 출처 문구(`.itunes-source-credit`)를 작게 표기합니다. 싱글 결과표(`#historyList`) 각 행에서도 `[▶ 듣기 / ⏹ 정지]` 토글(`toggleResultSongPreview`, [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L603-L650))로 앱 내 15초 하이라이트 재생이 가능합니다.
+- **`1초 듣기` 자동재생 · 결과표 미리듣기 · 출처 표기**: 싱글(`loadCurrentQuestion`, [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L1211-L1215)) 및 온라인 대전(`renderBattlePlayScreen`, [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L2860-L2865))의 `1초 듣기` 라운드 진입 시 `playAudioSnippet()`으로 자동재생(차단 시 팝업 없이 상태 안내 후 수동 재청취 가능)되며, 두 플레이어 하단에 iTunes/Apple Music 출처 문구(`.itunes-source-credit`)를 작게 표기합니다. 싱글 결과표(`#historyList`) 각 행에서도 `[▶ 듣기 / ⏹ 정지]` 토글(`toggleResultSongPreview`)로 앱 내 15초 하이라이트 재생이 가능합니다.
 - **음소거 토글**: `floatingSoundBtn` (`.app-shell` 내부, `loginScreen`, `homeScreen`, `rankingScreen`, `shopScreen`, `socialScreen` 노출 — `homeScreen`에서는 `.home-hero` 우측 하단 모서리 안쪽 위로 올려 쿠팡 배너와 터치가 겹치지 않도록 자동 정렬) 클릭 시 `localStorage` `mk_bgm_muted` 저장 및 BGM·클릭음 일괄 제어
 
 ---
@@ -232,19 +234,19 @@
 3. **모바일 키보드 올라올 때 허공 밀림 & 문제 찌그러짐 방지 규약**
    - `<meta name="viewport">`의 `interactive-widget=resizes-content` ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L5)) 유지
    - `html, body` 및 `.app-shell`의 `position: fixed` 유지 ([style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L67-L102))
-   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L87-L133))에서 **`shell.style.top = ${vv.offsetTop}px` 및 `shell.style.height = ${vv.height}px`** 동기화 유지
+   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L89-L135))에서 **`shell.style.top = ${vv.offsetTop}px` 및 `shell.style.height = ${vv.height}px`** 동기화 유지
    - **❌ 금지**: `document.activeElement.scrollIntoView()`를 전역으로 호출하면 안드로이드 웹뷰에서 화면 상단이 잘리고 하단에 초록색 빈 허공이 생기는 버그가 발생하므로 절대 재도입 금지!
    - **문제 카드 비압축**: `body.keyboard-open`일 때 `.question-card`가 납작해지지 않도록 `flex: 0 0 auto; min-height: 132px; max-height: none;` 및 `#gameScreen, #battlePlayScreen`의 `overflow-y: auto` + `touchmove` 화이트리스트를 유지하세요.
 
 4. **물리 뒤로가기 & `requestFullscreen()` 규약**
-   - 로그인 완료/자동로그인 시 `showHome({ replaceHistory: true })`로 로그인 화면 기록을 덮어쓰고, 사용자 터치 제스처가 확보되는 즉시 `armAppBackGuard()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L204-L359))가 단일 가드 엔트리(`{ mkRole: "app_guard" }`)를 유지해 **Chrome History Manipulation Intervention에 스킵되지 않고** `homeScreen` 뒤로가기 시 종료 확인 창을 띄웁니다. `[취소]` 시에만 가드를 재설정하며 `[확인]` 시 오디오 해제·종료 화면 오버레이·`window.close()`/`history.back()`으로 깔끔히 종료합니다.
+   - 로그인 완료/자동로그인 시 `showHome({ replaceHistory: true })`로 로그인 화면 기록을 덮어쓰고, 사용자 터치 제스처가 확보되는 즉시 `armAppBackGuard()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L209-L285))가 단일 가드 엔트리(`{ mkRole: "app_guard" }`)를 유지해 **Chrome History Manipulation Intervention에 스킵되지 않고** `homeScreen` 뒤로가기 시 종료 확인 창을 띄웁니다. `[취소]` 시에만 가드를 재설정하며 `[확인]` 시 오디오 해제·종료 화면 오버레이·`window.close()`/`history.back()`으로 깔끔히 종료합니다.
    - 화면/버튼을 터치할 때 자동으로 `requestFullscreen()`을 걸면 안드로이드 크롬/APK 하단에 `"전체 화면을 종료하려면 위에서 드래그..."` 시스템 토스트가 계속 뜹니다. APK/홈 화면 앱은 `assetlinks.json` + `manifest.json`만으로 원래 주소창이 없으므로 자동 풀스크린 코드는 넣지 마세요. (설정 메뉴 수동 전환만 유지)
 
 5. **관리자 페이지(`admin.html`) & MD 문제 일괄 추가 · 쿠팡 배너 주의사항**
    - 환경설정 내 백엔드 이동 버튼(`#settingsAdminMenuBtn`)은 `userState.nickname === "관리자"`일 때만 노출되며, `admin.html` 진입 시에도 세션 닉네임이 `"관리자"`가 아니면 메인으로 리다이렉트됩니다.
-   - MD 문제 일괄 추가 UI([admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L252-L282)) 및 파서([data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js#L3210-L3430))는 백엔드 페이지(`admin.html`) 내부에서만 접근 가능하며(메인 화면에는 버튼 없음), 기존 `1곡 직접 추가`와 구분되어 여러 곡 일괄 파싱·자동 마스킹·음원 매칭을 담당합니다.
-   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L124-L136)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L822-L832))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
-   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L835-L877))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리 안쪽 위(하단 버튼·배너 모두 비겹침)에 자동 정렬합니다.
+   - MD 문제 일괄 추가 버튼([admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L152)) UI 및 파서(`data.js`)는 백엔드 페이지(`admin.html`) 내부에서만 접근 가능하며(메인 화면에는 버튼 없음), 기존 `1곡 직접 추가`와 구분되어 여러 곡 일괄 파싱·자동 마스킹·음원 매칭을 담당합니다.
+   - **쿠팡 파트너스 배너(`#homeAdBannerSlot`, ID `1051148`)**: [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L134-146)에 `320×50` 캐러셀 배너와 공식 대가성 문구가 삽입되어 있으며, `relocateCoupangAdBanner()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L827-L837))가 다른 화면 노출을 방지합니다. 쿠팡 파트너스 계정 `[내 정보 ➔ 웹사이트 URL]`에 실제 배포 주소를 반드시 등록하고, 배너 클릭에 게임 보상(CD/EXP)을 연동하지 마세요.
+   - `homeScreen` 활성화 시(`body.on-home-screen`) `syncHomeCornerFloatingButtons()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L840-L882))가 `#floatingDmNotiBtn` 을 `.home-hero` 우측 상단 모서리(`?` 와 대칭)에, `#floatingSoundBtn` 을 `.home-hero` 우측 하단 모서리 안쪽 위(하단 버튼·배너 모두 비겹침)에 자동 정렬합니다.
 
 6. **보안·개발 환경 안내**
    - 회사/특정 작업 PC 정책에 따라 터미널(`run_command` / PowerShell) 실행이 제한된 환경에서는 파일 읽기/편집 도구(`read_file`, `edit_file`, `write_file`)만 사용해 작업할 수 있으며, 이 프로젝트는 빌드 과정이 없는 순수 HTML/CSS/JS 구조이므로 별도 터미널 없이도 모든 수정·유지보수가 가능합니다.

@@ -1,6 +1,6 @@
 {
   "id": "./",
-  "name": "대한민국 음악왕 - K-POP 퀴즈 & 온라인 대전",
+  "name": "음악왕",
   "short_name": "음악왕",
   "description": "1990s~2020s K-POP 비하인드·가사·1초 듣기 퀴즈 및 실시간 온라인 대전 게임",
   "start_url": "./index.html",

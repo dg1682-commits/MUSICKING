@@ -159,18 +159,23 @@ window.closeModal = function (id) {
   if (el) el.classList.add("hidden");
 };
 
-window.openPlayModeSelect = function () {
-  openModal("playModeSelectModal");
+window.openMultiModeSelect = function () {
+  openModal("multiModeSelectModal");
 };
 
 window.selectSinglePlay = function () {
-  closeModal("playModeSelectModal");
+  closeModal("multiModeSelectModal");
   showSetup();
 };
 
-window.selectMultiPlay = function () {
-  closeModal("playModeSelectModal");
-  enterPlazaScreen();
+window.selectMultiRoomMode = function (roomType = "ALL") {
+  closeModal("multiModeSelectModal");
+  if (typeof plazaState !== "undefined") {
+    plazaState.roomFilter = ["1v1", "4p", "ALL"].includes(roomType) ? roomType : "ALL";
+  }
+  if (typeof enterPlazaScreen === "function") {
+    enterPlazaScreen();
+  }
 };
 
 window.openRankingModal = function () {
@@ -267,7 +272,7 @@ function performCleanAppExit() {
     overlay.id = "appExitedOverlay";
     overlay.className = "app-exited-overlay";
     overlay.innerHTML =
-      `<div style="font-size:2.4rem;">👑</div><h2 style="font-size:1.18rem; font-weight:900;">대한민국 음악왕이 종료되었습니다</h2><p style="font-size:0.86rem; color:#94a3b8; line-height:1.5;">모든 사운드와 연결이 정지되었습니다.<br/>앱 또는 브라우저 창을 닫아주세요.</p>`;
+      `<div style="font-size:2.4rem;">👑</div><h2 style="font-size:1.18rem; font-weight:900;">음악왕이 종료되었습니다</h2><p style="font-size:0.86rem; color:#94a3b8; line-height:1.5;">모든 사운드와 연결이 정지되었습니다.<br/>앱 또는 브라우저 창을 닫아주세요.</p>`;
     document.body.appendChild(overlay);
   }
 
@@ -979,7 +984,6 @@ function initEvents() {
   safeOn("headerCdBtn", "click", openShopModal);
   safeOn("openPatchBtn", "click", () => openModal("patchNotesModal"));
   safeOn("openSettingsBtn", "click", () => openModal("settingsModal"));
-  safeOn("enterSetupBtn", "click", openPlayModeSelect);
   safeOn("setupBackHomeBtn", "click", showHome);
 
   safeOn("volumeSlider", "input", e => {
@@ -1073,7 +1077,7 @@ function initEvents() {
     }
   });
 
-  syncDecadeChips();
+  syncSetupOptionChips();
   updateLobbyCounts();
   window.closeAllModals();
   showLoginScreen();
@@ -1092,6 +1096,32 @@ function syncDecadeChips() {
     el.classList.toggle("active", state.decades.has(dec));
   });
 }
+
+function syncSetupOptionChips() {
+  syncDecadeChips();
+  document.querySelectorAll("[data-mode]").forEach(el => {
+    el.classList.toggle("active", el.getAttribute("data-mode") === state.mode);
+  });
+  document.querySelectorAll("[data-stage]").forEach(el => {
+    el.classList.toggle("active", Number(el.getAttribute("data-stage")) === state.stage);
+  });
+  document.querySelectorAll("[data-limit]").forEach(el => {
+    el.classList.toggle("active", el.getAttribute("data-limit") === String(state.questionLimit));
+  });
+}
+
+window.startRandomGame = function () {
+  unlockQuizAudio();
+  const modes = ["behind", "lyrics", "onesec"];
+  const stages = [1, 2, 3];
+  state.decades = new Set(["1990s", "2000s", "2010s", "2020s"]);
+  state.mode = modes[Math.floor(Math.random() * modes.length)];
+  state.stage = stages[Math.floor(Math.random() * stages.length)];
+  state.questionLimit = 10;
+  syncSetupOptionChips();
+  updateLobbyCounts();
+  startGame();
+};
 
 // ============================================================================
 // 게임 시작 및 진행
@@ -1645,7 +1675,7 @@ async function shareResultImage() {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: `[${userState?.nickname || "도전자"}] 대한민국 음악왕 결과`,
+            title: `[${userState?.nickname || "도전자"}] 음악왕 결과`,
             text: `[${userState?.nickname || "도전자"}] ${document.getElementById("finalScoreText").textContent}`,
             files: [file]
           });

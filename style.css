@@ -291,7 +291,7 @@ body.on-home-screen .app-shell {
   gap: 8px;
 }
 
-/* 메인 하단 가로 알약 도크 (위: 음악왕 도전 / 아래: 상점·랭킹·친구 3등분) */
+/* 메인 하단 가로 알약 도크 (위: 싱글 플레이 / 멀티 플레이 2분할 / 아래: 상점·랭킹·친구 3등분) */
 .home-action-dock {
   width: 100%;
   flex: 0 0 auto;
@@ -301,13 +301,21 @@ body.on-home-screen .app-shell {
   gap: 9px;
 }
 
+.home-challenge-split {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .home-challenge-pill-btn {
   width: 100%;
   height: clamp(54px, 7.2dvh, 62px);
-  padding: 0 16px;
+  padding: 0 10px;
   border-radius: 999px;
   border-width: 2.5px;
-  font-size: 1.12rem;
+  font-size: clamp(0.92rem, 3.9vw, 1.06rem);
+  white-space: nowrap;
   box-shadow: 0 4px 0 var(--game-border);
 }
 
@@ -2078,4 +2086,51 @@ body.on-home-screen .floating-top-btn.right-noti {
   text-align: center;
   padding: 24px;
   gap: 10px;
+}
+
+/* ==================== 로그인 하단 약관·탈퇴 링크 & 랜덤플레이 배너 ==================== */
+.auth-legal-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.auth-text-link {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth-text-link.danger {
+  color: #e11d48;
+}
+
+.random-play-banner-btn {
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1, #2563eb);
+  color: #ffffff;
+  border: 2.5px solid var(--game-border);
+  box-shadow: 0 3px 0 var(--game-border);
+}
+
+.plaza-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
