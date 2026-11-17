@@ -1288,6 +1288,9 @@ window.syncDmNotiBadgeUI = function () {
   const allowScreen = ["homeScreen", "setupScreen", "plazaScreen", "rankingScreen", "socialScreen"].includes(curScreen);
   btn.classList.toggle("hidden", !(userState.isLoggedIn && count > 0 && allowScreen));
   badge.textContent = count > 99 ? "99+" : String(count);
+  if (typeof syncHomeCornerFloatingButtons === "function") {
+    syncHomeCornerFloatingButtons();
+  }
 };
 
 window.refreshUnreadDmNotis = async function () {

@@ -497,6 +497,9 @@ function syncFloatingSoundBtn(screenId) {
   btn.classList.toggle("hidden", !showBtn);
   btn.textContent = bgmState.muted ? "🔇" : "🔊";
   btn.classList.toggle("is-muted", bgmState.muted);
+  if (typeof syncHomeCornerFloatingButtons === "function") {
+    syncHomeCornerFloatingButtons();
+  }
 }
 
 window.toggleBgmMute = function () {
@@ -564,6 +567,45 @@ function relocateCoupangAdBanner() {
   });
 }
 
+// 홈 화면에서 🔔(우측 상단) · 🔊(우측 하단) 버튼을 흰색 메인 카드(.home-hero) 모서리에 정밀 정렬
+window.syncHomeCornerFloatingButtons = function () {
+  const shell = document.querySelector(".app-shell");
+  const hero = document.querySelector("#homeScreen .home-hero");
+  const notiBtn = document.getElementById("floatingDmNotiBtn");
+  const soundBtn = document.getElementById("floatingSoundBtn");
+  if (!shell || (!notiBtn && !soundBtn)) return;
+
+  if (state.currentScreen !== "homeScreen" || !hero) {
+    if (notiBtn) {
+      notiBtn.style.top = "";
+      notiBtn.style.right = "";
+    }
+    if (soundBtn) {
+      soundBtn.style.top = "";
+      soundBtn.style.right = "";
+      soundBtn.style.bottom = "";
+    }
+    return;
+  }
+
+  const sRect = shell.getBoundingClientRect();
+  const hRect = hero.getBoundingClientRect();
+  if (hRect.width <= 0 || hRect.height <= 0) return;
+
+  // 좌상단 ? 버튼(top: 10px, left: 10px)과 완벽히 대칭되는 우상단 🔔 위치
+  if (notiBtn) {
+    notiBtn.style.top = `${Math.round(hRect.top - sRect.top + 13)}px`;
+    notiBtn.style.right = `${Math.round(sRect.right - hRect.right + 13)}px`;
+  }
+
+  // .home-hero 우측 하단 모서리(쿠팡 배너 위, 하단 버튼 아래)에 🔊 정렬
+  if (soundBtn) {
+    soundBtn.style.bottom = "auto";
+    soundBtn.style.top = `${Math.round(hRect.bottom - sRect.top - 29)}px`;
+    soundBtn.style.right = `${Math.round(sRect.right - hRect.right - 2)}px`;
+  }
+};
+
 // ============================================================================
 // 화면 전환
 // ============================================================================
@@ -624,9 +666,10 @@ window.switchScreen = function (targetId) {
 
   updateBgmForScreen(targetId);
 
-  // 숨겨져 있던 캔버스가 표시된 직후 실제 CSS 크기에 맞춘 1:1 정배율 렌더링 재호출!
+  // 숨겨져 있던 캔버스가 표시된 직후 실제 CSS 크기에 맞춘 1:1 정배율 렌더링 & 홈 모서리 버튼 정렬!
   requestAnimationFrame(() => {
     if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
+    syncHomeCornerFloatingButtons();
   });
 };
 
@@ -1335,7 +1378,10 @@ window.addEventListener("resize", () => {
   if (["homeScreen", "loginScreen"].includes(state.currentScreen) && typeof updateHeaderUserUI === "function") {
     updateHeaderUserUI();
   }
+  syncHomeCornerFloatingButtons();
 });
+
+window.addEventListener("load", syncHomeCornerFloatingButtons);
 
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();
