@@ -114,6 +114,7 @@ const userState = {
   claimedTopRanks: {},
   battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS),
   blockedUsers: [],
+  fishingDaily: null,
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
@@ -185,6 +186,9 @@ const shopPreviewState = {
 let pendingSignupGender = "male";
 
 function resetUserStateToFreshDefaults() {
+  if (typeof cleanupFishingRuntime === "function") {
+    try { cleanupFishingRuntime(false); } catch (e) {}
+  }
   userState.id = null;
   userState.nickname = "게스트도전자";
   userState.bio = "안녕하세요! 음악왕 도전자입니다.";
@@ -193,6 +197,7 @@ function resetUserStateToFreshDefaults() {
   userState.claimedTopRanks = {};
   userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
   userState.blockedUsers = [];
+  userState.fishingDaily = null;
   userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
   userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
   userState.isLoggedIn = false;
@@ -497,6 +502,10 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
   userState.exp = Number(rawCfg._exp) || 0;
   userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
   userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
+  userState.fishingDaily =
+    rawCfg._fishingDaily && typeof rawCfg._fishingDaily === "object"
+      ? { ...rawCfg._fishingDaily }
+      : null;
   userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
   userState.ownedItems = Array.isArray(prof?.owned_items)
     ? [...prof.owned_items]
@@ -562,7 +571,8 @@ async function syncProfileToServer() {
       _exp: userState.exp,
       _claimedTopRanks: userState.claimedTopRanks || {},
       _battleStats: normalizeBattleStats(userState.battleStats),
-      _blockedUsers: userState.blockedUsers || []
+      _blockedUsers: userState.blockedUsers || [],
+      _fishingDaily: userState.fishingDaily || null
     };
     await sbClient.from("profiles").upsert({
       id: userState.id,
@@ -710,6 +720,7 @@ window.handleAuthSubmit = async function (mode) {
 
 window.handleLogout = async function () {
   gameConfirm("정말 로그아웃 하시겠습니까?", async () => {
+    if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(true);
     if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
     if (typeof stopDmRealtime === "function") stopDmRealtime();
     if (sbClient) {
@@ -785,6 +796,7 @@ window.handleDeleteAccount = function () {
       const targetUid = userState.id;
       const targetNick = userState.nickname;
 
+      if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(false);
       if (typeof stopAllAppAudio === "function") stopAllAppAudio(false);
       if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
       if (typeof stopDmRealtime === "function") stopDmRealtime();
@@ -833,6 +845,7 @@ window.submitExternalDeleteAccount = function () {
   gameConfirm(
     `[${nick}] 계정을 영구 삭제하시겠습니까?\n본인 확인 후 캐릭터·CD·랭킹·친구·DM 및 로그인 계정이 즉시 파기되며 복구할 수 없습니다.`,
     async () => {
+      if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(false);
       if (typeof stopAllAppAudio === "function") stopAllAppAudio(false);
       if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
       if (typeof stopDmRealtime === "function") stopDmRealtime();

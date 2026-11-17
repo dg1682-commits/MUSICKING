@@ -51,7 +51,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -93,19 +93,55 @@ function setupMobileKeyboardViewportHandler() {
   let baseHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
   const updateViewport = () => {
+    const fishingInputBar = document.getElementById("fishingInputBar");
     if (window.visualViewport) {
       const vv = window.visualViewport;
       if (vv.height > baseHeight) baseHeight = vv.height;
+
+      const isInputFocused =
+        document.activeElement &&
+        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+      const kbGap = Math.max(0, Math.round(baseHeight - vv.height));
+      const isKbOpen = kbGap > 110 || (isInputFocused && kbGap > 60);
+
+      if (!isKbOpen && state.currentScreen !== "fishingScreen") {
+        baseHeight = vv.height;
+      } else if (!isKbOpen && state.currentScreen === "fishingScreen" && Math.abs(baseHeight - vv.height) < 55) {
+        baseHeight = Math.max(baseHeight, vv.height);
+      }
+
+      if (state.currentScreen === "fishingScreen") {
+        // 낚시터: 가상 키보드가 올라와도 전체 뷰포트·캐릭터·배경은 1px도 밀리지 않도록 높이 완전 고정!
+        shell.style.top = `${vv.offsetTop}px`;
+        shell.style.height = `${baseHeight}px`;
+
+        if (fishingInputBar) {
+          if (isKbOpen && document.activeElement && document.activeElement.id === "fishingChatInput") {
+            fishingInputBar.style.transform = `translate3d(0, -${kbGap}px, 0)`;
+            fishingInputBar.classList.add("is-kb-floating");
+          } else {
+            fishingInputBar.style.transform = "";
+            fishingInputBar.classList.remove("is-kb-floating");
+          }
+        }
+        document.body.classList.toggle("keyboard-open", isKbOpen);
+        shell.scrollTop = 0;
+        const fishingEl = document.getElementById("fishingScreen");
+        if (fishingEl) fishingEl.scrollTop = 0;
+        window.scrollTo(0, 0);
+        return;
+      }
+
+      if (fishingInputBar) {
+        fishingInputBar.style.transform = "";
+        fishingInputBar.classList.remove("is-kb-floating");
+      }
 
       // 브라우저가 화면을 위로 밀어 올리더라도 offsetTop과 height를 정확히 추적해 빈 허공이 절대 안 생기게 고정!
       shell.style.top = `${vv.offsetTop}px`;
       shell.style.height = `${vv.height}px`;
 
-      const isInputFocused =
-        document.activeElement &&
-        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
-
-      if (baseHeight - vv.height > 110 || (isInputFocused && baseHeight - vv.height > 60)) {
+      if (isKbOpen) {
         document.body.classList.add("keyboard-open");
         if (state.currentScreen === "dmChatScreen") {
           const dmList = document.getElementById("dmChatMessages");
@@ -120,6 +156,8 @@ function setupMobileKeyboardViewportHandler() {
       window.scrollTo(0, 0);
     }
   };
+
+  window.syncFishingViewportLock = updateViewport;
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewport);
@@ -233,6 +271,7 @@ function stopAllAppAudio(releaseSources = false) {
   try {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
+    if (bgmState.fishAudio) bgmState.fishAudio.pause();
     if (releaseSources) {
       bgmState.mainAudio.currentTime = 0;
       bgmState.shopAudio.currentTime = 0;
@@ -240,6 +279,11 @@ function stopAllAppAudio(releaseSources = false) {
       bgmState.shopAudio.removeAttribute("src");
       bgmState.mainAudio.load();
       bgmState.shopAudio.load();
+      if (bgmState.fishAudio) {
+        bgmState.fishAudio.currentTime = 0;
+        bgmState.fishAudio.removeAttribute("src");
+        bgmState.fishAudio.load();
+      }
     }
     (bgmState.clickPool || []).forEach(a => {
       try {
@@ -261,6 +305,7 @@ function performCleanAppExit() {
   allowAppExit = true;
   hasBackGuardPushed = false;
 
+  if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(true);
   stopAllAppAudio(true);
   try {
     if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
@@ -315,6 +360,13 @@ window.addEventListener("popstate", () => {
 
   if (state.currentScreen === "battlePlayScreen") {
     if (typeof confirmExitOnlineBattle === "function") confirmExitOnlineBattle();
+    armAppBackGuard(true);
+    return;
+  }
+
+  if (state.currentScreen === "fishingScreen") {
+    if (typeof exitFishingScreenWithLoading === "function") exitFishingScreenWithLoading();
+    else showHome();
     armAppBackGuard(true);
     return;
   }
@@ -679,6 +731,7 @@ window.confirmExitSingleGame = function () {
 const bgmState = {
   mainAudio: new Audio("./bgm/main.mp3"),
   shopAudio: new Audio("./bgm/shop.mp3"),
+  fishAudio: new Audio("./bgm/fish.mp3"),
   clickPool: Array.from({ length: 4 }, () => {
     const a = new Audio("./bgm/click.wav");
     a.volume = 0.45;
@@ -692,6 +745,8 @@ bgmState.mainAudio.loop = true;
 bgmState.mainAudio.volume = 0.22;
 bgmState.shopAudio.loop = true;
 bgmState.shopAudio.volume = 0.22;
+bgmState.fishAudio.loop = true;
+bgmState.fishAudio.volume = 0.22;
 
 window.playClickSfx = function () {
   if (appExited || document.hidden || bgmState.muted) return;
@@ -741,6 +796,11 @@ document.addEventListener(
 );
 
 function syncFloatingSoundBtn(screenId) {
+  const fishSoundBtn = document.getElementById("fishingSoundBtn");
+  if (fishSoundBtn) {
+    fishSoundBtn.textContent = bgmState.muted ? "🔇" : "🔊";
+    fishSoundBtn.classList.toggle("is-muted", bgmState.muted);
+  }
   const btn = document.getElementById("floatingSoundBtn");
   if (!btn) return;
   const showBtn = ["loginScreen", "homeScreen", "rankingScreen", "shopScreen", "socialScreen"].includes(screenId);
@@ -764,26 +824,37 @@ function updateBgmForScreen(screenId) {
   if (appExited || document.hidden || bgmState.muted) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
+    if (bgmState.fishAudio) bgmState.fishAudio.pause();
     bgmState.currentType = "none";
     return;
   }
 
-  // 게임 진행 화면 & 결과 화면만 BGM 정지 (상점=shop.mp3, 친구목록 포함 그 외 모든 화면=main.mp3 끊김 없이 재생!)
+  // 게임 진행 화면 & 결과 화면만 BGM 정지 (상점=shop.mp3, 낚시터=fish.mp3, 친구목록 포함 그 외 화면=main.mp3)
   if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen"].includes(screenId)) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
+    if (bgmState.fishAudio) bgmState.fishAudio.pause();
     bgmState.currentType = "none";
     return;
   }
 
   if (screenId === "shopScreen") {
     bgmState.mainAudio.pause();
+    if (bgmState.fishAudio) bgmState.fishAudio.pause();
     bgmState.currentType = "shop";
     if (bgmState.shopAudio.paused) {
       bgmState.shopAudio.play().catch(() => {});
     }
+  } else if (screenId === "fishingScreen") {
+    bgmState.mainAudio.pause();
+    bgmState.shopAudio.pause();
+    bgmState.currentType = "fish";
+    if (bgmState.fishAudio && bgmState.fishAudio.paused) {
+      bgmState.fishAudio.play().catch(() => {});
+    }
   } else {
     bgmState.shopAudio.pause();
+    if (bgmState.fishAudio) bgmState.fishAudio.pause();
     bgmState.currentType = "main";
     if (bgmState.mainAudio.paused) {
       bgmState.mainAudio.play().catch(() => {});
@@ -798,8 +869,13 @@ document.addEventListener(
     armAppBackGuard(true);
     unlockQuizAudio();
     if (!bgmState.muted && bgmState.currentType !== "none") {
-      const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
-      if (targetAudio.paused) {
+      const targetAudio =
+        bgmState.currentType === "shop"
+          ? bgmState.shopAudio
+          : bgmState.currentType === "fish"
+          ? bgmState.fishAudio
+          : bgmState.mainAudio;
+      if (targetAudio && targetAudio.paused) {
         targetAudio.play().catch(() => {});
       }
     }
@@ -809,12 +885,19 @@ document.addEventListener(
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+      advanceFishingClockTo(Date.now());
+      if (typeof syncProfileToServer === "function") syncProfileToServer();
+    }
     stopAllAppAudio(false);
     if ((state.mode === "onesec" || isOnlineOneSecRoomActive()) && state.currentScreen === "gameScreen") {
       const st = document.getElementById("audioStatusText");
       if (st) st.textContent = "⏸️ 백그라운드 전환으로 정지됨 · [▶ 1초 듣기]를 눌러주세요!";
     }
   } else if (!appExited) {
+    if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+      advanceFishingClockTo(Date.now());
+    }
     updateBgmForScreen(state.currentScreen);
   }
 });
@@ -889,6 +972,16 @@ window.switchScreen = function (targetId, opts = {}) {
   stopTimeAttackTimer();
   window.closeAllModals();
 
+  const prevScreen = state.currentScreen;
+  if (
+    prevScreen === "fishingScreen" &&
+    targetId !== "fishingScreen" &&
+    typeof cleanupFishingRuntime === "function" &&
+    !(typeof fishingState !== "undefined" && fishingState.isTransitioning)
+  ) {
+    cleanupFishingRuntime(true);
+  }
+
   state.currentScreen = targetId;
   if (opts && opts.replaceHistory) {
     resetHistoryToExitBase();
@@ -912,7 +1005,7 @@ window.switchScreen = function (targetId, opts = {}) {
   if (headerEl) {
     headerEl.classList.toggle(
       "hidden",
-      ["loginScreen", "shopScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
+      ["loginScreen", "shopScreen", "fishingScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
     );
   }
 
@@ -925,6 +1018,7 @@ window.switchScreen = function (targetId, opts = {}) {
     "resultScreen",
     "plazaScreen",
     "shopScreen",
+    "fishingScreen",
     "battleRoomScreen",
     "battlePlayScreen",
     "rankingScreen",
@@ -944,6 +1038,9 @@ window.switchScreen = function (targetId, opts = {}) {
   }
 
   updateBgmForScreen(targetId);
+  if (typeof syncFishingViewportLock === "function") {
+    syncFishingViewportLock();
+  }
 
   // 숨겨져 있던 캔버스가 표시된 직후 실제 CSS 크기에 맞춘 1:1 정배율 렌더링 & 홈 모서리 버튼 정렬!
   requestAnimationFrame(() => {
