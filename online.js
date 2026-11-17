@@ -194,10 +194,19 @@ function updateHeaderUserUI() {
     topNickEl.textContent = rawNick.length > 5 ? rawNick.slice(0, 5) + ".." : rawNick;
   }
 
-  // 관리자 백엔드 버튼은 아이디가 "관리자"인 경우에만 노출!
+  // 관리자 백엔드 · MD 문제 추가 버튼은 아이디가 "관리자"인 경우에만 노출!
+  const isAdminUser = !!(userState.isLoggedIn && userState.nickname === "관리자");
   const adminBtn = document.getElementById("settingsAdminMenuBtn");
   if (adminBtn) {
-    adminBtn.classList.toggle("hidden", !(userState.isLoggedIn && userState.nickname === "관리자"));
+    adminBtn.classList.toggle("hidden", !isAdminUser);
+  }
+  const settingsMdBtn = document.getElementById("settingsAdminMdBtn");
+  if (settingsMdBtn) {
+    settingsMdBtn.classList.toggle("hidden", !isAdminUser);
+  }
+  const headerMdBtn = document.getElementById("headerAdminMdBtn");
+  if (headerMdBtn) {
+    headerMdBtn.classList.toggle("hidden", !isAdminUser);
   }
 
   // 레벨 · 타이틀 · 경험치 UI 동기화
@@ -695,8 +704,8 @@ window.loadRankingsList = async function () {
 
 // ============================================================================
 // 3. 전용 전체화면 상점 (#shopScreen)
-// - 성별은 회원가입 시 설정하며, 이후 변경은 [성별 변경권 1,000 CD] 아이템으로만 가능!
-// - [닉네임 변경권 500 CD] 아이템 판매
+// - 성별은 회원가입 시 설정하며, 이후 변경은 [성별 변경권 10,000 CD] 아이템으로만 가능!
+// - [닉네임 변경권 5,000 CD] 아이템 판매
 // ============================================================================
 window.openShopModal = function () {
   shopPreviewState.config = { ...userState.avatarConfig };
@@ -2666,4 +2675,325 @@ window.leaveBattleRoom = async function () {
   plazaState.currentRoom = null;
   switchScreen("plazaScreen");
   refreshRoomsList();
+};
+
+// ============================================================================
+// 7. 관리자("관리자") 전용 MD 문제 일괄 추가 / 마스킹 / iTunes 매칭 / 서버 반영
+// ============================================================================
+const mdImportState = {
+  items: [],
+  audio: new Audio(),
+  audioTimer: null
+};
+
+function isCurrentUserAdmin() {
+  return !!(
+    (typeof userState !== "undefined" && userState.isLoggedIn && userState.nickname === "관리자") ||
+    window.__IS_VERIFIED_ADMIN_PAGE__ === true
+  );
+}
+
+function escapeMdHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function stopMdPreviewAudio() {
+  if (mdImportState.audioTimer) {
+    clearTimeout(mdImportState.audioTimer);
+    mdImportState.audioTimer = null;
+  }
+  try {
+    mdImportState.audio.pause();
+  } catch (e) {}
+}
+
+function ensureMdImportModalDom() {
+  if (document.getElementById("mdImportModal")) return;
+  const wrap = document.createElement("div");
+  wrap.id = "mdImportModal";
+  wrap.className = "modal-backdrop hidden";
+  wrap.style.zIndex = "2350";
+  wrap.innerHTML = `
+    <div class="modal-content" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem;">📂 MD 문제 일괄 추가/관리 (관리자 전용)</h3>
+        <button type="button" class="header-btn" onclick="closeMdImportModal()">닫기 ✕</button>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-sub); line-height:1.45; margin-bottom:8px;">
+        <code>문제추가_양식.md</code> 형식의 <code>.md</code> 파일을 불러오거나 아래에 붙여넣으면
+        <strong>정답 마스킹·글자수/빈칸·연대 분류·iTunes 음원 연동</strong>이 자동 처리됩니다.
+      </p>
+      <div class="action-row" style="margin-bottom:8px; flex-wrap:wrap;">
+        <label class="btn btn-gold" style="flex:1.2; padding:7px 8px; font-size:0.78rem;">
+          📁 .md 파일 불러오기
+          <input type="file" id="mdImportFileInput" accept=".md,.txt,text/markdown,text/plain" style="display:none;" onchange="handleMdFileSelected(event)" />
+        </label>
+        <button type="button" class="btn" onclick="fillMdSampleTemplate()" style="flex:0.9; padding:7px 8px; font-size:0.78rem;">📝 예시 채우기</button>
+        <button type="button" class="btn btn-primary" onclick="parseMdTextareaInput()" style="flex:1; padding:7px 8px; font-size:0.78rem;">🔍 분석 · 미리보기</button>
+      </div>
+      <textarea id="mdImportTextarea" class="text-input" rows="5" placeholder="가수: 국카스텐&#10;동의어: 하현우, Guckkasten&#10;노래: 거울&#10;연도: 2010&#10;키워드: 사이키델릭 록, 1집 타이틀곡&#10;가사: 거울 속에 뒷모습을 보며 / 손가락질하는 너의 모습&#10;비하인드: ...&#10;---" style="font-size:0.78rem; line-height:1.45; margin-bottom:8px;"></textarea>
+
+      <div id="mdImportSummaryBar" style="font-size:0.78rem; font-weight:900; color:var(--primary-dark); margin-bottom:6px;">분석된 문제가 여기에 표시됩니다.</div>
+      <div id="mdImportPreviewList" class="md-preview-scroll"></div>
+
+      <div class="action-row" style="margin-top:10px;">
+        <button type="button" class="btn" onclick="copyMdQuestionsForDataJs()" style="flex:1; padding:9px 6px; font-size:0.78rem;">📋 data.js 코드 복사</button>
+        <button type="button" class="btn btn-primary" onclick="saveParsedMdQuestionsToServer()" style="flex:1.4; padding:9px 6px; font-size:0.82rem;">☁️ 수파베이스 서버 일괄 반영</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+}
+
+window.openMdImportModal = function () {
+  if (!isCurrentUserAdmin()) {
+    gameAlert("⛔ [관리자] 계정으로 로그인한 상태에서만 MD 문제 관리를 사용할 수 있습니다.", "관리자 전용");
+    return;
+  }
+  ensureMdImportModalDom();
+  const modal = document.getElementById("mdImportModal");
+  if (modal) modal.classList.remove("hidden");
+  if (typeof pushAppHistoryState === "function") pushAppHistoryState();
+};
+
+window.closeMdImportModal = function () {
+  stopMdPreviewAudio();
+  const modal = document.getElementById("mdImportModal");
+  if (modal) modal.classList.add("hidden");
+};
+
+window.fillMdSampleTemplate = function () {
+  const ta = document.getElementById("mdImportTextarea");
+  if (!ta) return;
+  ta.value = [
+    "가수: 국카스텐",
+    "동의어: 하현우, Guckkasten",
+    "노래: 거울",
+    "연도: 2010",
+    "키워드: 사이키델릭 록, 1집 타이틀곡, 자아 성찰",
+    "가사: 거울 속에 뒷모습을 보며 / 손가락질하는 너의 모습",
+    "비하인드: 인디 시절부터 록 페스티벌을 평정했던 밴드의 정규 1집 타이틀곡으로, 도둑맞은 장비 사건 등으로 우여곡절 끝에 재녹음판이 발매된 사연이 있는 곡입니다.",
+    "---",
+    "가수: 더 클래식",
+    "동의어: 김광진",
+    "노래: 여우야",
+    "연도: 1995",
+    "키워드: 2집 타이틀곡, 도도한 그녀, 오케스트라 팝",
+    "가사: 사는 게 그런 거지 뭐 / 마음대로 되는 일이 하나도 없어",
+    "비하인드: 1집 '마법의 성' 대히트 이후 발표한 2집 타이틀곡으로, 짝사랑하는 도도한 이성을 여우에 비유한 재치 있는 가사가 특징입니다."
+  ].join("\n");
+  parseMdTextareaInput();
+};
+
+window.handleMdFileSelected = function (event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const ta = document.getElementById("mdImportTextarea");
+    if (ta) ta.value = String(e.target?.result || "");
+    parseMdTextareaInput();
+  };
+  reader.readAsText(file, "UTF-8");
+};
+
+window.parseMdTextareaInput = function () {
+  const ta = document.getElementById("mdImportTextarea");
+  const listEl = document.getElementById("mdImportPreviewList");
+  const sumEl = document.getElementById("mdImportSummaryBar");
+  if (!ta || !listEl || !sumEl) return;
+
+  if (typeof parseMarkdownQuestions !== "function") {
+    gameAlert("MD 파서 모듈을 불러오지 못했습니다.");
+    return;
+  }
+
+  const parsed = parseMarkdownQuestions(ta.value);
+  mdImportState.items = parsed;
+
+  if (parsed.length === 0) {
+    sumEl.textContent = "분석된 문제가 없습니다. '가수:' 와 '노래:' 형식을 확인해주세요.";
+    listEl.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub); font-size:0.8rem;">분석 결과가 없습니다.</div>`;
+    return;
+  }
+
+  const dupCount = parsed.filter(p => p.isDuplicate).length;
+  sumEl.textContent = `✅ 총 ${parsed.length}곡 분석 완료 (신규 ${parsed.length - dupCount}곡 · 기존 덮어쓰기 ${dupCount}곡)`;
+
+  listEl.innerHTML = parsed
+    .map((entry, idx) => {
+      const q = entry.question;
+      const hintArtist = typeof buildQuizLetterHint === "function" ? buildQuizLetterHint(q.artist) : q.artist;
+      const hintTitle = typeof buildQuizLetterHint === "function" ? buildQuizLetterHint(q.title) : q.title;
+      return `
+        <div class="md-preview-card">
+          <div class="md-preview-top">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:900; font-size:0.85rem;">
+              <input type="checkbox" class="md-import-chk" data-md-idx="${idx}" checked style="width:16px; height:16px; accent-color:#2563eb;" />
+              <span>${escapeMdHtml(q.artist)} - ${escapeMdHtml(q.title)}</span>
+            </label>
+            <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+              <span class="badge ${entry.isDuplicate ? "gold" : "accent"}" style="font-size:0.66rem;">${entry.isDuplicate ? "기존 업데이트" : "신규"}</span>
+              <span class="badge" style="font-size:0.66rem;">${q.year} (${q.decade})</span>
+              ${q.hardMode ? `<span class="badge" style="font-size:0.66rem; background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드</span>` : ""}
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:var(--text-sub); font-weight:700;">
+            글자수/빈칸: 가수 <strong>${escapeMdHtml(hintArtist)}</strong> · 노래 <strong>${escapeMdHtml(hintTitle)}</strong>
+            ${q.artistAliases.length ? `<br/>동의어: ${escapeMdHtml(q.artistAliases.join(", "))}` : ""}
+          </div>
+          <div style="font-size:0.72rem; color:var(--primary-dark); font-weight:700;">
+            🔑 ${escapeMdHtml(q.keywordHint)}
+          </div>
+          <textarea class="text-input md-behind-edit" data-md-idx="${idx}" rows="2" style="font-size:0.74rem; padding:6px 8px;" onchange="updateMdBehindText(${idx}, this.value)">${escapeMdHtml(q.behindQuestion)}</textarea>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+            <span id="mdAudioStatus_${idx}" style="font-size:0.71rem; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🎵 검색어: ${escapeMdHtml(q.itunesQuery)}</span>
+            <button type="button" class="btn" onclick="testMdItunesAudio(${idx})" style="padding:4px 9px; font-size:0.72rem; flex-shrink:0;">🎧 1초 음원 테스트</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+};
+
+window.updateMdBehindText = function (idx, val) {
+  if (mdImportState.items[idx]?.question) {
+    mdImportState.items[idx].question.behindQuestion = String(val || "").trim();
+  }
+};
+
+window.testMdItunesAudio = async function (idx) {
+  const entry = mdImportState.items[idx];
+  const statusEl = document.getElementById(`mdAudioStatus_${idx}`);
+  if (!entry || !statusEl) return;
+
+  stopMdPreviewAudio();
+  statusEl.textContent = "⏳ iTunes 음원 검색중...";
+  const info = typeof fetchItunesSongMeta === "function" ? await fetchItunesSongMeta(entry.question.itunesQuery) : null;
+  if (!info || !info.previewUrl) {
+    statusEl.textContent = "⚠️ iTunes 미리듣기 음원을 찾지 못했습니다.";
+    return;
+  }
+
+  statusEl.textContent = `🔊 매칭됨: ${info.artistName || ""} - ${info.trackName || ""} (1.5초 재생)`;
+  try {
+    mdImportState.audio.src = info.previewUrl;
+    mdImportState.audio.currentTime = 6;
+    await mdImportState.audio.play();
+    mdImportState.audioTimer = setTimeout(() => {
+      try { mdImportState.audio.pause(); } catch (e) {}
+    }, 1500);
+  } catch (e) {}
+};
+
+function getSelectedMdQuestions() {
+  const checks = Array.from(document.querySelectorAll(".md-import-chk:checked"));
+  const result = [];
+  checks.forEach(chk => {
+    const idx = Number(chk.dataset.mdIdx);
+    const ta = document.querySelector(`.md-behind-edit[data-md-idx="${idx}"]`);
+    const entry = mdImportState.items[idx];
+    if (!entry) return;
+    const q = { ...entry.question };
+    if (ta) q.behindQuestion = ta.value.trim();
+    result.push(q);
+  });
+  return result;
+}
+
+window.copyMdQuestionsForDataJs = async function () {
+  if (!isCurrentUserAdmin()) return;
+  const selected = getSelectedMdQuestions();
+  if (selected.length === 0) {
+    gameAlert("먼저 MD 내용을 입력하고 [🔍 분석 · 미리보기]를 눌러주세요.");
+    return;
+  }
+  const snippet = typeof formatQuestionsAsDataJsSnippet === "function" ? formatQuestionsAsDataJsSnippet(selected) : JSON.stringify(selected, null, 2);
+  try {
+    await navigator.clipboard.writeText(snippet);
+    gameAlert(`📋 ${selected.length}곡의 data.js 코드가 클립보드에 복사되었습니다!`);
+  } catch (e) {
+    gameAlert("클립보드 복사 권한이 없어 복사할 수 없습니다.");
+  }
+};
+
+window.saveParsedMdQuestionsToServer = async function () {
+  if (!isCurrentUserAdmin()) {
+    gameAlert("⛔ [관리자] 계정에서만 서버에 반영할 수 있습니다.");
+    return;
+  }
+  const selected = getSelectedMdQuestions();
+  if (selected.length === 0) {
+    gameAlert("저장할 문제를 선택해주세요. (먼저 [🔍 분석 · 미리보기] 실행)");
+    return;
+  }
+  if (!sbClient) {
+    gameAlert("수파베이스 연결을 찾을 수 없습니다.");
+    return;
+  }
+
+  try {
+    const { data: cfgRow } = await sbClient
+      .from("profiles")
+      .select("id, avatar_config, owned_items")
+      .eq("nickname", "__ADMIN_CONFIG__")
+      .maybeSingle();
+
+    let cfgId = cfgRow?.id || null;
+    if (!cfgId) {
+      const email = "admin_system_config@musicking.com";
+      const signInRes = await sbClient.auth.signInWithPassword({ email, password: "AdminConfigPassword123!" });
+      if (signInRes.data?.user) cfgId = signInRes.data.user.id;
+      else {
+        const signUpRes = await sbClient.auth.signUp({ email, password: "AdminConfigPassword123!" });
+        cfgId = signUpRes.data?.user?.id || null;
+      }
+    }
+
+    const overrides = Array.isArray(cfgRow?.owned_items) ? [...cfgRow.owned_items] : [];
+    const curAvatarCfg = cfgRow?.avatar_config || {
+      shopCatalog: AVATAR_SHOP_ITEMS,
+      catalogVersion: typeof SHOP_CATALOG_VERSION !== "undefined" ? SHOP_CATALOG_VERSION : 11
+    };
+
+    selected.forEach(sq => {
+      // 로컬 메모리 QUESTIONS_DB 즉시 갱신
+      const dbIdx = QUESTIONS_DB.findIndex(item => item.id === sq.id);
+      if (dbIdx !== -1) QUESTIONS_DB[dbIdx] = { ...sq };
+      else QUESTIONS_DB.unshift({ ...sq });
+
+      // 기존 동일 ID(삭제 마커 포함) 제거 후 최신 데이터 삽입
+      const ovIdx = overrides.findIndex(item => item && item.id === sq.id);
+      if (ovIdx !== -1) overrides[ovIdx] = { ...sq };
+      else overrides.push({ ...sq });
+    });
+
+    if (cfgId) {
+      await sbClient.from("profiles").upsert({
+        id: cfgId,
+        nickname: "__ADMIN_CONFIG__",
+        bio: "시스템 글로벌 설정 데이터",
+        cd_coins: 0,
+        avatar_config: curAvatarCfg,
+        owned_items: overrides,
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (typeof window.syncAdminPageAfterMdImport === "function") {
+      window.syncAdminPageAfterMdImport(overrides);
+    }
+    if (typeof updateLobbyCounts === "function") {
+      updateLobbyCounts();
+    }
+
+    closeMdImportModal();
+    gameAlert(`✅ 총 ${selected.length}곡이 마스킹·연동되어 수파베이스 서버에 반영되었습니다!`, "☁️ MD 일괄 반영 완료");
+  } catch (err) {
+    gameAlert("서버 저장 중 오류가 발생했습니다.");
+  }
 };

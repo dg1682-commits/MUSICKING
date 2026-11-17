@@ -47,7 +47,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -136,6 +136,7 @@ function safeOn(id, event, handler) {
 }
 
 window.closeAllModals = function () {
+  if (typeof stopMdPreviewAudio === "function") stopMdPreviewAudio();
   document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
   const confettiCv = document.getElementById("confettiCanvas");
   if (confettiCv) confettiCv.classList.add("hidden");
@@ -293,11 +294,8 @@ function getFilteredQuestions() {
 }
 
 function normalizeAnswer(str) {
-  if (!str) return "";
-  return str
-    .toString()
-    .toLowerCase()
-    .replace(/[\s\.\,\!\?\-\_\~\'\"\(\)\[\]\{\}\:\;\/\\&]/g, "");
+  if (typeof normalizeQuizText === "function") return normalizeQuizText(str);
+  return str ? str.toString().toLowerCase().trim() : "";
 }
 
 function isArtistMatch(userInput, q) {
@@ -315,49 +313,20 @@ function isTitleMatch(userInput, q) {
 }
 
 function buildLetterBoxHint(text) {
-  const trimmed = text.trim();
-  const boxes = Array.from(trimmed)
-    .map(ch => (ch === " " ? " " : "□"))
-    .join("");
-  const charCount = trimmed.replace(/\s+/g, "").length;
-  return `${boxes}(${charCount}자)`;
+  if (typeof buildQuizLetterHint === "function") return buildQuizLetterHint(text);
+  return String(text || "").trim();
 }
 
 async function fetchItunesTrack(q) {
   if (state.itunesCache.has(q.id)) {
     return state.itunesCache.get(q.id);
   }
-
-  const query = encodeURIComponent(q.itunesQuery || `${q.artist} ${q.title}`);
-  const urls = [
-    `https://itunes.apple.com/search?term=${query}&country=KR&entity=song&limit=5`,
-    `https://itunes.apple.com/search?term=${query}&country=US&entity=song&limit=5`
-  ];
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.results && data.results.length > 0) {
-        const track = data.results.find(r => r.previewUrl) || data.results[0];
-        if (track && track.previewUrl) {
-          const info = {
-            previewUrl: track.previewUrl,
-            artworkUrl: (track.artworkUrl100 || "").replace("100x100bb", "300x300bb"),
-            trackName: track.trackName,
-            artistName: track.artistName
-          };
-          state.itunesCache.set(q.id, info);
-          return info;
-        }
-      }
-    } catch (err) {}
-  }
-
-  const fallback = { previewUrl: null, artworkUrl: "" };
-  state.itunesCache.set(q.id, fallback);
-  return fallback;
+  const info =
+    typeof fetchItunesSongMeta === "function"
+      ? await fetchItunesSongMeta(q.itunesQuery || `${q.artist} ${q.title}`)
+      : { previewUrl: null, artworkUrl: "" };
+  state.itunesCache.set(q.id, info);
+  return info;
 }
 
 function stopAudio() {
@@ -582,6 +551,19 @@ document.addEventListener(
   { passive: true }
 );
 
+// 쿠팡 파트너스 동적 배너가 body 루트 등 외부로 떨어졌을 경우 홈 하단 전용 슬롯(#homeCoupangFrameWrap)으로 안전 재배치
+function relocateCoupangAdBanner() {
+  const wrap = document.getElementById("homeCoupangFrameWrap");
+  if (!wrap) return;
+  document.querySelectorAll('iframe[src*="coupang.com"], iframe[src*="ads-partners.coupang"]').forEach(el => {
+    const hostNode = el.closest("div[id^='coupang'], div[class*='coupang']") || el;
+    if (hostNode && hostNode !== wrap && !wrap.contains(hostNode) && !hostNode.contains(wrap)) {
+      wrap.innerHTML = "";
+      wrap.appendChild(hostNode);
+    }
+  });
+}
+
 // ============================================================================
 // 화면 전환
 // ============================================================================
@@ -593,8 +575,13 @@ window.switchScreen = function (targetId) {
   state.currentScreen = targetId;
   pushAppHistoryState();
 
+  document.body.classList.toggle("on-home-screen", targetId === "homeScreen");
   // 싱글/멀티 전용 플레이 화면일 때 전자 미디(MIDI) 다크 스튜디오 배경 활성화
   document.body.classList.toggle("midi-play-theme", ["gameScreen", "battlePlayScreen"].includes(targetId));
+
+  if (targetId === "homeScreen") {
+    relocateCoupangAdBanner();
+  }
 
   if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
     stopDmRealtime();
@@ -1352,6 +1339,9 @@ window.addEventListener("resize", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();
+  relocateCoupangAdBanner();
+  setTimeout(relocateCoupangAdBanner, 450);
+  setTimeout(relocateCoupangAdBanner, 1500);
   // PWA & PWABuilder Android APK 필수 조건: Service Worker 등록
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});

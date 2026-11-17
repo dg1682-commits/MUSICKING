@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.9" />
+  <link rel="stylesheet" href="style.css?v=10.10" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -86,7 +86,10 @@
           <h3 style="font-size:1rem;">🎵 전체 음악 문제 리스트 (<span id="adminSongTotalCount">0</span>곡)</h3>
           <p style="font-size:0.78rem; color:var(--text-sub);">💡 항목을 <strong>더블클릭</strong>(또는 우측 [수정] 클릭)하면 내용·정답·힌트를 즉시 수정하고 수파베이스에 저장합니다.</p>
         </div>
-        <button class="btn btn-gold" onclick="openSongEditModal(null)">➕ 새 음악 문제 추가</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="openMdImportModal()">📂 MD 문제 일괄 추가</button>
+          <button class="btn btn-gold" onclick="openSongEditModal(null)">➕ 새 음악 문제 추가</button>
+        </div>
       </div>
 
       <div class="action-row" style="margin-bottom:10px;">
@@ -261,13 +264,20 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.9"></script>
-  <script src="pixel_avatar.js?v=10.9"></script>
-  <script src="online.js?v=10.9"></script>
+  <script src="data.js?v=10.10"></script>
+  <script src="pixel_avatar.js?v=10.10"></script>
+  <script src="online.js?v=10.10"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
     let adminConfigRowId = null;
+
+    window.syncAdminPageAfterMdImport = function (nextOverrides) {
+      if (Array.isArray(nextOverrides)) {
+        adminOverridesList = [...nextOverrides];
+      }
+      renderAdminSongsTable();
+    };
 
     async function initAdminPage() {
       // [이중 보안] 아이디(닉네임)가 "관리자"로 로그인된 세션인지 서버 검증!
@@ -295,6 +305,7 @@
         return;
       }
 
+      window.__IS_VERIFIED_ADMIN_PAGE__ = true;
       document.getElementById("adminContainer").classList.remove("hidden");
       await fetchAdminConfigFromServer();
       renderAdminSongsTable();

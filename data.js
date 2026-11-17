@@ -3206,6 +3206,230 @@ QUESTIONS_DB.forEach(q => {
   }
 });
 
+// ============================================================================
+// [공용 유틸] 정답 정규화 · 빈칸/글자수 계산 · MD 문제 파서 & 정답 마스킹
+// (index.html / admin.html 양쪽에서 공통으로 재사용)
+// ============================================================================
+function normalizeQuizText(str) {
+  if (!str) return "";
+  return str
+    .toString()
+    .toLowerCase()
+    .replace(/[\s\.\,\!\?\-\_\~\'\"\(\)\[\]\{\}\:\;\/\\&]/g, "");
+}
+
+function buildQuizLetterHint(text) {
+  const trimmed = String(text || "").trim();
+  const boxes = Array.from(trimmed)
+    .map(ch => (ch === " " ? " " : "□"))
+    .join("");
+  const charCount = trimmed.replace(/\s+/g, "").length;
+  return `${boxes}(${charCount}자)`;
+}
+
+function inferDecadeFromYear(year) {
+  const y = Number(year) || 2020;
+  if (y < 2000) return "1990s";
+  if (y < 2010) return "2000s";
+  if (y < 2020) return "2010s";
+  return "2020s";
+}
+
+function escapeQuizRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 비하인드 지문 속 정답(가수명·노래명·동의어)을 [이 가수] / [이 곡] 으로 자동 마스킹
+function maskAnswerInBehindText(behindText, artist, artistAliases = [], title, titleAliases = []) {
+  let result = String(behindText || "").trim();
+  if (!result) return "";
+
+  const entries = [];
+  const pushTerms = (terms, label) => {
+    terms.forEach(raw => {
+      const t = String(raw || "").trim();
+      if (!t) return;
+      entries.push({ term: t, label });
+    });
+  };
+  pushTerms([title, ...(titleAliases || [])], "[이 곡]");
+  pushTerms([artist, ...(artistAliases || [])], "[이 가수]");
+
+  // 긴 단어부터 우선 치환하여 부분 문자열 훼손 방지
+  entries.sort((a, b) => b.term.length - a.term.length);
+
+  for (const { term, label } of entries) {
+    const escaped = escapeQuizRegex(term);
+    const isAscii = /^[A-Za-z0-9.\s'&-]+$/.test(term);
+    if (isAscii) {
+      const re = new RegExp(`(^|[^A-Za-z0-9])${escaped}(?=$|[^A-Za-z0-9])`, "gi");
+      result = result.replace(re, `$1${label}`);
+    } else if (term.length === 1) {
+      // 1글자 한글 가수명('비' 등)은 조사 앞뒤·단독 표기인 경우에만 조심스럽게 마스킹
+      const re = new RegExp(`(^|[\\s'"\\[(,])${escaped}(?=$|[\\s'"\\]),.!?;:/]|이|가|의|는|은|을|를)`, "g");
+      result = result.replace(re, `$1${label}`);
+    } else {
+      const re = new RegExp(escaped, "g");
+      result = result.replace(re, label);
+    }
+  }
+  return result;
+}
+
+function parseMarkdownQuestions(mdText) {
+  let cleaned = String(mdText || "").replace(/\r\n/g, "\n").trim();
+  // 문서 내 코드펜스(```markdown / ```) 라인 제거
+  cleaned = cleaned.replace(/^\s*```[A-Za-z0-9_-]*\s*$/gm, "").trim();
+
+  const rawBlocks = cleaned
+    .split(/\n\s*---+\s*\n|\n---\s*$/)
+    .map(b => b.trim())
+    .filter(Boolean);
+
+  // 만약 사용자가 '---' 없이 빈 줄로만 여러 가수 블록을 적었으면 '가수:' 시작 기준으로 추가 분할
+  const blocks = [];
+  rawBlocks.forEach(block => {
+    const subParts = block.split(/\n(?=\s*(?:[-*]\s*)?(?:\*\*)?(?:가수|아티스트)(?:\*\*)?\s*:)/g);
+    subParts.forEach(sp => {
+      if (sp.trim()) blocks.push(sp.trim());
+    });
+  });
+
+  const existingMap = new Map();
+  QUESTIONS_DB.forEach(q => {
+    const k = `${normalizeQuizText(q.artist)}__${normalizeQuizText(q.title)}`;
+    if (!existingMap.has(k)) existingMap.set(k, q);
+  });
+
+  const parsed = [];
+  blocks.forEach((block, idx) => {
+    const fields = {};
+    let currentKey = null;
+
+    block.split("\n").forEach(rawLine => {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#") || line.startsWith(">")) return;
+
+      const m = line.match(/^(?:[-*]\s*)?(?:\*\*)?([가-힣A-Za-z0-9\s]+?)(?:\*\*)?\s*:\s*(.*)$/);
+      if (m) {
+        const keyRaw = m[1].replace(/\s+/g, "").toLowerCase();
+        const val = m[2].trim();
+        let mapped = null;
+        if (["가수", "아티스트", "artist"].includes(keyRaw)) mapped = "artist";
+        else if (["동의어", "가수동의어", "artistaliases"].includes(keyRaw)) mapped = "artistAliases";
+        else if (["노래", "제목", "곡명", "title"].includes(keyRaw)) mapped = "title";
+        else if (["노래동의어", "제목동의어", "titlealiases"].includes(keyRaw)) mapped = "titleAliases";
+        else if (["연도", "발매연도", "발매", "year"].includes(keyRaw)) mapped = "year";
+        else if (["키워드", "단어힌트", "힌트", "keyword"].includes(keyRaw)) mapped = "keywordHint";
+        else if (["가사", "하이라이트가사", "lyrics"].includes(keyRaw)) mapped = "lyricsQuestion";
+        else if (["비하인드", "문제", "설명", "사연", "behind"].includes(keyRaw)) mapped = "behindQuestion";
+        else if (["해설", "정답해설", "노트", "note"].includes(keyRaw)) mapped = "behindAnswerNote";
+        else if (["하드모드", "hardmode", "hard"].includes(keyRaw)) mapped = "hardMode";
+
+        if (mapped) {
+          currentKey = mapped;
+          fields[mapped] = fields[mapped] ? `${fields[mapped]}\n${val}` : val;
+          return;
+        }
+      }
+
+      if (currentKey && fields[currentKey] !== undefined) {
+        fields[currentKey] = `${fields[currentKey]} ${line}`.trim();
+      }
+    });
+
+    const artist = (fields.artist || "").trim();
+    const title = (fields.title || "").trim();
+    if (!artist || !title) return;
+
+    const yearMatch = String(fields.year || "").match(/\d{4}/);
+    const year = yearMatch ? Number(yearMatch[0]) : 2020;
+    const decade = inferDecadeFromYear(year);
+
+    const artistAliases = String(fields.artistAliases || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(s => s && normalizeQuizText(s) !== normalizeQuizText(artist));
+
+    const titleAliases = String(fields.titleAliases || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(s => s && normalizeQuizText(s) !== normalizeQuizText(title));
+
+    const keywordHint = (fields.keywordHint || `${year}년 히트곡, ${decade.replace("s", "년대")}`).trim();
+    const lyricsQuestion = (fields.lyricsQuestion || "(등록된 하이라이트 가사 없음)").trim();
+    const rawBehind = (fields.behindQuestion || `${year}년에 발표된 대표 히트곡입니다.`).trim();
+    const maskedBehind = maskAnswerInBehindText(rawBehind, artist, artistAliases, title, titleAliases);
+    const behindAnswerNote = (fields.behindAnswerNote || `${artist} '${title}'(${year}).`).trim();
+    const explicitHard = /^(true|on|y|yes|ㅇ|예|포함)$/i.test(String(fields.hardMode || "").trim());
+    const hardMode = explicitHard || HARD_MODE_ARTISTS.has(artist);
+
+    const dupKey = `${normalizeQuizText(artist)}__${normalizeQuizText(title)}`;
+    const existing = existingMap.get(dupKey);
+    const slugId = `md_${decade}_${year}_${idx}_${Date.now().toString(36).slice(-4)}`;
+
+    parsed.push({
+      question: {
+        id: existing ? existing.id : slugId,
+        decade,
+        year,
+        artist,
+        artistAliases,
+        title,
+        titleAliases,
+        hardMode,
+        behindQuestion: maskedBehind,
+        behindAnswerNote,
+        lyricsQuestion,
+        keywordHint,
+        itunesQuery: `${artist} ${title}`
+      },
+      isDuplicate: !!existing,
+      rawBehind
+    });
+  });
+
+  return parsed;
+}
+
+function formatQuestionsAsDataJsSnippet(questions) {
+  return (questions || [])
+    .map(q => JSON.stringify(q, null, 2))
+    .join(",\n");
+}
+
+async function fetchItunesSongMeta(queryText) {
+  const query = encodeURIComponent(String(queryText || "").trim());
+  if (!query) return { previewUrl: null, artworkUrl: "" };
+
+  const urls = [
+    `https://itunes.apple.com/search?term=${query}&country=KR&entity=song&limit=5`,
+    `https://itunes.apple.com/search?term=${query}&country=US&entity=song&limit=5`
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const track = data.results.find(r => r.previewUrl) || data.results[0];
+        if (track && track.previewUrl) {
+          return {
+            previewUrl: track.previewUrl,
+            artworkUrl: (track.artworkUrl100 || "").replace("100x100bb", "300x300bb"),
+            trackName: track.trackName,
+            artistName: track.artistName
+          };
+        }
+      }
+    } catch (err) {}
+  }
+
+  return { previewUrl: null, artworkUrl: "" };
+}
+
+
 
 
 
