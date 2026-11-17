@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.18`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.19`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.18`)
-- **현재 버전**: **v10.18** (`SHOP_CATALOG_VERSION = 12`)
+- **앱 이름**: 음악왕 (`v10.19`)
+- **현재 버전**: **v10.19** (`SHOP_CATALOG_VERSION = 12`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -56,7 +56,7 @@
 1. **`profiles`**
    - 컬럼: `id` (uuid, auth.users.id), `nickname`, `bio`, `cd_coins`, `avatar_config` (jsonb), `owned_items` (jsonb), `updated_at`
    - **⚠️ 중요 — EXP · 랭킹 달성 · 대전 전적 · 차단 목록 무중단 저장 방식**:
-     - DB 테이블에 별도 컬럼을 추가하지 않고 에러 없이 저장하기 위해 **`avatar_config` JSONB 내부에 다음 메타 필드를 함께 저장**합니다 ([syncProfileToServer](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L502-L523)):
+     - DB 테이블에 별도 컬럼을 추가하지 않고 에러 없이 저장하기 위해 **`avatar_config` JSONB 내부에 다음 메타 필드를 함께 저장**합니다 ([syncProfileToServer](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L556-L577)):
        - `_exp`: 누적 경험치 (`number`)
        - `_claimedTopRanks`: `{ "behind_1": 1, ... }` 형태로 `(mode_stage)`별 보너스를 수령한 최고 순위
        - `_battleStats`: `{ "1v1": { wins, losses }, "4p": { wins, losses } }` 온라인 대전 전적·승률
@@ -70,7 +70,7 @@
 
 2. **`rankings`**
    - 컬럼: `user_id`, `nickname`, `avatar_config`, `decade_filter`, `game_mode` (`behind` | `lyrics` | `onesec`), `stage` (`1` | `2` | `3`), `question_limit`, `time_attack`, `score`, `accuracy`
-   - **랭킹 & 프로필 저장**: `dedupeRankingRows()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L882-L977)), `syncProfileToServer()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L502-L523)), **`delete_my_account()` RPC** ([handleDeleteAccount / submitExternalDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L697-L788)) — 로그인 하단 `?page=privacy` / `?page=delete` 딥링크 라우팅 포함([getRequestedLegalAction](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L417-L441))
+   - **랭킹 & 프로필 저장**: `dedupeRankingRows()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L961-L1025)), `syncProfileToServer()`([online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L556-L577)), **`delete_my_account()` RPC** ([handleDeleteAccount / submitExternalDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L776-L867)) — 로그인 하단 `?page=privacy` / `?page=delete` 딥링크 라우팅 포함([getRequestedLegalAction](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L417-L441))
 
 3. **`friendships`**
    - 컬럼: `id`, `requester_id`, `receiver_id`, `status` (`pending` | `accepted`)
@@ -88,7 +88,7 @@
 
 6. **`user_reports` (신고 내역) & RPC `delete_my_account()` (회원탈퇴)**
    - **`user_reports`**: `id`, `reporter_id`, `target_id`, `target_nickname`, `reason`, `created_at` (일반 로그인 유저 `INSERT` 허용 + 닉네임 `"관리자"` 계정만 `SELECT` 허용하는 RLS 정책 적용 — [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html#L248-L260) 4번째 탭에서 바로 조회 가능)
-   - **`delete_my_account()` RPC (`SECURITY DEFINER`)**: 로그인 본인(`auth.uid()`)의 `direct_messages`, `friendships`, `rankings`, `rooms`, `profiles` 및 `auth.users`까지 서버 측에서 일괄 완전 삭제하므로 탈퇴 후 동일 닉네임 재가입 가능([handleDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L697-L788)).
+   - **`delete_my_account()` RPC (`SECURITY DEFINER`)**: 로그인 본인(`auth.uid()`)의 `direct_messages`, `friendships`, `rankings`, `rooms`, `profiles` 및 `auth.users`까지 서버 측에서 일괄 완전 삭제하므로 탈퇴 후 동일 닉네임 재가입 가능([handleDeleteAccount](file:///c:/Users/user1/Desktop/개발/음악왕/online.js#L776-L867)).
 
 ---
 
@@ -99,7 +99,7 @@
 | 화면 ID | 설명 | 상단 헤더 | BGM 상태 |
 | :--- | :--- | :---: | :--- |
 | `loginScreen` | 대형 3D 칼각 도트 `"음악왕"` 로고 + 아이디 저장/자동로그인 + 회원가입 시 성별 모달 + 하단 `[개인정보처리방침]`·`[계정 탈퇴/삭제 요청]` 링크 | 숨김 | `main.mp3` |
-| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`1:1` 정사각형 파노라마 캐릭터(`560×560`, `240px`)·EXP 바·**하단 가로 알약 도크(`🎯 싱글 플레이` · `⚔️ 멀티 플레이` 2분할 62px + 3열 49~55px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 | `main.mp3` |
+| `homeScreen` | 카드 모서리 좌(`?`)·우(`🔔`)·우하(`🔊`) 정렬 + 타이틀·`16:10` 와이드 직사각형 배경·EXP 바·**하단 가로 알약 도크(`🎯 싱글 플레이` · `⚔️ 멀티 플레이` 2분할 62px + 3열 49~55px) 밀착 배치** + **최하단 쿠팡 파트너스 `320×50` 배너(`#homeAdBannerSlot`) & 대가성 안내 문구** | 표시 | `main.mp3` |
 | `shopScreen` | 액션퍼즐패밀리풍 7개 탭 상점 (입어보기 ➔ 단일/다중 선택 구매·장착 + 배경 실시간 미리보기 + 고스트 스크롤) | 숨김 | `shop.mp3` |
 | `setupScreen` | 싱글 게임 설정 (**최상단 `[🎲 랜덤 플레이]` 10문제 즉시 시작** + 연대/모드/단계/문제수/타임어택/하드모드) | 표시 | `main.mp3` |
 | `gameScreen` | 싱글 퀴즈 진행 (**전자 미디 다크 스튜디오 테마** 자동 적용) | 표시 | **정지(무음)** |
@@ -118,7 +118,7 @@
 - `multiModeSelectModal`: 홈 `[⚔️ 멀티 플레이]` 클릭 시 **`⚡ 1:1 선착순 대결`** / **`🏆 4인 점수제 대결`** 선택 후 해당 필터 대기실(`#plazaScreen`)로 이동
 - `privacyPolicyModal` / `externalDeleteModal`: 로그인 하단 링크 및 `?page=privacy`, `?page=delete` URL로 바로 열리는 개인정보처리방침 & 웹 외부 본인인증 탈퇴 모달
 - `blockedUsersModal`: 환경설정 내 `[🚫 차단한 유저 목록 관리]` 차단 해제 모달
-- `profileModal`: 좌측 상단 투명 닉네임(최대 5자+`..`) 클릭 시 열리는 내 프로필·통산 전적·1:1/4인 승률·EXP
+- `profileModal`: 좌측 상단 투명 닉네임(전체 표기) 클릭 시 열리는 내 프로필·통산 전적·1:1/4인 승률·EXP
 - `userInspectModal`: 타 유저 프로필·통산 전적·1:1/4인 승률(내 프로필과 동일 UI, 친구면 `💬 DM 보내기` 전환)
 - `shopMultiBuyModal`: 여러 미구매 아이템을 동시에 입어본 뒤 구매할 때 뜨는 체크박스 선택 일괄 구매·총합 확인 모달
 - `patchNotesModal`: 우측 상단 `📢` 버튼 클릭 시 뜨는 버전별 업데이트 내역

@@ -105,6 +105,7 @@ body.on-home-screen .app-shell {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   height: 50px;
   flex-shrink: 0;
   margin-bottom: 10px;
@@ -115,10 +116,13 @@ body.on-home-screen .app-shell {
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
 }
 
-/* 좌측 상단: 아웃라인·도형·아이콘 없이 투명 배경에 깔끔하게 닉네임(최대 5자+..)만 표기 */
+/* 좌측 상단: 아웃라인·도형·아이콘 없이 투명 배경에 깔끔하게 닉네임 전체 표기 */
 .user-profile-trigger {
   display: inline-flex;
   align-items: center;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   cursor: pointer;
   padding: 4px 4px;
   background: transparent !important;
@@ -133,10 +137,14 @@ body.on-home-screen .app-shell {
 }
 
 .user-nick-name {
+  display: block;
+  max-width: 100%;
   font-size: 1.02rem;
   font-weight: 900;
   color: var(--text-main);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   letter-spacing: -0.3px;
 }
 
@@ -144,6 +152,7 @@ body.on-home-screen .app-shell {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .cd-pill {

@@ -30,7 +30,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.18" />
+  <link rel="stylesheet" href="style.css?v=10.19" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -76,7 +76,7 @@
       </div>
     </section>
 
-    <!-- ==================== 상단 헤더 (좌측: 아웃라인·도형 없이 닉네임 최대 5자+.. / 우측: 로그아웃 버튼 제거) ==================== -->
+    <!-- ==================== 상단 헤더 (좌측: 아웃라인·도형 없이 닉네임 전체 표기 / 우측: 로그아웃 버튼 제거) ==================== -->
     <header id="topHeader" class="top-header hidden">
       <button type="button" class="user-profile-trigger" id="headerMyProfileTrigger" onclick="openMyProfileModal()" title="내 프로필 및 전적/랭킹 보기">
         <span class="user-nick-name" id="headerTopMyNick">도전자</span>
@@ -858,8 +858,9 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
-        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎨 v10.18 16:10 와이드 홈 배경 · 480×480 캐릭터·상점 27종 대개편 & OG 썸네일</p>
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎨 v10.19 계정 세션 격리 · 상단 닉네임 전체 표기 · 16:10 와이드 홈 배경</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>계정별 데이터 완벽 격리 & 상단 전체 아이디 표기</strong>: 로그아웃·신규 회원가입 시 이전 계정 외형/보유 아이템 초기화, 좌측 상단 아이디 5글자 제한 해제</li>
           <li><strong>메인 홈 와이드 직사각형 배경</strong>: 기존 정사각형 스테이지를 <code>16:10</code> 가로 풀 와이드 직사각형으로 넓혀 배경 좌우 일러스트 전체가 한눈에 보이도록 개선 (캐릭터 정배율 유지)</li>
           <li><strong>전 파츠 고해상도·고디테일 리뉴얼</strong>: 헤어 15종(쉼표·펌·샤기컷·양갈래 등), 의상(카라·단추·소매·신발), 배경 12종(상점 상단 스테이지·타일 동시 풀 일러스트) 전면 업그레이드</li>
           <li><strong>신규 A~S급 코스튬 27종 출시</strong>: 구름·태양·별·파티·펑키·트리 모자, 상처·터프/산타 수염·잠자리안경·개구리눈·가면, 배관공·5살유치원·파자마·노란네모·방울고양이·드레스, 해변·골목·지하실·구름 배경, 해골·키보드·선풍기·스노우보드·X-Mas 선물</li>
@@ -1248,10 +1249,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.18"></script>
-  <script src="pixel_avatar.js?v=10.18"></script>
-  <script src="online.js?v=10.18"></script>
-  <script src="app.js?v=10.18"></script>
+  <script src="data.js?v=10.19"></script>
+  <script src="pixel_avatar.js?v=10.19"></script>
+  <script src="online.js?v=10.19"></script>
+  <script src="app.js?v=10.19"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

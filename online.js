@@ -182,6 +182,46 @@ const shopPreviewState = {
   selectedItem: null
 };
 
+let pendingSignupGender = "male";
+
+function resetUserStateToFreshDefaults() {
+  userState.id = null;
+  userState.nickname = "게스트도전자";
+  userState.bio = "안녕하세요! 음악왕 도전자입니다.";
+  userState.cdCoins = 100;
+  userState.exp = 0;
+  userState.claimedTopRanks = {};
+  userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
+  userState.blockedUsers = [];
+  userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
+  userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
+  userState.isLoggedIn = false;
+
+  shopPreviewState.config = { ...DEFAULT_AVATAR_CONFIG };
+  shopPreviewState.selectedCat = "hair";
+  shopPreviewState.selectedItem = null;
+
+  if (typeof dmNotiState !== "undefined") {
+    dmNotiState.unreadList = [];
+    if (dmNotiState.profileMap) dmNotiState.profileMap.clear();
+  }
+  if (typeof dmState !== "undefined") {
+    dmState.peerId = null;
+    dmState.peerNick = "";
+    dmState.peerAvatar = { ...DEFAULT_AVATAR_CONFIG };
+  }
+  if (typeof plazaState !== "undefined") {
+    if (plazaState.onlinePlayers) plazaState.onlinePlayers.clear();
+    plazaState.currentRoom = null;
+    plazaState.lastRenderedQIndex = null;
+    plazaState.lastRoomId = null;
+    plazaState.lastRewardedKey = null;
+  }
+  if (typeof syncDmNotiBadgeUI === "function") {
+    try { syncDmNotiBadgeUI(); } catch (e) {}
+  }
+}
+
 const plazaState = {
   channel: null,
   onlinePlayers: new Map(),
@@ -201,12 +241,14 @@ const plazaState = {
 };
 
 window.selectSignupGender = function (gender) {
-  userState.avatarConfig.gender = gender;
+  pendingSignupGender = gender === "female" ? "female" : "male";
   document.querySelectorAll("[data-signup-gender]").forEach(btn => {
-    btn.classList.toggle("active", btn.getAttribute("data-signup-gender") === gender);
+    btn.classList.toggle("active", btn.getAttribute("data-signup-gender") === pendingSignupGender);
   });
   const signupPreview = document.getElementById("signupCharPreview");
-  if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
+  if (signupPreview) {
+    renderPixelAvatar(signupPreview, { ...DEFAULT_AVATAR_CONFIG, gender: pendingSignupGender });
+  }
 };
 
 window.openSignupGenderStep = async function () {
@@ -235,9 +277,15 @@ window.openSignupGenderStep = async function () {
     } catch (e) {}
   }
 
+  pendingSignupGender = "male";
+  resetUserStateToFreshDefaults();
+  document.querySelectorAll("[data-signup-gender]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-signup-gender") === "male");
+  });
+
   openModal("signupGenderModal");
   const signupPreview = document.getElementById("signupCharPreview");
-  if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
+  if (signupPreview) renderPixelAvatar(signupPreview, { ...DEFAULT_AVATAR_CONFIG, gender: "male" });
 };
 
 window.confirmSignupWithGender = function () {
@@ -249,11 +297,10 @@ function updateHeaderUserUI() {
   const cdEl = document.getElementById("headerCdCount");
   if (cdEl) cdEl.textContent = `${userState.cdCoins}`;
 
-  // 왼쪽 상단: 아이콘·도형 없이 닉네임만 최대 5글자 + '..' 표기
+  // 왼쪽 상단: 아이콘·도형 없이 닉네임 전체 표기
   const topNickEl = document.getElementById("headerTopMyNick");
   if (topNickEl) {
-    const rawNick = String(userState.nickname || "도전자");
-    topNickEl.textContent = rawNick.length > 5 ? rawNick.slice(0, 5) + ".." : rawNick;
+    topNickEl.textContent = String(userState.nickname || "도전자");
   }
 
   // 관리자 백엔드 버튼은 아이디가 "관리자"인 경우에만 노출!
@@ -440,6 +487,26 @@ window.openExternalDeleteAccountModal = function () {
   if (typeof openModal === "function") openModal("externalDeleteModal");
 };
 
+function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
+  resetUserStateToFreshDefaults();
+  const rawCfg = prof?.avatar_config || {};
+  userState.id = uid;
+  userState.nickname = prof?.nickname || fallbackNick;
+  userState.bio = prof?.bio || "안녕하세요! 음악왕 도전자입니다.";
+  userState.cdCoins = prof?.cd_coins ?? 100;
+  userState.exp = Number(rawCfg._exp) || 0;
+  userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
+  userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
+  userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
+  userState.ownedItems = Array.isArray(prof?.owned_items)
+    ? [...prof.owned_items]
+    : ["meadow", "default", "none", "basic", "mic_silver"];
+  userState.isLoggedIn = true;
+  shopPreviewState.config = { ...userState.avatarConfig };
+  shopPreviewState.selectedItem = null;
+  loadBlockedUsersFromStorage(rawCfg._blockedUsers);
+}
+
 async function restoreSupabaseSession() {
   await loadServerGlobalConfigs();
   const reqAction = getRequestedLegalAction();
@@ -467,20 +534,7 @@ async function restoreSupabaseSession() {
         .maybeSingle();
 
       if (prof && prof.nickname !== "__ADMIN_CONFIG__") {
-        userState.id = sessionUser.id;
-        userState.nickname = prof.nickname;
-        userState.bio = prof.bio || userState.bio;
-        userState.cdCoins = prof.cd_coins ?? 100;
-        const rawCfg = prof.avatar_config || {};
-        userState.exp = Number(rawCfg._exp) || 0;
-        userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
-        userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
-        userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
-        userState.ownedItems = Array.isArray(prof.owned_items)
-          ? prof.owned_items
-          : ["meadow", "default", "none", "basic", "mic_silver"];
-        userState.isLoggedIn = true;
-        loadBlockedUsersFromStorage(rawCfg._blockedUsers);
+        applyProfileRowToUserState(sessionUser.id, prof, prof.nickname);
         updateHeaderUserUI();
         if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
         if (typeof showHome === "function") showHome({ replaceHistory: true });
@@ -557,6 +611,10 @@ window.handleAuthSubmit = async function (mode) {
         return;
       }
 
+      const chosenGender = pendingSignupGender === "female" ? "female" : "male";
+      // 이전 계정의 인메모리 상태가 신규 가입 프로필로 절대 넘어가지 않도록 완전 초기화 후 가입!
+      resetUserStateToFreshDefaults();
+
       const { data, error } = await sbClient.auth.signUp({
         email,
         password: pwInput
@@ -573,23 +631,45 @@ window.handleAuthSubmit = async function (mode) {
         return;
       }
 
+      const starterAvatar = { ...DEFAULT_AVATAR_CONFIG, gender: chosenGender };
+      const starterOwned = ["meadow", "default", "none", "basic", "mic_silver"];
+      const starterBio = "안녕하세요! 음악왕 도전자입니다.";
+
       userState.id = uid;
       userState.nickname = nickInput;
+      userState.bio = starterBio;
       userState.cdCoins = 100;
       userState.exp = 0;
       userState.claimedTopRanks = {};
+      userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
+      userState.blockedUsers = [];
+      userState.avatarConfig = starterAvatar;
+      userState.ownedItems = starterOwned;
       userState.isLoggedIn = true;
+      shopPreviewState.config = { ...starterAvatar };
+      shopPreviewState.selectedItem = null;
       loadBlockedUsersFromStorage([]);
       saveAuthPreferences(nickInput);
 
-      await sbClient.from("profiles").upsert({
+      const { error: upsertErr } = await sbClient.from("profiles").upsert({
         id: uid,
         nickname: nickInput,
-        bio: userState.bio,
-        cd_coins: userState.cdCoins,
-        avatar_config: { ...userState.avatarConfig, _exp: 0, _claimedTopRanks: {}, _battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS), _blockedUsers: [] },
-        owned_items: userState.ownedItems
+        bio: starterBio,
+        cd_coins: 100,
+        avatar_config: {
+          ...starterAvatar,
+          _exp: 0,
+          _claimedTopRanks: {},
+          _battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS),
+          _blockedUsers: []
+        },
+        owned_items: starterOwned
       });
+
+      if (upsertErr) {
+        gameAlert(`프로필 생성 중 오류가 발생했습니다: ${upsertErr.message}`);
+        return;
+      }
 
       updateHeaderUserUI();
       if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
@@ -597,6 +677,7 @@ window.handleAuthSubmit = async function (mode) {
       if (typeof armAppBackGuard === "function") armAppBackGuard(true);
       gameAlert(`환영합니다, [${nickInput}]님!\n웰컴 보너스 💿 100 CD가 지급되었습니다!`, "🎉 가입 완료");
     } else {
+      resetUserStateToFreshDefaults();
       const { data, error } = await sbClient.auth.signInWithPassword({
         email,
         password: pwInput
@@ -614,18 +695,7 @@ window.handleAuthSubmit = async function (mode) {
         .eq("id", uid)
         .maybeSingle();
 
-      userState.id = uid;
-      userState.nickname = prof?.nickname || nickInput;
-      userState.bio = prof?.bio || userState.bio;
-      userState.cdCoins = prof?.cd_coins ?? 100;
-      const rawCfg = prof?.avatar_config || {};
-      userState.exp = Number(rawCfg._exp) || 0;
-      userState.claimedTopRanks = rawCfg._claimedTopRanks || {};
-      userState.battleStats = normalizeBattleStats(rawCfg._battleStats);
-      userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
-      userState.ownedItems = prof?.owned_items || userState.ownedItems;
-      userState.isLoggedIn = true;
-      loadBlockedUsersFromStorage(rawCfg._blockedUsers);
+      applyProfileRowToUserState(uid, prof, nickInput);
       saveAuthPreferences(userState.nickname);
 
       updateHeaderUserUI();
@@ -643,12 +713,22 @@ window.handleLogout = async function () {
     if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
     if (typeof stopDmRealtime === "function") stopDmRealtime();
     if (sbClient) {
-      try { await sbClient.auth.signOut(); } catch (e) {}
+      try {
+        if (plazaState.channel) {
+          sbClient.removeChannel(plazaState.channel);
+          plazaState.channel = null;
+        }
+        if (plazaState.roomChannel) {
+          sbClient.removeChannel(plazaState.roomChannel);
+          plazaState.roomChannel = null;
+        }
+        await sbClient.auth.signOut();
+      } catch (e) {}
     }
-    userState.id = null;
-    userState.isLoggedIn = false;
-    userState.nickname = "도전자";
-    userState.blockedUsers = [];
+    resetUserStateToFreshDefaults();
+    const pwInput = document.getElementById("authPasswordInput");
+    if (pwInput) pwInput.value = "";
+    updateHeaderUserUI();
     closeAllModals();
     showLoginScreen({ replaceHistory: true });
     if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
@@ -658,6 +738,14 @@ window.handleLogout = async function () {
 
 async function finalizeAccountDeletionSession(targetUid, targetNick) {
   try {
+    if (plazaState.channel && sbClient) {
+      sbClient.removeChannel(plazaState.channel);
+      plazaState.channel = null;
+    }
+    if (plazaState.roomChannel && sbClient) {
+      sbClient.removeChannel(plazaState.roomChannel);
+      plazaState.roomChannel = null;
+    }
     await sbClient.auth.signOut();
   } catch (e) {}
 
@@ -671,23 +759,14 @@ async function finalizeAccountDeletionSession(targetUid, targetNick) {
     }
   } catch (e) {}
 
-  userState.id = null;
-  userState.isLoggedIn = false;
-  userState.nickname = "게스트도전자";
-  userState.bio = "안녕하세요! 음악왕 도전자입니다.";
-  userState.cdCoins = 100;
-  userState.exp = 0;
-  userState.claimedTopRanks = {};
-  userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
-  userState.blockedUsers = [];
-  userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
-  userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
+  resetUserStateToFreshDefaults();
 
   const nickInput = document.getElementById("authNicknameInput");
   const pwInput = document.getElementById("authPasswordInput");
   if (nickInput && nickInput.value.trim() === targetNick) nickInput.value = "";
   if (pwInput) pwInput.value = "";
 
+  updateHeaderUserUI();
   if (typeof closeAllModals === "function") closeAllModals();
   if (typeof showLoginScreen === "function") showLoginScreen({ replaceHistory: true });
   if (typeof resetHistoryToExitBase === "function") resetHistoryToExitBase();
@@ -982,7 +1061,7 @@ window.loadRankingsList = async function () {
 // - [닉네임 변경권 5,000 CD] 아이템 판매
 // ============================================================================
 window.openShopModal = function () {
-  shopPreviewState.config = { ...userState.avatarConfig };
+  shopPreviewState.config = sanitizeAvatarConfigShape(userState.avatarConfig);
   const initItem = getItemById("hair", shopPreviewState.config.hair);
   shopPreviewState.selectedItem = { cat: "hair", ...initItem };
   switchScreen("shopScreen");
