@@ -247,11 +247,13 @@ body.on-home-screen .app-shell {
   box-shadow: 0 2px 0 var(--game-border);
 }
 
-/* 가로 기준 정사각형 배경 스테이지 (적당한 크기 + 정배율 찌그러짐 0%) */
+/* 가로 직사각형(16:10) 파노라마 배경 스테이지 (배경 풀 노출 + 캐릭터 중앙 1:1 정배율 찌그러짐 0%) */
 .home-wide-stage {
   position: relative;
-  width: min(100%, 240px, 31dvh);
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 152px;
+  max-height: min(246px, 29dvh);
   flex: 0 0 auto;
   margin: 0 auto;
   display: flex;
@@ -263,9 +265,20 @@ body.on-home-screen .app-shell {
   background: #5ec8f8;
 }
 
+#homeScreen .home-wide-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
 #loginScreen .home-wide-stage,
 #signupGenderModal .home-wide-stage {
   width: 100%;
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
   aspect-ratio: auto;
 }
 

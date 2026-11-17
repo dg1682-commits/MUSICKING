@@ -30,7 +30,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.17" />
+  <link rel="stylesheet" href="style.css?v=10.18" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -107,9 +107,9 @@
           </button>
         </div>
 
-        <!-- 가로 기준 정사각형 파노라마 배경 + 정중앙 정배율 캐릭터 -->
+        <!-- 와이드 직사각형 파노라마 배경 + 정중앙 정배율 캐릭터 -->
         <div class="home-wide-stage">
-          <canvas id="homeHeroAvatar" width="560" height="560" style="width:100%; height:100%; display:block;"></canvas>
+          <canvas id="homeHeroAvatar" width="840" height="525" style="width:100%; height:100%; display:block;"></canvas>
         </div>
 
         <!-- 레벨 · 경험치 바 + 타이틀 도감 버튼 -->
@@ -858,8 +858,9 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:360px;">
-        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎨 v10.17 480×480 캐릭터·상점 27종 대개편 & OG 링크 썸네일</p>
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎨 v10.18 16:10 와이드 홈 배경 · 480×480 캐릭터·상점 27종 대개편 & OG 썸네일</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem;">
+          <li><strong>메인 홈 와이드 직사각형 배경</strong>: 기존 정사각형 스테이지를 <code>16:10</code> 가로 풀 와이드 직사각형으로 넓혀 배경 좌우 일러스트 전체가 한눈에 보이도록 개선 (캐릭터 정배율 유지)</li>
           <li><strong>전 파츠 고해상도·고디테일 리뉴얼</strong>: 헤어 15종(쉼표·펌·샤기컷·양갈래 등), 의상(카라·단추·소매·신발), 배경 12종(상점 상단 스테이지·타일 동시 풀 일러스트) 전면 업그레이드</li>
           <li><strong>신규 A~S급 코스튬 27종 출시</strong>: 구름·태양·별·파티·펑키·트리 모자, 상처·터프/산타 수염·잠자리안경·개구리눈·가면, 배관공·5살유치원·파자마·노란네모·방울고양이·드레스, 해변·골목·지하실·구름 배경, 해골·키보드·선풍기·스노우보드·X-Mas 선물</li>
           <li><strong>얼굴 카테고리 정리 & 링크 썸네일</strong>: <code>표정 ➔ 얼굴</code> 명칭 변경, 중복 <code>열창 표정</code> 제거 및 <code>심쿵 윙크</code> 아이콘 수정, 메신저 공유 시 음악왕 OG 썸네일 카드 지원</li>
@@ -1247,10 +1248,10 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.17"></script>
-  <script src="pixel_avatar.js?v=10.17"></script>
-  <script src="online.js?v=10.17"></script>
-  <script src="app.js?v=10.17"></script>
+  <script src="data.js?v=10.18"></script>
+  <script src="pixel_avatar.js?v=10.18"></script>
+  <script src="online.js?v=10.18"></script>
+  <script src="app.js?v=10.18"></script>
   <script>
     (function () {
       var banner = document.getElementById("smart-pwa-banner");

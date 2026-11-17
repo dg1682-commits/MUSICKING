@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.17`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.18`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.17`)
-- **현재 버전**: **v10.17** (`SHOP_CATALOG_VERSION = 12`)
+- **앱 이름**: 음악왕 (`v10.18`)
+- **현재 버전**: **v10.18** (`SHOP_CATALOG_VERSION = 12`)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -20,7 +20,7 @@
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
 | [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (13개 전체화면 `<section>`/`<main>` + 16개 모달, OG 공유 메타태그·개인정보/외부탈퇴 URL 라우팅·상점 풀배경 캔버스 포함) | `<head>` 내 `.hidden` 인라인 스타일 필수 |
-| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (싱글·멀티 분할 도크·정사각형 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
+| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (싱글·멀티 분할 도크·16:10 와이드 홈 스테이지 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `online.js`, `app.js`보다 **반드시 먼저** 로드 |
 | [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
@@ -174,7 +174,7 @@
 ## 6. 캐릭터 · 상점(v12 카탈로그) & 사운드(BGM/SFX) 규격
 
 ### 캐릭터 & 상점 시스템 ([pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js))
-- **정배율 · 최소 480×480+ 고해상도 렌더링**: `#homeScreen`의 `.home-wide-stage`는 `1:1` 정사각형(`width="560" height="560"`, CSS `width: min(100%, 240px, 31dvh); aspect-ratio: 1 / 1`) 비율이며, `#loginScreen` / `#signupGenderModal`의 `.home-wide-stage`는 직사각 캔버스 비율(`aspect-ratio: auto; width: 100%`)을 유지합니다. `renderPixelAvatar` 내부에서도 CSS 비율과 맞추면서 단변 최소 `480px`(목록 소형 아이콘은 `280px`) 및 고DPR(`2~3x`)을 보장하고, 상점 상단 스테이지(`#shopBgCanvas`)에도 선택한 배경 풀 일러스트를 실시간 렌더링합니다.
+- **정배율 · 16:10 와이드 직사각형 홈 배경 & 최소 480×480+ 고해상도 렌더링**: `#homeScreen`의 `.home-wide-stage`는 가로 100% `16:10` 직사각형(`aspect-ratio: 16 / 10; min-height: 152px; max-height: min(246px, 29dvh);`) 비율로 배경 일러스트 좌우 디테일 전체가 시원하게 노출되며, `#loginScreen` / `#signupGenderModal`의 `.home-wide-stage`는 기존 고정 높이 직사각 비율(`flex: 0 0 auto`)을 유지합니다. `renderPixelAvatar` 내부에서도 CSS 비율과 맞추면서 단변 최소 `480px`(목록 소형 아이콘은 `280px`) 및 고DPR(`2~3x`)을 보장하고, 상점 상단 스테이지(`#shopBgCanvas`)에도 선택한 배경 풀 일러스트를 실시간 렌더링합니다.
 - **상점 시세 & 보유 수 (`SHOP_CATALOG_VERSION = 12`)**:
   - `🏞️ 배경 (bg)`: **12종** (`0 ~ 2,000 CD`) — *해변·골목·지하실·구름 신규 4종 포함, 전종 타일 미니 일러스트화*
   - `💇 헤어 (hair)`: **15종** (`0 ~ 1,100 CD`) — *바가지/금발/쉼표/양갈래 3종/포니테일/불꽃샤기컷/실버펌/만두/삐삐 등 15종 전부 개별 앞·뒷머리 실루엣 & 엔젤링 고디테일화*
