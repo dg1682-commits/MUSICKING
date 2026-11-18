@@ -25,6 +25,9 @@ const state = {
   usedHintKeyword: false,
   usedHintAudio: false,
   questionEnded: false,
+  usedItemsInRun: new Set(),
+  doubleAttackActive: false,
+  revivedInRun: false,
 
   timerInterval: null,
   timeLeftMs: 15000,
@@ -588,7 +591,7 @@ window.processInAppBackStep = function (fromOnestore = false) {
     return true;
   }
 
-  if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
+  if (["setupScreen", "plazaScreen", "playHubScreen", "bagScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
     if (!fromOnestore) armAppBackGuard(true);
     return true;
@@ -677,7 +680,9 @@ async function fetchItunesTrack(q) {
     typeof fetchItunesSongMeta === "function"
       ? await fetchItunesSongMeta(q)
       : { previewUrl: null, artworkUrl: "" };
-  state.itunesCache.set(q.id, info);
+  if (info && info.previewUrl) {
+    state.itunesCache.set(q.id, info);
+  }
   return info;
 }
 
@@ -833,13 +838,13 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
   state.audioPending = true;
   try {
     const track = await fetchItunesTrack(q);
-    if (appExited || reqId !== state.audioRequestSeq) return;
+    if (appExited || reqId !== state.audioRequestSeq) return false;
     if (!track || !track.previewUrl) {
       if (statusEl) statusEl.textContent = "⚠️ 미리듣기 음원을 찾을 수 없습니다.";
       if (!isAutoPlay) {
         gameAlert("이 곡의 미리듣기 음원을 불러올 수 없습니다.");
       }
-      return;
+      return false;
     }
 
     const played = await startAudioStreamAt(
@@ -857,14 +862,16 @@ async function playAudioSnippet(durationSec, startOffsetSec = 6, customQ = null,
       }
     );
     if (!played && disc) disc.classList.remove("spinning");
+    return Boolean(played);
   } catch (err) {
-    if (reqId !== state.audioRequestSeq) return;
+    if (reqId !== state.audioRequestSeq) return false;
     if (disc) disc.classList.remove("spinning");
     if (statusEl) {
       statusEl.textContent = isAutoPlay
         ? "🔇 자동재생이 차단되었습니다. [▶ 1초 듣기]를 눌러주세요!"
         : "⚠️ 오디오 재생 버튼을 다시 눌러주세요.";
     }
+    return false;
   } finally {
     if (reqId === state.audioRequestSeq) {
       state.audioPending = false;
@@ -1055,15 +1062,17 @@ function syncFloatingSoundBtn(screenId) {
     fishSoundBtn.textContent = bgmState.muted ? "🔇" : "🔊";
     fishSoundBtn.classList.toggle("is-muted", bgmState.muted);
   }
+  const homeSoundBtn = document.getElementById("homeSoundBtn");
+  const homeSoundIcon = document.getElementById("homeSoundIcon");
+  if (homeSoundBtn) homeSoundBtn.classList.toggle("is-muted", bgmState.muted);
+  if (homeSoundIcon) homeSoundIcon.textContent = bgmState.muted ? "🔇" : "🔊";
+
   const btn = document.getElementById("floatingSoundBtn");
   if (!btn) return;
-  const showBtn = ["loginScreen", "homeScreen", "rankingScreen", "shopScreen", "socialScreen"].includes(screenId);
+  const showBtn = ["loginScreen", "rankingScreen", "shopScreen", "socialScreen"].includes(screenId);
   btn.classList.toggle("hidden", !showBtn);
   btn.textContent = bgmState.muted ? "🔇" : "🔊";
   btn.classList.toggle("is-muted", bgmState.muted);
-  if (typeof syncHomeCornerFloatingButtons === "function") {
-    syncHomeCornerFloatingButtons();
-  }
 }
 
 window.toggleBgmMute = function () {
@@ -1224,48 +1233,28 @@ function relocateCoupangAdBanner() {
   });
 }
 
-// 홈 화면에서 🔔(우측 상단) · 🔊(우측 하단) 버튼을 흰색 메인 카드(.home-hero) 모서리에 정밀 정렬
+window.confirmAppExitFromHeader = function () {
+  gameConfirm("음악왕을 종료하고 나가시겠습니까?", () => {
+    if (typeof performCleanAppExit === "function") {
+      performCleanAppExit();
+    }
+  }, "🚪 앱 종료");
+};
+
+// 비홈 화면 플로팅 버튼 인라인 스타일 정리 (홈 화면은 4×2 퀵그리드 고정 배치 사용)
 window.syncHomeCornerFloatingButtons = function () {
-  const shell = document.querySelector(".app-shell");
-  const hero = document.querySelector("#homeScreen .home-hero");
   const notiBtn = document.getElementById("floatingDmNotiBtn");
   const soundBtn = document.getElementById("floatingSoundBtn");
-  if (!shell || (!notiBtn && !soundBtn)) return;
-
-  if (state.currentScreen !== "homeScreen" || !hero) {
-    if (notiBtn) {
-      notiBtn.style.top = "";
-      notiBtn.style.right = "";
-    }
-    if (soundBtn) {
-      soundBtn.style.top = "";
-      soundBtn.style.right = "";
-      soundBtn.style.bottom = "";
-    }
-    return;
-  }
-
-  const sRect = shell.getBoundingClientRect();
-  const hRect = hero.getBoundingClientRect();
-  if (hRect.width <= 0 || hRect.height <= 0) return;
-
-  // 좌상단 ? 버튼(top: 10px, left: 10px)과 완벽히 대칭되는 우상단 🔔 위치
   if (notiBtn) {
-    notiBtn.style.top = `${Math.round(hRect.top - sRect.top + 13)}px`;
-    notiBtn.style.right = `${Math.round(sRect.right - hRect.right + 13)}px`;
+    notiBtn.style.top = "";
+    notiBtn.style.left = "";
+    notiBtn.style.right = "";
   }
-
-  // .home-hero 우측 하단 모서리 안쪽 위로 올려 하단 쿠팡 배너와 터치 영역이 겹치지 않도록 분리
   if (soundBtn) {
-    const adSlot = document.getElementById("homeAdBannerSlot");
-    let desiredTop = Math.round(hRect.bottom - sRect.top - 46);
-    if (adSlot) {
-      const adTopInShell = Math.round(adSlot.getBoundingClientRect().top - sRect.top);
-      desiredTop = Math.min(desiredTop, adTopInShell - 48);
-    }
-    soundBtn.style.bottom = "auto";
-    soundBtn.style.top = `${Math.max(0, desiredTop)}px`;
-    soundBtn.style.right = `${Math.round(sRect.right - hRect.right + 10)}px`;
+    soundBtn.style.top = "";
+    soundBtn.style.right = "";
+    soundBtn.style.left = "";
+    soundBtn.style.bottom = "";
   }
 };
 
@@ -1301,6 +1290,8 @@ window.switchScreen = function (targetId, opts = {}) {
 
   if (targetId === "homeScreen") {
     relocateCoupangAdBanner();
+    if (typeof updateHomeAdBannerPlatform === "function") updateHomeAdBannerPlatform();
+    if (typeof syncHomeV2BadgesUI === "function") syncHomeV2BadgesUI();
   }
 
   if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
@@ -1318,6 +1309,8 @@ window.switchScreen = function (targetId, opts = {}) {
   [
     "loginScreen",
     "homeScreen",
+    "playHubScreen",
+    "bagScreen",
     "setupScreen",
     "gameScreen",
     "judgeScreen",
@@ -1485,6 +1478,11 @@ function initEvents() {
   window.closeAllModals();
   showLoginScreen();
 
+  if (typeof loadRemoteQuestionsDb === "function") {
+    loadRemoteQuestionsDb().then(() => {
+      if (typeof updateLobbyCounts === "function") updateLobbyCounts();
+    });
+  }
   if (typeof initAuthPreferences === "function") {
     initAuthPreferences();
   }
@@ -1549,6 +1547,9 @@ window.startGame = function () {
   state.streak = 0;
   state.hearts = 5;
   state.history = [];
+  state.usedItemsInRun = new Set();
+  state.doubleAttackActive = false;
+  state.revivedInRun = false;
 
   loadCurrentQuestion();
 };
@@ -1659,7 +1660,116 @@ function loadCurrentQuestion() {
   }
 
   startTimeAttackTimer();
+  renderSingleItemSlotsBar();
 }
+
+function getChosungString(str) {
+  const CHO = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  let res = "";
+  for (const ch of String(str || "")) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xac00 && code <= 0xd7a3) {
+      res += CHO[Math.floor((code - 0xac00) / 588)];
+    } else {
+      res += ch;
+    }
+  }
+  return res;
+}
+window.getChosungString = getChosungString;
+
+window.renderSingleItemSlotsBar = function () {
+  const bar = document.getElementById("singleItemSlotsBar");
+  if (!bar) return;
+  const equipped = (typeof userState !== "undefined" && Array.isArray(userState.equippedItems)) ? userState.equippedItems : [];
+  if (equipped.length === 0) {
+    bar.innerHTML = `<span style="font-size:0.72rem; color:#94a3b8;">🎒 가방에서 아이템을 장착하면 여기서 바로 쓸 수 있습니다</span>`;
+    return;
+  }
+  bar.innerHTML = equipped
+    .map(id => {
+      const meta = typeof getGameItemById === "function" ? getGameItemById(id) : null;
+      if (!meta) return "";
+      const cnt = typeof getConsumableCount === "function" ? getConsumableCount(id) : 0;
+      const used = state.usedItemsInRun && state.usedItemsInRun.has(id);
+      let scopeDisabled = false;
+      if (id === "item_hourglass" && !state.timeAttack) scopeDisabled = true;
+      if ((id === "item_heart" || id === "item_revive") && state.questionLimit !== "infinite") scopeDisabled = true;
+      const isPassiveRevive = id === "item_revive";
+      const disabled = used || cnt <= 0 || scopeDisabled || isPassiveRevive;
+      const title = isPassiveRevive ? "하트 0 시 자동 발동" : meta.desc;
+      return `<button type="button" class="quick-item-btn ${used ? "is-used" : ""}" ${disabled ? "disabled" : ""} title="${title}" onclick="useSingleGameItem('${id}')">${meta.name} (${cnt})</button>`;
+    })
+    .join("");
+};
+
+window.useSingleGameItem = async function (itemId) {
+  if (state.questionEnded) return;
+  if (!state.usedItemsInRun) state.usedItemsInRun = new Set();
+  if (state.usedItemsInRun.has(itemId)) {
+    gameAlert("이 아이템은 판당 1회만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_hourglass" && !state.timeAttack) {
+    gameAlert("모래시계는 타임어택 ON 모드에서만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_heart" && state.questionLimit !== "infinite") {
+    gameAlert("하트요정은 무한도전 모드에서만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_revive") {
+    gameAlert("부활날개는 장착 시 하트가 0이 될 때 자동으로 부활 여부를 물어봅니다!");
+    return;
+  }
+
+  const cnt = typeof getConsumableCount === "function" ? getConsumableCount(itemId) : 0;
+  if (cnt <= 0) {
+    gameAlert("보유 수량이 부족합니다!");
+    return;
+  }
+
+  const q = state.currentQ;
+  if (itemId === "item_3sec") {
+    const playedOk = await playAudioSnippet(3.0, 6, q, null, null, { isAutoPlay: false });
+    if (!playedOk) {
+      return;
+    }
+    userState.inventory[itemId] = cnt - 1;
+    state.usedItemsInRun.add(itemId);
+    if (typeof syncProfileToServer === "function") syncProfileToServer();
+    appendHintBox("🎧 3초 듣기", "하이라이트 3초 재생!");
+    renderSingleItemSlotsBar();
+    return;
+  }
+
+  userState.inventory[itemId] = cnt - 1;
+  state.usedItemsInRun.add(itemId);
+  if (typeof syncProfileToServer === "function") syncProfileToServer();
+
+  if (itemId === "item_chosung") {
+    const chosungText =
+      state.stage === 1
+        ? `노래 초성: <strong>${getChosungString(q.title)}</strong>`
+        : state.stage === 2
+        ? `가수 초성: <strong>${getChosungString(q.artist)}</strong>`
+        : `가수: <strong>${getChosungString(q.artist)}</strong> / 노래: <strong>${getChosungString(q.title)}</strong>`;
+    appendHintBox("🔤 초성힌트", chosungText);
+  } else if (itemId === "item_hourglass") {
+    state.timeLeftMs = (Number(state.timeLeftMs) || 0) + 10000;
+    state.maxTimeMs = Math.max(Number(state.maxTimeMs) || 15000, state.timeLeftMs);
+    appendHintBox("⏳ 모래시계", "제한시간 +10초 연장!");
+  } else if (itemId === "item_heart") {
+    state.hearts = (Number(state.hearts) || 0) + 1;
+    const heartsEl = document.getElementById("heartsDisplay");
+    if (heartsEl) heartsEl.textContent = `❤️${state.hearts}`;
+    appendHintBox("💖 하트요정", `하트 +1 추가 (현재 ❤️${state.hearts})`);
+  } else if (itemId === "item_double") {
+    state.doubleAttackActive = true;
+    appendHintBox("⚡ 더블어택", "이번 판 획득 점수·CD 2배 적용!");
+  }
+  renderSingleItemSlotsBar();
+};
 
 window.playOneSecMain = function () {
   const offsets = [6, 12, 18];
@@ -1827,8 +1937,9 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
 
   const nextBtn = document.getElementById("nextQuestionBtn");
   const isLast =
-    state.currentIndex + 1 >= state.pool.length ||
-    (state.questionLimit === "infinite" && state.hearts <= 0);
+    state.questionLimit === "infinite"
+      ? state.hearts <= 0
+      : state.currentIndex + 1 >= state.pool.length;
   nextBtn.textContent = isLast ? "🏆 최종 결과 보기 ➔" : "다음 문제 넘어가기 ➔";
 
   const track = await fetchItunesTrack(q);
@@ -1843,11 +1954,56 @@ window.playFullPreviewInReveal = function () {
 
 function nextQuestion() {
   stopAudio();
-  const isGameOver =
-    state.currentIndex + 1 >= state.pool.length ||
-    (state.questionLimit === "infinite" && state.hearts <= 0);
+  if (state.questionLimit === "infinite") {
+    if (state.hearts <= 0) {
+      const canRevive =
+        !state.revivedInRun &&
+        typeof userState !== "undefined" &&
+        Array.isArray(userState.equippedItems) &&
+        userState.equippedItems.includes("item_revive") &&
+        typeof getConsumableCount === "function" &&
+        getConsumableCount("item_revive") > 0;
 
-  if (isGameOver) {
+      if (canRevive) {
+        gameConfirm(
+          "하트가 모두 소진되었습니다!\n장착 중인 [🪽 부활날개] 1개를 사용하여 하트 1개로 이어하시겠습니까?",
+          async () => {
+            userState.inventory.item_revive = getConsumableCount("item_revive") - 1;
+            if (!state.usedItemsInRun) state.usedItemsInRun = new Set();
+            state.usedItemsInRun.add("item_revive");
+            state.revivedInRun = true;
+            state.hearts = 1;
+            if (typeof syncProfileToServer === "function") await syncProfileToServer();
+            advanceInfiniteNextQuestion();
+          },
+          "🪽 부활날개 발동!",
+          () => showFinalResult()
+        );
+        return;
+      }
+      showFinalResult();
+      return;
+    }
+    advanceInfiniteNextQuestion();
+    return;
+  }
+
+  if (state.currentIndex + 1 >= state.pool.length) {
+    showFinalResult();
+  } else {
+    state.currentIndex++;
+    loadCurrentQuestion();
+  }
+}
+
+function advanceInfiniteNextQuestion() {
+  if (state.currentIndex + 1 >= state.pool.length) {
+    const extra = shuffleArray(getFilteredQuestions());
+    if (extra.length > 0) {
+      state.pool.push(...extra);
+    }
+  }
+  if (state.currentIndex + 1 >= state.pool.length) {
     showFinalResult();
   } else {
     state.currentIndex++;
@@ -1867,9 +2023,15 @@ async function showFinalResult() {
   else if (accuracy >= 75) rankTitle = "🔥 가요계 척척박사";
   else if (accuracy >= 50) rankTitle = "🎶 음악 고수";
 
+  const effectiveScore = state.doubleAttackActive ? state.score * 2 : state.score;
+  const isNoItemClear = !state.usedItemsInRun || state.usedItemsInRun.size === 0;
+
   document.getElementById("finalPlayerBadge").textContent = `🎤 도전자: ${userState?.nickname || "도전자"}`;
   document.getElementById("finalRankTitle").textContent = rankTitle;
-  document.getElementById("finalScoreText").textContent = `총점 ${state.score}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
+  document.getElementById("finalScoreText").textContent =
+    state.doubleAttackActive
+      ? `총점 ${effectiveScore}점 (기본 ${state.score} ×2 · 정답 ${solvedCount}/${totalTried} · ${accuracy}%)`
+      : `총점 ${effectiveScore}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
 
   const decadeStr =
     state.decades.size === 4
@@ -1889,35 +2051,48 @@ async function showFinalResult() {
     <span class="badge">${limitStr}</span>
     ${state.timeAttack ? `<span class="badge gold">⏱️타임어택×2</span>` : ""}
     ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
+    ${state.doubleAttackActive ? `<span class="badge gold">⚡더블어택×2</span>` : ""}
+    ${isNoItemClear ? `<span class="badge" style="background:#ecfdf5; color:#047857; border-color:#6ee7b7;">🌿노템 +10%</span>` : ""}
   `;
 
-  const baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
+  let baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(effectiveScore / 10));
+  if (isNoItemClear && baseCd > 0) baseCd = Math.round(baseCd * 1.1);
 
-  if (state.score > 0 && typeof submitScoreToRanking === "function") {
+  if (effectiveScore > 0 && typeof submitScoreToRanking === "function") {
     await submitScoreToRanking({
       decadeFilter: decadeStr,
       mode: state.mode,
       stage: state.stage,
       limit: state.questionLimit,
       timeAttack: state.timeAttack,
-      score: state.score,
+      score: effectiveScore,
       accuracy
     });
   }
+
+  let baseExpVal = Math.round(effectiveScore * 0.1);
+  if (isNoItemClear && baseExpVal > 0) baseExpVal = Math.round(baseExpVal * 1.1);
 
   let rewardResult = {
     baseCd,
     earnedCd: baseCd,
     finalCd: baseCd,
-    baseExp: Math.round(state.score * 0.1),
-    finalExp: Math.round(state.score * 0.1),
+    baseExp: baseExpVal,
+    finalExp: baseExpVal,
     multiplier: 1,
     achievedTopRank: null,
     expBefore: userState.exp || 0,
-    expAfter: (userState.exp || 0) + Math.round(state.score * 0.1)
+    expAfter: (userState.exp || 0) + baseExpVal
   };
   if (typeof checkAndProcessGameRewards === "function") {
-    const res = await checkAndProcessGameRewards(state.score, state.mode, state.stage, baseCd);
+    const res = await checkAndProcessGameRewards(effectiveScore, state.mode, state.stage, baseCd);
+    if (isNoItemClear && res && res.baseExp > 0) {
+      const bonusExp = Math.round(res.baseExp * 0.1);
+      userState.exp = (Number(userState.exp) || 0) + bonusExp;
+      res.finalExp = (Number(res.finalExp) || 0) + bonusExp;
+      res.expAfter = userState.exp;
+      if (typeof syncProfileToServer === "function") await syncProfileToServer();
+    }
     rewardResult = { ...rewardResult, ...res };
   } else {
     if (baseCd > 0) userState.cdCoins = (Number(userState.cdCoins) || 0) + baseCd;

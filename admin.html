@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.27" />
+  <link rel="stylesheet" href="style.css?v=20.8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -136,6 +136,9 @@
       <div class="option-chip" id="tabBtnReports" onclick="switchAdminTab('reports')">
         <span class="chip-title">🚨 신고 내역 조회</span>
       </div>
+      <div class="option-chip" id="tabBtnEvents" onclick="switchAdminTab('events')">
+        <span class="chip-title">🎉 이벤트 관리</span>
+      </div>
       <div class="option-chip" id="tabBtnStore" onclick="switchAdminTab('store')">
         <span class="chip-title">📦 스토어 출시 정보</span>
       </div>
@@ -149,6 +152,7 @@
           <p style="font-size:0.78rem; color:var(--text-sub);">💡 항목을 <strong>더블클릭</strong>(또는 우측 [수정] 클릭)하면 내용·정답·힌트를 즉시 수정하고 수파베이스에 저장합니다.</p>
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn" onclick="exportQuestionsJson()" title="하이브리드 방식3 원격 배포용 JSON 내려받기">📥 questions.json 내보내기</button>
           <button class="btn btn-primary" onclick="openMdImportModal()">📂 MD 파일 일괄 추가</button>
           <button class="btn btn-gold" onclick="openSongEditModal(null)">➕ 1곡 직접 추가</button>
         </div>
@@ -267,6 +271,55 @@
             </tr>
           </thead>
           <tbody id="adminReportsTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 4-B: 이벤트 관리 (V2.0) ==================== -->
+    <section id="adminEventsSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:1rem;">🎉 홈 이벤트 배너 · 내용 관리 (최대 5개 게시 권장)</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">배너 이미지는 Supabase Storage(<code>event-banners</code>)에 저장되며, 게시/미게시 토글로 즉시 노출 제어됩니다.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadAdminEvents()">🔄 새로고침</button>
+      </div>
+
+      <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+        <input type="hidden" id="adminEventEditId" />
+        <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:8px; align-items:center;">
+          <input type="text" id="adminEventTitleInput" class="text-input" placeholder="이벤트 배너 제목 (예: 신고하고 보상받자!)" />
+          <label style="display:flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:900; cursor:pointer;">
+            <input type="checkbox" id="adminEventPublishedInput" checked />
+            <span>즉시 게시</span>
+          </label>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <label class="btn" style="padding:6px 10px; font-size:0.78rem; cursor:pointer;">
+            🖼️ 배너 이미지 선택
+            <input type="file" id="adminEventBannerFile" accept="image/*" style="display:none;" onchange="uploadAdminEventBannerImage(event)" />
+          </label>
+          <input type="text" id="adminEventBannerUrlInput" class="text-input" placeholder="배너 이미지 URL (업로드 시 자동 입력)" style="flex:1; min-width:180px; font-size:0.78rem;" />
+        </div>
+        <textarea id="adminEventContentInput" class="text-input" rows="3" placeholder="이벤트 상세 내용을 입력하세요..." style="margin-bottom:8px;"></textarea>
+        <div class="action-row">
+          <button type="button" class="btn" onclick="resetAdminEventForm()" style="flex:0.6;">초기화</button>
+          <button type="button" class="btn btn-gold" onclick="saveAdminEvent()" style="flex:1.5;">💾 이벤트 저장 / 등록</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width:60px;">ID</th>
+              <th style="width:90px;">상태</th>
+              <th style="width:180px;">제목</th>
+              <th>내용</th>
+              <th style="width:170px;">관리</th>
+            </tr>
+          </thead>
+          <tbody id="adminEventsTbody"></tbody>
         </table>
       </div>
     </section>
@@ -477,9 +530,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=10.27"></script>
-  <script src="pixel_avatar.js?v=10.27"></script>
-  <script src="online.js?v=10.27"></script>
+  <script src="data.js?v=20.8"></script>
+  <script src="pixel_avatar.js?v=20.8"></script>
+  <script src="online.js?v=20.8"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -518,6 +571,7 @@
       renderAdminItemsTable();
       loadAdminUsers();
       loadAdminReports();
+      loadAdminEvents();
     }
 
     async function fetchAdminConfigFromServer() {
@@ -576,15 +630,135 @@
       document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
       document.getElementById("tabBtnUsers").classList.toggle("active", tab === "users");
       document.getElementById("tabBtnReports").classList.toggle("active", tab === "reports");
+      document.getElementById("tabBtnEvents").classList.toggle("active", tab === "events");
       document.getElementById("tabBtnStore").classList.toggle("active", tab === "store");
 
       document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
       document.getElementById("adminItemsSection").classList.toggle("hidden", tab !== "items");
       document.getElementById("adminUsersSection").classList.toggle("hidden", tab !== "users");
       document.getElementById("adminReportsSection").classList.toggle("hidden", tab !== "reports");
+      document.getElementById("adminEventsSection").classList.toggle("hidden", tab !== "events");
       document.getElementById("adminStoreSection").classList.toggle("hidden", tab !== "store");
       if (tab === "reports") loadAdminReports();
+      if (tab === "events") loadAdminEvents();
     }
+
+    window.exportQuestionsJson = function () {
+      const jsonStr = JSON.stringify(QUESTIONS_DB, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "questions.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    let adminEventsCache = [];
+    async function loadAdminEvents() {
+      const tbody = document.getElementById("adminEventsTbody");
+      if (!tbody || !sbClient) return;
+      const { data, error } = await sbClient.from("events").select("*").order("sort_order", { ascending: true }).order("id", { ascending: true });
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="5">이벤트 조회 오류 (테섭 events 테이블 확인)</td></tr>`;
+        return;
+      }
+      adminEventsCache = data || [];
+      if (adminEventsCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5">등록된 이벤트가 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = adminEventsCache
+        .map(ev => `
+          <tr>
+            <td>#${ev.id}</td>
+            <td>
+              <button class="btn" style="padding:3px 7px; font-size:0.72rem; background:${ev.is_published ? "#dcfce7" : "#f1f5f9"};" onclick="toggleAdminEventPublish(${ev.id}, ${!ev.is_published})">
+                ${ev.is_published ? "✅ 게시중" : "⏸ 미게시"}
+              </button>
+            </td>
+            <td><strong>${ev.title}</strong></td>
+            <td style="font-size:0.76rem; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ev.content}</td>
+            <td>
+              <button class="btn" style="padding:3px 7px; font-size:0.72rem;" onclick="editAdminEvent(${ev.id})">수정</button>
+              <button class="btn" style="padding:3px 7px; font-size:0.72rem; color:var(--danger);" onclick="deleteAdminEvent(${ev.id})">삭제</button>
+            </td>
+          </tr>
+        `)
+        .join("");
+    }
+
+    window.resetAdminEventForm = function () {
+      document.getElementById("adminEventEditId").value = "";
+      document.getElementById("adminEventTitleInput").value = "";
+      document.getElementById("adminEventBannerUrlInput").value = "";
+      document.getElementById("adminEventContentInput").value = "";
+      document.getElementById("adminEventPublishedInput").checked = true;
+    };
+
+    window.editAdminEvent = function (id) {
+      const ev = adminEventsCache.find(x => x.id === id);
+      if (!ev) return;
+      document.getElementById("adminEventEditId").value = ev.id;
+      document.getElementById("adminEventTitleInput").value = ev.title || "";
+      document.getElementById("adminEventBannerUrlInput").value = ev.banner_url || "";
+      document.getElementById("adminEventContentInput").value = ev.content || "";
+      document.getElementById("adminEventPublishedInput").checked = Boolean(ev.is_published);
+    };
+
+    window.uploadAdminEventBannerImage = async function (e) {
+      const file = e.target?.files?.[0];
+      if (!file || !sbClient) return;
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const fileName = `banner_${Date.now()}.${ext}`;
+      const { error } = await sbClient.storage.from("event-banners").upload(fileName, file, { upsert: true });
+      if (error) {
+        gameAlert("배너 이미지 업로드 실패: " + error.message);
+        return;
+      }
+      const { data: pub } = sbClient.storage.from("event-banners").getPublicUrl(fileName);
+      if (pub?.publicUrl) {
+        document.getElementById("adminEventBannerUrlInput").value = pub.publicUrl;
+        gameAlert("🖼️ 배너 이미지가 Supabase에 업로드되었습니다!");
+      }
+    };
+
+    window.saveAdminEvent = async function () {
+      if (!sbClient) return;
+      const editId = document.getElementById("adminEventEditId").value;
+      const title = document.getElementById("adminEventTitleInput").value.trim();
+      const banner_url = document.getElementById("adminEventBannerUrlInput").value.trim();
+      const content = document.getElementById("adminEventContentInput").value.trim();
+      const is_published = document.getElementById("adminEventPublishedInput").checked;
+      if (!title || !content) {
+        gameAlert("제목과 내용을 모두 입력해주세요!");
+        return;
+      }
+      const payload = { title, banner_url, content, is_published, updated_at: new Date().toISOString() };
+      if (editId) {
+        await sbClient.from("events").update(payload).eq("id", Number(editId));
+      } else {
+        await sbClient.from("events").insert({ ...payload, sort_order: adminEventsCache.length + 1 });
+      }
+      resetAdminEventForm();
+      await loadAdminEvents();
+      gameAlert("✅ 이벤트가 저장되었습니다!");
+    };
+
+    window.toggleAdminEventPublish = async function (id, nextState) {
+      if (!sbClient) return;
+      await sbClient.from("events").update({ is_published: nextState, updated_at: new Date().toISOString() }).eq("id", id);
+      await loadAdminEvents();
+    };
+
+    window.deleteAdminEvent = function (id) {
+      gameConfirm("이 이벤트를 삭제할까요?", async () => {
+        await sbClient.from("events").delete().eq("id", id);
+        await loadAdminEvents();
+      });
+    };
 
     window.copyStoreText = async function (elId, label) {
       const txt = document.getElementById(elId)?.textContent?.trim() || "";
