@@ -42,6 +42,8 @@
   --os-safe-bottom: 0px;
   --os-safe-left: 0px;
   --os-safe-right: 0px;
+  --app-locked-h: 100svh;
+  --kb-height: 0px;
 }
 
 body.use-pixel-font {
@@ -71,10 +73,16 @@ select {
 html,
 body {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   width: 100%;
-  height: 100%;
+  height: 100svh;
+  height: var(--app-locked-h, 100svh);
+  min-height: var(--app-locked-h, 100svh);
+  max-height: var(--app-locked-h, 100svh);
   overflow: hidden;
+  overflow: clip;
   overscroll-behavior: none;
   touch-action: manipulation;
   font-family: var(--font-main);
@@ -92,8 +100,12 @@ body {
   right: 0;
   max-width: 480px;
   width: 100%;
-  height: 100%;
-  height: 100dvh;
+  height: 100svh;
+  height: var(--app-locked-h, 100svh);
+  min-height: var(--app-locked-h, 100svh);
+  max-height: var(--app-locked-h, 100svh);
+  overflow: hidden;
+  overflow: clip;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -201,6 +213,7 @@ body.on-home-screen .app-shell {
   justify-content: space-between;
   min-height: 0;
   overflow: hidden;
+  overflow: clip;
 }
 
 .card {
@@ -220,13 +233,20 @@ body.on-home-screen .app-shell {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: clamp(8px, 1.35dvh, 12px);
+  gap: clamp(8px, 1.35svh, 12px);
   text-align: center;
-  padding: clamp(30px, 4.8dvh, 46px) 12px clamp(36px, 5dvh, 46px);
+  padding: clamp(30px, 4.8svh, 46px) 12px clamp(36px, 5svh, 46px);
   background: #ffffff;
   border: 3px solid var(--game-border);
   border-radius: 24px;
   box-shadow: var(--shadow-game);
+}
+
+body.keyboard-open #loginScreen .home-hero {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(36px + max(var(--kb-height, 0px), env(keyboard-inset-height, 0px)));
 }
 
 .home-title-block {
@@ -270,7 +290,7 @@ body.on-home-screen .app-shell {
   width: 100%;
   aspect-ratio: 16 / 10;
   min-height: 152px;
-  max-height: min(246px, 29dvh);
+  max-height: min(246px, 29svh);
   flex: 0 0 auto;
   margin: 0 auto;
   display: flex;
@@ -325,7 +345,7 @@ body.on-home-screen .app-shell {
 .home-action-dock {
   width: 100%;
   flex: 0 0 auto;
-  margin-top: clamp(2px, 0.5dvh, 4px);
+  margin-top: clamp(2px, 0.5svh, 4px);
 }
 
 .home-dock-3x2 {
@@ -337,7 +357,7 @@ body.on-home-screen .app-shell {
 
 .home-dock-3x2 .btn {
   width: 100%;
-  height: clamp(48px, 6.4dvh, 55px);
+  height: clamp(48px, 6.4svh, 55px);
   padding: 0 4px;
   border-radius: 20px;
   border-width: 2.5px;
@@ -1102,29 +1122,31 @@ body.on-home-screen .app-shell {
   font-weight: 800;
 }
 
-/* 키보드가 올라와도 문제 카드가 절대 납작하게 찌그러지지 않고 화면이 자연스럽게 스크롤되도록 개선 */
-body.keyboard-open .app-shell { padding: 8px 12px; }
-body.keyboard-open .top-header { display: none !important; }
-body.keyboard-open #gameScreen,
-body.keyboard-open #battlePlayScreen {
-  overflow-y: auto !important;
-  justify-content: flex-start;
-  padding-bottom: 12px;
+/* 키보드가 올라와도 전체 레이아웃·배경·상단 헤더는 원래 자리에 고정하고 활성 입력 바만 부드럽게 부양 */
+.answer-area.is-kb-floating,
+.room-chat-inputbar.is-kb-floating,
+.kakao-chat-inputbar.is-kb-floating {
+  position: relative;
+  z-index: 9600;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.24);
 }
-body.keyboard-open .game-statusbar,
-body.keyboard-open .midi-header-strip,
-body.keyboard-open .answer-area,
-body.keyboard-open .hints-bar {
-  flex-shrink: 0;
+.room-chat-inputbar.is-kb-floating {
+  background: #ffffff;
+  border-radius: 10px;
+  padding-top: 4px;
 }
-body.keyboard-open .question-card {
-  flex: 0 0 auto;
-  min-height: 132px;
-  max-height: none;
+.room-chat-inputbar.is-kb-floating,
+.kakao-chat-inputbar.is-kb-floating {
+  transform: translate3d(0, calc(-1 * max(var(--kb-height, 0px), env(keyboard-inset-height, 0px))), 0);
 }
-body.keyboard-open .question-content {
-  min-height: 68px;
-  max-height: 165px;
+body.keyboard-open #roomChatLog {
+  padding-bottom: calc(6px + max(var(--kb-height, 0px), env(keyboard-inset-height, 0px)));
+}
+body.keyboard-open #dmChatMessages {
+  padding-bottom: calc(12px + max(var(--kb-height, 0px), env(keyboard-inset-height, 0px)));
+}
+body.keyboard-open .fishing-chat-log {
+  padding-bottom: calc(8px + max(var(--kb-height, 0px), env(keyboard-inset-height, 0px)));
 }
 
 .one-sec-player {
@@ -1397,7 +1419,7 @@ body.midi-play-theme .itunes-source-credit {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 16px 16px max(16px, var(--kb-height, 0px), env(keyboard-inset-height, 0px));
   z-index: 1000;
 }
 
@@ -1407,7 +1429,7 @@ body.midi-play-theme .itunes-source-credit {
   border-radius: var(--radius-lg);
   max-width: 450px;
   width: 100%;
-  max-height: 86dvh;
+  max-height: min(86svh, calc(var(--app-locked-h, 100svh) - var(--kb-height, 0px) - 32px));
   overflow-y: auto;
   scrollbar-width: none;
   padding: 16px;
@@ -1751,6 +1773,7 @@ body.on-home-screen .floating-sound-btn {
   border: 3px solid var(--game-border);
   border-radius: 22px;
   overflow: hidden;
+  overflow: clip;
   box-shadow: var(--shadow-game);
 }
 
@@ -1849,6 +1872,7 @@ body.on-home-screen .floating-sound-btn {
   border: 3px solid var(--game-border);
   border-radius: 22px;
   overflow: hidden;
+  overflow: clip;
   box-shadow: var(--shadow-game);
 }
 
@@ -1866,6 +1890,8 @@ body.on-home-screen .floating-sound-btn {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -2293,6 +2319,8 @@ body.on-fishing-screen.keyboard-open .app-shell {
   padding: 0 !important;
   gap: 0 !important;
   overflow: hidden !important;
+  overflow: clip !important;
+  overscroll-behavior: none;
   background: #0f172a;
 }
 
@@ -2303,6 +2331,7 @@ body.on-fishing-screen.keyboard-open .app-shell {
   min-height: 250px;
   width: 100%;
   overflow: hidden;
+  overflow: clip;
   user-select: none;
   cursor: pointer;
 }
@@ -2621,6 +2650,9 @@ body.on-fishing-screen.keyboard-open .app-shell {
 .fishing-chat-panel {
   flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
   background: #fffdf7;
@@ -2633,6 +2665,7 @@ body.on-fishing-screen.keyboard-open .app-shell {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 8px 11px;
   display: flex;
   flex-direction: column;
@@ -2679,6 +2712,7 @@ body.on-fishing-screen.keyboard-open .app-shell {
 
 .fishing-input-bar.is-kb-floating {
   z-index: 9600;
+  transform: translate3d(0, calc(-1 * max(var(--kb-height, 0px), env(keyboard-inset-height, 0px))), 0);
   box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.22);
   border-top: 2.5px solid var(--game-border);
 }

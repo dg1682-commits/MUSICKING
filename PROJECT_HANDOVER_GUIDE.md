@@ -1,13 +1,13 @@
 # 👑 대한민국 음악왕 (MUSIC KING) — 전체 개발·기획·인수인계 마스터 가이드
 
-> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.26`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
+> **문서 목적**: 다른 PC / 다른 Antigravity 세션에서도 현재 상태(`v10.27`) 그대로 막힘없이 이어서 개발·유지보수·배포할 수 있도록 모든 기술 스펙, DB 구조, 게임 기획, UI/UX 규칙, PWA/APK 파이프라인 및 주의사항을 총망라한 문서입니다.
 
 ---
 
 ## 1. 프로젝트 개요 & 실행 환경
 
-- **앱 이름**: 음악왕 (`v10.26`)
-- **현재 버전**: **v10.26** (`SHOP_CATALOG_VERSION = 13` · 총 문제 DB **448곡**)
+- **앱 이름**: 음악왕 (`v10.27`)
+- **현재 버전**: **v10.27** (`SHOP_CATALOG_VERSION = 13` · 총 문제 DB **448곡**)
 - **프로젝트 경로**: `c:\Users\user1\Desktop\개발\음악왕`
 - **GitHub 저장소**: `https://github.com/dg1682-commits/MUSICKING` (`main` 브랜치, GitHub Actions Pages 배포)
 - **모바일 앱 패키징**: **PWABuilder Android TWA APK** (`io.github.dg1682_commits.twa`)
@@ -19,7 +19,7 @@
 
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
-| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (최상단 `<head>` 원스토어 H5 Game SDK `v1.1.0` `<script type="module">` `window.onestoreSdk` 및 `initializeAsync`→`setLoadingProgress`→`startGameAsync` 생명주기 + 모든 게임/CDN 스크립트 `defer` 순서 보장 + 14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`) | `<head>` 최상단 원스토어 SDK (`v` 접두사 `v1.1.0`) 및 `.hidden` 인라인 스타일 필수 |
+| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (최상단 `<head>` 원스토어 H5 Game SDK `v1.1.0` `<script type="module">` `window.onestoreSdk` 및 `initializeAsync`→`setLoadingProgress`→`startGameAsync` 생명주기 + `interactive-widget=overlays-content` 뷰포트 리사이즈 차단 + 모든 게임/CDN 스크립트 `defer` 순서 보장 + 14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`) | `<head>` 최상단 원스토어 SDK (`v` 접두사 `v1.1.0`) 및 `.hidden` 인라인 스타일 필수 |
 | [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (홈 2×3 버튼 도크·16:10 와이드 홈 스테이지 + 낚시터 상/하 분할 및 키보드 입력창 부양 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마 + `--os-safe-*` 원스토어 노치 대응) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
 | [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s(106)·2000s(122)·2010s(114)·2020s(106) 총 **448곡** K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 파서(`parseMarkdownQuestions`)·지문/힌트 자동 마스킹(`maskAnswerInBehindText`, `sanitizeKeywordHint`)·iTunes 아티스트/곡명 정밀 스코어링 조회 유틸(`fetchItunesSongMeta`, MR/커버 필터) | `defer` 로드 · 전곡 실가사 검수 & 자동 마스킹 포함 |
 | [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v13), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `defer` 로드 · `online.js`, `fishing.js`, `app.js`보다 **반드시 먼저** 실행 |
@@ -28,7 +28,7 @@
 | [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진, iTunes 곡객체 정밀 검색(`fetchItunesTrack(q)`)·1초 듣기, `useKeywordHint()` 단계별 동적 마스킹(`sanitizeKeywordHint`), BGM(`main.mp3`/`shop.mp3`/`fish.mp3`)/클릭 효과음, 원스토어 H5 SDK 생명주기 연동(`onOnestorePause`/`Resume`/`Exit`/`GameStarted`, `handleOnestoreBackPressed`, `ringerSilent`), 백그라운드 전환 시 낚시터 유지·강제종료 정리·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치, 모바일 키보드 뷰포트 제어, 폭죽/결과 공유 | `defer` 로드 · `DOMContentLoaded`에서 `initEvents()`, `__markMusickingBootReady()`, `sw.js` 등록 |
 | [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**, **`📦 스토어 출시 정보`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
 | [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, `launch_handler: focus-existing`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
-| [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 (`v10.26`) |
+| [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 (`v10.27`) |
 | [.nojekyll](file:///c:/Users/user1/Desktop/개발/음악왕/.nojekyll) | GitHub Pages Jekyll 비활성화 (`.well-known` 폴더 404 방지) | 절대 삭제 금지 *(GitHub 웹 업로드 시 주의!)* |
 | [.well-known/assetlinks.json](file:///c:/Users/user1/Desktop/개발/음악왕/.well-known/assetlinks.json) | Android TWA 상단 주소창 완전 제거용 Digital Asset Links | PWABuilder 서명 키 지문 등록됨 |
 | [가수목록.md](file:///c:/Users/user1/Desktop/개발/음악왕/가수목록.md) | 1990s~2020s 연대별 50팀씩 총 200팀 가수 리스트 & 제외 가수·동의어 규칙 메모 | 문제 확장 참고 목록 |
@@ -248,12 +248,11 @@
      2) 또는 Git CLI / GitHub Desktop으로 `git push` 하면 로컬의 `.nojekyll`과 `.well-known/` 폴더도 한 번에 같이 업로드됩니다.
      3) *(참고)* 일반 PWA "홈 화면에 추가"는 `manifest.json`만으로 주소창 숨김이 동작하며, `.well-known/assetlinks.json`은 Play 스토어용 TWA APK에서 주소창을 없애기 위해 GitHub 저장소에도 반드시 존재해야 합니다.
 
-3. **모바일 키보드 올라올 때 허공 밀림 & 문제 찌그러짐 · 낚시터 고정 방지 규약**
-   - `<meta name="viewport">`의 `interactive-widget=resizes-content` ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L5)) 유지
-   - `html, body` 및 `.app-shell`의 `position: fixed` 유지 ([style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L67-L102))
-   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L89-L165))에서 일반 화면은 `shell.style.height = ${vv.height}px`를 추적하되, **`fishingScreen`에서는 `shell.style.height`를 `baseHeight`로 완전 고정**하고 `#fishingInputBar`만 `translate3d(0, -${kbGap}px, 0)`으로 부양시켜 상단 호수·캐릭터·채팅창이 1px도 밀리지 않게 유지합니다.
-   - **❌ 금지**: `document.activeElement.scrollIntoView()`를 전역으로 호출하면 안드로이드 웹뷰에서 화면 상단이 잘리고 하단에 초록색 빈 허공이 생기는 버그가 발생하므로 절대 재도입 금지!
-   - **문제 카드 비압축**: `body.keyboard-open`일 때 `.question-card`가 납작해지지 않도록 `flex: 0 0 auto; min-height: 132px; max-height: none;` 및 `#gameScreen, #battlePlayScreen`의 `overflow-y: auto` + `touchmove` 화이트리스트를 유지하세요.
+3. **모바일 키보드 올라올 때 허공 밀림 & 화면 찌그러짐(Viewport Resize) · 낚시터 고정 방지 규약 (`v10.27`)**
+   - `<meta name="viewport">`의 `interactive-widget=overlays-content` ([index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html#L133)) 및 `navigator.virtualKeyboard.overlaysContent = true` 유지
+   - `html, body` 및 `.app-shell`의 `position: fixed; height: var(--app-locked-h, 100svh); overflow: hidden; overflow: clip;` 유지 ([style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css#L73-L115))
+   - `setupMobileKeyboardViewportHandler()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L112-L310))에서 가상 키보드 등장 시에도 `--app-locked-h` 고정 px 높이를 절대 줄이지 않고 `scroll` 이벤트 즉시 원복(`window.scrollTo(0, 0)`), 활성 채팅 입력 바(`#fishingInputBar`, `.kakao-chat-inputbar`, `.room-chat-inputbar`) 및 겹치는 `.answer-area`만 `--kb-height`/`env(keyboard-inset-height)`만큼 `translate3d`로 부양해 배경·낚시터 호수·헤더가 1px도 밀리거나 찌그러지지 않게 유지합니다.
+   - **❌ 금지**: `document.activeElement.scrollIntoView()`를 전역으로 호출하거나 `interactive-widget=resizes-content` · `100dvh`로 레이아웃을 리사이즈하면 원스토어 인앱 웹뷰/안드로이드에서 전체 화면이 위로 밀리며 UI가 찌그러지므로 절대 재도입 금지!
 
 4. **물리 뒤로가기 & `requestFullscreen()` 규약**
    - 로그인 완료/자동로그인 시 `showHome({ replaceHistory: true })`로 로그인 화면 기록을 덮어쓰고, 사용자 터치 제스처가 확보되는 즉시 `armAppBackGuard()`([app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js#L209-L285))가 단일 가드 엔트리(`{ mkRole: "app_guard" }`)를 유지해 **Chrome History Manipulation Intervention에 스킵되지 않고** `homeScreen` 뒤로가기 시 종료 확인 창을 띄웁니다. `[취소]` 시에만 가드를 재설정하며 `[확인]` 시 오디오 해제·종료 화면 오버레이·`window.close()`/`history.back()`으로 깔끔히 종료합니다.

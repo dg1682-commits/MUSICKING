@@ -45,13 +45,13 @@ const state = {
 state.audioEl.crossOrigin = "anonymous";
 state.audioEl.volume = 0.85;
 
-// 모바일 핀치줌·바디 스크롤 차단
+// 모바일 핀치줌·바디 스크롤 차단 & 초기 고정 높이 선점
 document.addEventListener("gesturestart", e => e.preventDefault(), { passive: false });
 document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #gameScreen, body.keyboard-open #battlePlayScreen, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -59,6 +59,53 @@ document.addEventListener(
   },
   { passive: false }
 );
+
+function isTextInputElement(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  if (el.tagName === "TEXTAREA") return !el.readOnly && !el.disabled;
+  if (el.tagName !== "INPUT") return false;
+  const nonTextTypes = new Set([
+    "checkbox",
+    "radio",
+    "button",
+    "submit",
+    "reset",
+    "range",
+    "file",
+    "image",
+    "hidden",
+    "color"
+  ]);
+  return !nonTextTypes.has(String(el.type || "text").toLowerCase()) && !el.readOnly && !el.disabled;
+}
+
+function getPreferredAppViewportSize() {
+  const vv = window.visualViewport;
+  const w = Math.round(vv ? vv.width : window.innerWidth);
+  const innerH = Math.round(window.innerHeight || 0);
+  const vvH = Math.round(vv ? vv.height : innerH);
+  return {
+    w,
+    innerH,
+    vvH,
+    maxH: Math.max(innerH, vvH),
+    vv
+  };
+}
+
+// 초기 스크립트 평가 즉시 가상키보드 오버레이 활성화 & 고정 px 높이 적용 (100vh/dvh 리사이즈 방어)
+if ("virtualKeyboard" in navigator) {
+  try {
+    navigator.virtualKeyboard.overlaysContent = true;
+  } catch (e) {}
+}
+(function prelockInitialAppHeight() {
+  const dims = getPreferredAppViewportSize();
+  if (dims.maxH > 200) {
+    document.documentElement.style.setProperty("--app-locked-h", `${dims.maxH}px`);
+  }
+})();
 
 // 상점 그리드 고스트 스크롤 (스크롤할 때만 얇은 스크롤바 표시)
 document.addEventListener("DOMContentLoaded", () => {
@@ -84,122 +131,239 @@ function isRunningAsApp() {
 }
 
 // ============================================================================
-// 모바일 키보드 올라올 때 허공 밀림·찌그러짐 원천 차단 동적 뷰포트 제어
+// 모바일 웹뷰(원스토어 H5 포함) 가상 키보드 리사이즈·화면 밀림·배경 찌그러짐 원천 차단
 // ============================================================================
 function setupMobileKeyboardViewportHandler() {
   const shell = document.querySelector(".app-shell");
   if (!shell) return;
 
-  let baseHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  let fishingLockedHeight = window.visualViewport ? Math.max(window.innerHeight, window.visualViewport.height) : window.innerHeight;
+  if ("virtualKeyboard" in navigator) {
+    try {
+      navigator.virtualKeyboard.overlaysContent = true;
+    } catch (e) {}
+  }
 
-  const updateViewport = () => {
-    const fishingInputBar = document.getElementById("fishingInputBar");
-    const fishingStageArea = document.getElementById("fishingStageArea");
-    if (window.visualViewport) {
-      const vv = window.visualViewport;
-      if (vv.height > baseHeight) baseHeight = vv.height;
+  const initialDims = getPreferredAppViewportSize();
+  let lockedWidth = initialDims.w;
+  let lockedHeight = initialDims.maxH || 700;
+  let lastTextBlurAt = 0;
+  let prevKbOpen = false;
+  let rootScrollClampQueued = false;
 
-      const isInputFocused =
-        document.activeElement &&
-        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
-
-      if (state.currentScreen === "fishingScreen") {
-        // 낚시터: 키보드가 닫혀 있을 때만 기준 높이를 갱신하고, 키보드가 열린 동안에는
-        // body.keyboard-open 클래스를 절대 붙이지 않고 쉘·상단 무대 높이를 1px도 움직이지 않게 완전 잠금!
-        document.body.classList.remove("keyboard-open");
-        const isFishingInputActive = document.activeElement && document.activeElement.id === "fishingChatInput";
-        const candidateDiff = fishingLockedHeight - vv.height;
-        const isKbOpen = isFishingInputActive ? candidateDiff > 60 : candidateDiff > 110;
-
-        if (!isKbOpen) {
-          fishingLockedHeight = vv.height;
-          baseHeight = Math.max(baseHeight, vv.height);
-        }
-
-        const kbGap = isKbOpen ? Math.max(0, Math.round(fishingLockedHeight - vv.height)) : 0;
-        shell.style.top = `${vv.offsetTop}px`;
-        shell.style.height = `${fishingLockedHeight}px`;
-
-        if (fishingStageArea) {
-          if (isKbOpen) {
-            fishingStageArea.style.flex = "none";
-            fishingStageArea.style.height = `${Math.round(fishingLockedHeight * 0.56)}px`;
-          } else {
-            fishingStageArea.style.flex = "";
-            fishingStageArea.style.height = "";
-          }
-        }
-
-        if (fishingInputBar) {
-          if (isKbOpen && isFishingInputActive && kbGap > 60) {
-            fishingInputBar.style.transform = `translate3d(0, -${kbGap}px, 0)`;
-            fishingInputBar.classList.add("is-kb-floating");
-          } else {
-            fishingInputBar.style.transform = "";
-            fishingInputBar.classList.remove("is-kb-floating");
-          }
-        }
-
-        shell.scrollTop = 0;
-        const fishingEl = document.getElementById("fishingScreen");
-        if (fishingEl) fishingEl.scrollTop = 0;
-        if (document.documentElement) document.documentElement.scrollTop = 0;
-        if (document.body) document.body.scrollTop = 0;
-        window.scrollTo(0, 0);
-        return;
-      }
-
-      if (fishingStageArea) {
-        fishingStageArea.style.flex = "";
-        fishingStageArea.style.height = "";
-      }
-      if (fishingInputBar) {
-        fishingInputBar.style.transform = "";
-        fishingInputBar.classList.remove("is-kb-floating");
-      }
-
-      const kbGap = Math.max(0, Math.round(baseHeight - vv.height));
-      const isKbOpen = kbGap > 110 || (isInputFocused && kbGap > 60);
-      if (!isKbOpen) {
-        baseHeight = vv.height;
-      }
-
-      // 브라우저가 화면을 위로 밀어 올리더라도 offsetTop과 height를 정확히 추적해 빈 허공이 절대 안 생기게 고정!
-      shell.style.top = `${vv.offsetTop}px`;
-      shell.style.height = `${vv.height}px`;
-
-      if (isKbOpen) {
-        document.body.classList.add("keyboard-open");
-        if (state.currentScreen === "dmChatScreen") {
-          const dmList = document.getElementById("dmChatMessages");
-          if (dmList) dmList.scrollTop = dmList.scrollHeight;
-        } else if (state.currentScreen === "battleRoomScreen") {
-          const roomChat = document.getElementById("roomChatLog");
-          if (roomChat) roomChat.scrollTop = roomChat.scrollHeight;
-        }
-      } else {
-        document.body.classList.remove("keyboard-open");
-      }
+  const resetRootScroll = () => {
+    if (window.scrollX !== 0 || window.scrollY !== 0) {
       window.scrollTo(0, 0);
+    }
+    if (document.documentElement && document.documentElement.scrollTop !== 0) {
+      document.documentElement.scrollTop = 0;
+    }
+    if (document.body && document.body.scrollTop !== 0) {
+      document.body.scrollTop = 0;
+    }
+    if (shell.scrollTop !== 0) {
+      shell.scrollTop = 0;
+    }
+    document
+      .querySelectorAll(
+        "#fishingScreen, .fishing-stage-area, .fishing-chat-panel, .kakao-chat-room, .kakao-screen-card, #battleRoomScreen, #battleRoomScreen > .card, #dmChatScreen, #gameScreen, #battlePlayScreen"
+      )
+      .forEach(el => {
+        if (el.scrollTop !== 0) el.scrollTop = 0;
+      });
+  };
+
+  const scrollActiveChatToBottom = () => {
+    if (state.currentScreen === "fishingScreen") {
+      const chatLog = document.getElementById("fishingChatLog");
+      if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+    } else if (state.currentScreen === "dmChatScreen") {
+      const dmList = document.getElementById("dmChatMessages");
+      if (dmList) dmList.scrollTop = dmList.scrollHeight;
+    } else if (state.currentScreen === "battleRoomScreen") {
+      const roomChat = document.getElementById("roomChatLog");
+      if (roomChat) roomChat.scrollTop = roomChat.scrollHeight;
     }
   };
 
+  const syncFloatingBoxForScreen = (selector, shouldFloat, visibleBottom, maxLift) => {
+    const box = document.querySelector(selector);
+    if (!box) return;
+    if (!shouldFloat) {
+      delete box.dataset.kbLiftPx;
+      box.style.transform = "";
+      box.classList.remove("is-kb-floating");
+      return;
+    }
+    const prevLift = Number(box.dataset.kbLiftPx || 0);
+    const restingBottom = box.getBoundingClientRect().bottom + prevLift;
+    const needLift = Math.max(0, Math.round(restingBottom - visibleBottom));
+    const safeLift = Math.min(needLift, maxLift);
+    if (safeLift > 0) {
+      box.dataset.kbLiftPx = String(safeLift);
+      box.style.transform = `translate3d(0, -${safeLift}px, 0)`;
+      box.classList.add("is-kb-floating");
+    } else {
+      delete box.dataset.kbLiftPx;
+      box.style.transform = "";
+      box.classList.remove("is-kb-floating");
+    }
+  };
+
+  const updateViewport = () => {
+    const dims = getPreferredAppViewportSize();
+    const activeEl = document.activeElement;
+    const isInputFocused = isTextInputElement(activeEl);
+    const vkRect = navigator.virtualKeyboard && navigator.virtualKeyboard.boundingRect;
+    const vkHeight = vkRect && vkRect.height > 0 ? Math.round(vkRect.height) : 0;
+
+    if (Math.abs(dims.w - lockedWidth) > 20) {
+      lockedWidth = dims.w;
+      lockedHeight = dims.maxH || lockedHeight;
+    } else if (dims.maxH > lockedHeight) {
+      lockedHeight = dims.maxH;
+    } else if (!isInputFocused && vkHeight === 0 && Date.now() - lastTextBlurAt > 500) {
+      const shrinkDelta = lockedHeight - dims.maxH;
+      const isLikelyDesktop = !("ontouchstart" in window) && (navigator.maxTouchPoints || 0) === 0;
+      if ((shrinkDelta > 0 && shrinkDelta < 110) || (isLikelyDesktop && shrinkDelta > 0)) {
+        lockedHeight = dims.maxH;
+      }
+    }
+
+    const vvShrink = dims.vv ? Math.max(0, lockedHeight - dims.vvH) : 0;
+    const innerShrink = Math.max(0, lockedHeight - dims.innerH);
+    const rawKbHeight = Math.max(vkHeight, vvShrink, innerShrink);
+    const isKbOpen = rawKbHeight > 70 || (isInputFocused && rawKbHeight > 45);
+    const effectiveKb = isKbOpen ? rawKbHeight : 0;
+
+    // 1) 전체 배경 · 쉘 · 낚시터 무대 높이를 고정 px(--app-locked-h)로 잠가 절대 찌그러지지 않게 유지
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--app-locked-h", `${lockedHeight}px`);
+    rootStyle.setProperty("--kb-height", `${effectiveKb}px`);
+
+    const safeOffsetTop = dims.vv ? Math.max(0, Math.round(dims.vv.offsetTop || 0)) : 0;
+    shell.style.top = `${safeOffsetTop}px`;
+    shell.style.height = `${lockedHeight}px`;
+
+    const fishingStageArea = document.getElementById("fishingStageArea");
+    if (fishingStageArea) {
+      if (state.currentScreen === "fishingScreen") {
+        fishingStageArea.style.flex = "none";
+        fishingStageArea.style.height = `${Math.round(lockedHeight * 0.56)}px`;
+      } else {
+        fishingStageArea.style.flex = "";
+        fishingStageArea.style.height = "";
+      }
+    }
+
+    // 2) 전체 레이아웃을 줄이지 않고, 활성 입력창/채팅 바만 키보드 바로 위로 부양
+    const activeInsideModal = Boolean(activeEl && activeEl.closest(".modal-backdrop"));
+    document.body.classList.toggle("keyboard-open", isKbOpen);
+
+    const fishingInputBar = document.getElementById("fishingInputBar");
+    if (fishingInputBar) {
+      const floatFishing = isKbOpen && state.currentScreen === "fishingScreen" && !activeInsideModal;
+      fishingInputBar.classList.toggle("is-kb-floating", floatFishing);
+    }
+
+    const dmInputBar = document.querySelector("#dmChatScreen .kakao-chat-inputbar");
+    if (dmInputBar) {
+      dmInputBar.classList.toggle("is-kb-floating", isKbOpen && state.currentScreen === "dmChatScreen" && !activeInsideModal);
+    }
+
+    const roomInputBar = document.querySelector("#battleRoomScreen .room-chat-inputbar");
+    if (roomInputBar) {
+      roomInputBar.classList.toggle("is-kb-floating", isKbOpen && state.currentScreen === "battleRoomScreen" && !activeInsideModal);
+    }
+
+    const visibleBottom = lockedHeight - effectiveKb - 10;
+    const maxLift = Math.max(0, Math.round(lockedHeight * 0.48));
+    syncFloatingBoxForScreen(
+      "#gameScreen .answer-area",
+      isKbOpen && state.currentScreen === "gameScreen" && !activeInsideModal && effectiveKb > 0,
+      visibleBottom,
+      maxLift
+    );
+    syncFloatingBoxForScreen(
+      "#battlePlayInputBox",
+      isKbOpen && state.currentScreen === "battlePlayScreen" && !activeInsideModal && effectiveKb > 0,
+      visibleBottom,
+      maxLift
+    );
+
+    if (isKbOpen && !activeInsideModal && state.currentScreen === "loginScreen" && isInputFocused) {
+      const loginHero = document.querySelector("#loginScreen .home-hero");
+      if (loginHero && activeEl) {
+        const inpRect = activeEl.getBoundingClientRect();
+        if (inpRect.bottom > visibleBottom) {
+          loginHero.scrollTop += Math.round(inpRect.bottom - visibleBottom + 14);
+        }
+      }
+    }
+
+    if (isKbOpen && !prevKbOpen) {
+      scrollActiveChatToBottom();
+    }
+    prevKbOpen = isKbOpen;
+
+    resetRootScroll();
+  };
+
   window.syncFishingViewportLock = updateViewport;
+
+  const scheduleBurstUpdate = () => {
+    updateViewport();
+    requestAnimationFrame(updateViewport);
+    [40, 120, 240, 400].forEach(delay => setTimeout(updateViewport, delay));
+  };
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewport);
     window.visualViewport.addEventListener("scroll", updateViewport);
   }
-  document.addEventListener("focusin", () => {
-    updateViewport();
-    setTimeout(updateViewport, 60);
-    setTimeout(updateViewport, 180);
-    setTimeout(updateViewport, 300);
+  if ("virtualKeyboard" in navigator && typeof navigator.virtualKeyboard.addEventListener === "function") {
+    navigator.virtualKeyboard.addEventListener("geometrychange", scheduleBurstUpdate);
+  }
+  window.addEventListener("resize", updateViewport);
+  window.addEventListener("orientationchange", scheduleBurstUpdate);
+
+  // 모바일 웹뷰의 focus-reveal 자동 스크롤을 매 프레임 원천 복원
+  const onAnyScroll = e => {
+    const tgt = e && e.target;
+    if (
+      tgt === window ||
+      tgt === document ||
+      tgt === document.documentElement ||
+      tgt === document.body ||
+      tgt === shell
+    ) {
+      resetRootScroll();
+      if (!rootScrollClampQueued) {
+        rootScrollClampQueued = true;
+        requestAnimationFrame(() => {
+          rootScrollClampQueued = false;
+          resetRootScroll();
+        });
+      }
+    }
+  };
+  window.addEventListener("scroll", onAnyScroll, { passive: true });
+  document.addEventListener("scroll", onAnyScroll, true);
+
+  document.addEventListener("focusin", e => {
+    if (isTextInputElement(e.target)) {
+      resetRootScroll();
+      scheduleBurstUpdate();
+    }
   });
-  document.addEventListener("focusout", () => {
-    setTimeout(updateViewport, 100);
+  document.addEventListener("focusout", e => {
+    if (isTextInputElement(e.target)) {
+      lastTextBlurAt = Date.now();
+      setTimeout(updateViewport, 80);
+      setTimeout(updateViewport, 240);
+    }
   });
+
+  updateViewport();
 }
 
 function safeOn(id, event, handler) {
