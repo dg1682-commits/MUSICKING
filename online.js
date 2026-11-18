@@ -993,8 +993,9 @@ async function submitScoreToRanking(record) {
   } catch (e) {}
 }
 
-// 게임 종료 시 기본 경험치(점수*0.1) + 랭킹 TOP3 최초 달성 순간(1회) 1위×5 / 2위×3 / 3위×2 배율 보너스 지급
-async function checkAndProcessGameRewards(score, mode, stage) {
+// 게임 종료 시 기본 경험치/CD + 랭킹 TOP3 최초 진입/순위 갱신 순간(1회) 1위×5 / 2위×3 / 3위×2 배율 보너스 동시 지급
+async function checkAndProcessGameRewards(score, mode, stage, baseCd = 0) {
+  const safeBaseCd = Math.max(0, Math.floor(Number(baseCd) || 0));
   const baseExp = Math.max(0, Math.round((Number(score) || 0) * 0.1));
   const expBefore = Number(userState.exp) || 0;
   let multiplier = 1;
@@ -1004,11 +1005,12 @@ async function checkAndProcessGameRewards(score, mode, stage) {
     try {
       const { data: topRows } = await sbClient
         .from("rankings")
-        .select("user_id, score")
+        .select("user_id, score, created_at")
         .eq("game_mode", mode)
         .eq("stage", Number(stage))
         .order("score", { ascending: false })
-        .limit(80);
+        .order("created_at", { ascending: true })
+        .limit(300);
 
       if (Array.isArray(topRows) && topRows.length > 0) {
         // 유저별 최고 기록 기준으로 중복 제거해 상위 3명 추출
@@ -1038,12 +1040,19 @@ async function checkAndProcessGameRewards(score, mode, stage) {
   }
 
   const finalExp = baseExp * multiplier;
+  const finalCd = safeBaseCd * multiplier;
   userState.exp = expBefore + finalExp;
+  if (finalCd > 0) {
+    userState.cdCoins = (Number(userState.cdCoins) || 0) + finalCd;
+  }
   await syncProfileToServer();
 
   return {
     baseExp,
     finalExp,
+    baseCd: safeBaseCd,
+    earnedCd: finalCd,
+    finalCd,
     multiplier,
     achievedTopRank,
     expBefore,
@@ -1090,13 +1099,21 @@ async function computeUserUniqueRank(targetId, bestScore) {
 
 window.loadRankingsList = async function () {
   const listEl = document.getElementById("rankingListContainer");
+  const podiumEl = document.getElementById("rankingTop3Podium");
+  const myRankBannerEl = document.getElementById("rankingMyCurrentRankBanner");
   if (!listEl) return;
-  listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub); font-weight:700;">🏆 랭킹 데이터를 불러오는 중...</div>`;
-
-  if (!sbClient) return;
 
   const modeFilter = rankFilterState.mode;
   const stageFilter = rankFilterState.stage;
+  const modeTitleMap = { ALL: "전체 모드", behind: "비하인드", lyrics: "가사", onesec: "1초듣기" };
+  const stageTitleMap = { ALL: "전체 단계", 1: "1단계(노래)", 2: "2단계(가수)", 3: "3단계(모두)" };
+  const filterTitle = `${modeTitleMap[modeFilter] || modeFilter} · ${stageTitleMap[stageFilter] || stageFilter}`;
+
+  if (myRankBannerEl) myRankBannerEl.textContent = `📊 [${filterTitle}] 내 현재 순위 조회 중...`;
+  if (podiumEl) podiumEl.innerHTML = "";
+  listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub); font-weight:700;">🏆 랭킹 데이터를 불러오는 중...</div>`;
+
+  if (!sbClient) return;
 
   try {
     let query = sbClient
@@ -1104,46 +1121,116 @@ window.loadRankingsList = async function () {
       .select("*")
       .order("score", { ascending: false })
       .order("created_at", { ascending: true })
-      .limit(400);
+      .limit(1000);
 
     if (modeFilter !== "ALL") query = query.eq("game_mode", modeFilter);
     if (stageFilter !== "ALL") query = query.eq("stage", Number(stageFilter));
 
     const { data, error } = await query;
-    const rows = dedupeRankingRows(data, 20);
+    const allRows = dedupeRankingRows(data, 500);
+    const rows = allRows.slice(0, 20);
+
+    if (myRankBannerEl) {
+      if (error) {
+        myRankBannerEl.textContent = `⚠️ [${filterTitle}] 순위를 불러오지 못했습니다.`;
+      } else if (!userState.isLoggedIn || !userState.id) {
+        myRankBannerEl.textContent = `🏅 [${filterTitle}] 로그인 후 내 순위를 확인할 수 있습니다.`;
+      } else {
+        const myRankIdx = allRows.findIndex(r => r.user_id === userState.id);
+        if (myRankIdx !== -1) {
+          const myRow = allRows[myRankIdx];
+          const myPlace = myRankIdx + 1;
+          const placeBadge = myPlace === 1 ? "👑 1위" : myPlace === 2 ? "🥈 2위" : myPlace === 3 ? "🥉 3위" : `${myPlace}위`;
+          myRankBannerEl.textContent = `🏅 [${filterTitle}] 현재 내 순위: ${placeBadge} / 총 ${allRows.length}명 (${Number(myRow.score || 0).toLocaleString()}점)`;
+        } else {
+          myRankBannerEl.textContent = `📌 [${filterTitle}] 현재 내 순위: 기록 없음 (총 ${allRows.length}명 도전 중)`;
+        }
+      }
+    }
+
     if (error || rows.length === 0) {
+      if (podiumEl) podiumEl.innerHTML = "";
       listEl.innerHTML = `<div style="text-align:center; padding:32px; color:var(--text-sub); font-weight:700;">아직 해당 조건에 등록된 랭킹 기록이 없습니다.<br/>첫 번째 1등 주인공이 되어보세요!</div>`;
       return;
     }
 
     const modeLabel = { behind: "📖비하인드", lyrics: "📝가사", onesec: "⚡1초듣기" };
-    listEl.innerHTML = rows
-      .map((row, idx) => {
-        const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
-        const safeId = escapeJsSingleArg(row.user_id);
-        const safeNick = escapeJsSingleArg(row.nickname);
-        return `
-        <div class="pixel-list-item" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
-          <div style="display:flex; align-items:center; gap:9px;">
-            <span style="font-weight:900; min-width:30px; font-size:0.95rem; color:var(--primary-dark);">${medal}</span>
-            <canvas class="rank-mini-canvas" width="480" height="480" style="width:44px; height:44px; border-radius:10px; border:2px solid #1e1b18;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
-            <div>
-              <div style="font-weight:900; font-size:0.9rem;">${row.nickname} ${row.time_attack ? "⏱️" : ""}</div>
-              <div style="font-size:0.74rem; font-weight:700; color:var(--text-sub);">${modeLabel[row.game_mode] || row.game_mode} · ${row.stage}단계 · 정답률 ${row.accuracy}%</div>
-            </div>
-          </div>
-          <div style="font-weight:900; color:#b45309; font-size:0.98rem;">${row.score}점</div>
-        </div>
-      `;
-      })
-      .join("");
 
-    listEl.querySelectorAll(".rank-mini-canvas").forEach(cv => {
-      try {
-        renderPixelAvatar(cv, JSON.parse(cv.getAttribute("data-avatar")));
-      } catch (e) {}
-    });
+    // 중앙 상단 대형 TOP 3 포디엄 (시각적 시상대 배치: 2위 - 1위 - 3위)
+    if (podiumEl) {
+      const podiumOrder = [
+        { rank: 2, row: rows[1] || null, badge: "🥈 2위" },
+        { rank: 1, row: rows[0] || null, badge: "👑 1위" },
+        { rank: 3, row: rows[2] || null, badge: "🥉 3위" }
+      ];
+      podiumEl.innerHTML = podiumOrder
+        .map(({ rank, row, badge }) => {
+          if (!row) {
+            return `
+              <div class="rank-podium-card is-rank-${rank} is-empty">
+                <div class="rank-podium-place">${badge}</div>
+                <div style="font-size:1.35rem; margin:6px 0;">🎵</div>
+                <div class="rank-podium-nick">도전 대기</div>
+                <div class="rank-podium-sub">-</div>
+              </div>
+            `;
+          }
+          const safeId = escapeJsSingleArg(row.user_id);
+          const safeNick = escapeJsSingleArg(row.nickname);
+          const isMe = userState.id && row.user_id === userState.id;
+          return `
+            <div class="rank-podium-card is-rank-${rank}" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
+              <div class="rank-podium-place">${badge}</div>
+              <canvas class="rank-podium-canvas" width="480" height="480" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+              <div class="rank-podium-nick">${isMe ? "⭐ " : ""}${row.nickname}</div>
+              <div class="rank-podium-score">${Number(row.score || 0).toLocaleString()}점</div>
+              <div class="rank-podium-sub">${modeLabel[row.game_mode] || row.game_mode}·${row.stage}단계</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      podiumEl.querySelectorAll(".rank-podium-canvas").forEach(cv => {
+        try {
+          renderPixelAvatar(cv, JSON.parse(cv.getAttribute("data-avatar")));
+        } catch (e) {}
+      });
+    }
+
+    const tailRows = rows.slice(3);
+    if (tailRows.length === 0) {
+      listEl.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub); font-weight:700; font-size:0.82rem;">4위 이후 랭킹 도전자를 기다리고 있습니다!</div>`;
+    } else {
+      listEl.innerHTML = tailRows
+        .map((row, idx) => {
+          const realRank = idx + 4;
+          const safeId = escapeJsSingleArg(row.user_id);
+          const safeNick = escapeJsSingleArg(row.nickname);
+          const isMe = userState.id && row.user_id === userState.id;
+          return `
+          <div class="pixel-list-item" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
+            <div style="display:flex; align-items:center; gap:9px;">
+              <span style="font-weight:900; min-width:32px; font-size:0.92rem; color:var(--primary-dark);">#${realRank}</span>
+              <canvas class="rank-mini-canvas" width="480" height="480" style="width:42px; height:42px; border-radius:10px; border:2px solid #1e1b18;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+              <div>
+                <div style="font-weight:900; font-size:0.88rem;">${isMe ? "⭐ " : ""}${row.nickname} ${row.time_attack ? "⏱️" : ""}</div>
+                <div style="font-size:0.72rem; font-weight:700; color:var(--text-sub);">${modeLabel[row.game_mode] || row.game_mode} · ${row.stage}단계 · 정답률 ${row.accuracy}%</div>
+              </div>
+            </div>
+            <div style="font-weight:900; color:#b45309; font-size:0.95rem;">${Number(row.score || 0).toLocaleString()}점</div>
+          </div>
+        `;
+        })
+        .join("");
+
+      listEl.querySelectorAll(".rank-mini-canvas").forEach(cv => {
+        try {
+          renderPixelAvatar(cv, JSON.parse(cv.getAttribute("data-avatar")));
+        } catch (e) {}
+      });
+    }
   } catch (err) {
+    if (myRankBannerEl) myRankBannerEl.textContent = `⚠️ [${filterTitle}] 순위 조회 오류`;
     listEl.innerHTML = `<div style="text-align:center; padding:20px;">랭킹 조회 중 오류가 발생했습니다.</div>`;
   }
 };
@@ -1305,10 +1392,23 @@ function updateShopPreviewCanvas() {
   }
 
   const isOwned = !sel.price || sel.price === 0 || userState.ownedItems.includes(sel.id);
+  const unownedPreviewList = getUnownedPreviewItems();
+  const hasAnyUnownedPreview = unownedPreviewList.length > 0;
+
   if (sel.cat === "fishing_rod" || sel.cat === "fishing_bait") {
     const cfgKey = getShopCatConfigKey(sel.cat);
     const isEquipped = userState.avatarConfig && userState.avatarConfig[cfgKey] === sel.id;
-    if (!isOwned) {
+    if (hasAnyUnownedPreview) {
+      if (priceBadgeEl) {
+        priceBadgeEl.textContent = !isOwned
+          ? `💿 ${sel.price.toLocaleString()} CD`
+          : `🛍️ 미구매 ${unownedPreviewList.length}개 착용`;
+      }
+      confirmBtn.textContent =
+        unownedPreviewList.length > 1 ? `🛍️ 구매하기 (${unownedPreviewList.length}개)` : "🛍️ 구매하기";
+      confirmBtn.className = "btn btn-gold";
+      confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
+    } else if (!isOwned) {
       if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
       confirmBtn.textContent = "🛍️ 구매하기";
       confirmBtn.className = "btn btn-gold";
@@ -1327,16 +1427,21 @@ function updateShopPreviewCanvas() {
     return;
   }
 
-  if (isOwned) {
+  if (hasAnyUnownedPreview) {
+    if (priceBadgeEl) {
+      priceBadgeEl.textContent = !isOwned
+        ? `💿 ${sel.price.toLocaleString()} CD`
+        : `✅ 보유중 (미구매 ${unownedPreviewList.length}개 착용)`;
+    }
+    confirmBtn.textContent =
+      unownedPreviewList.length > 1 ? `🛍️ 구매하기 (${unownedPreviewList.length}개)` : "🛍️ 구매하기";
+    confirmBtn.className = "btn btn-gold";
+    confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
+  } else {
     if (priceBadgeEl) priceBadgeEl.textContent = "✅ 보유중";
     confirmBtn.textContent = "✅ 장착 저장";
     confirmBtn.className = "btn btn-primary";
     confirmBtn.onclick = saveCurrentPreviewLook;
-  } else {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
-    confirmBtn.textContent = "🛍️ 구매하기";
-    confirmBtn.className = "btn btn-gold";
-    confirmBtn.onclick = () => purchaseAndEquipPreviewItem(sel);
   }
 }
 
@@ -1461,8 +1566,19 @@ window.confirmMultiBuyShopItems = async function () {
 
 async function purchaseAndEquipPreviewItem(sel) {
   const unownedList = getUnownedPreviewItems();
-  if (sel && sel.id && !unownedList.some(x => x.cat === sel.cat && x.id === sel.id)) {
+  if (
+    sel &&
+    sel.id &&
+    sel.price > 0 &&
+    !userState.ownedItems.includes(sel.id) &&
+    !unownedList.some(x => x.cat === sel.cat && x.id === sel.id)
+  ) {
     unownedList.push({ cat: sel.cat, ...sel });
+  }
+
+  if (unownedList.length === 0) {
+    saveCurrentPreviewLook();
+    return;
   }
 
   // 입어보고 있는 미구매 아이템이 2개 이상이면 각각 가격/총합 팝업으로 선택 구매 제공
@@ -1480,7 +1596,7 @@ async function purchaseAndEquipPreviewItem(sel) {
             <input type="checkbox" checked data-cat="${item.cat}" data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" onchange="updateShopMultiBuyTotal()" />
             <div style="min-width:0;">
               <div style="font-size:0.84rem; font-weight:900; color:var(--text-main);">[${SHOP_CAT_LABELS[item.cat] || item.cat}] ${item.name}</div>
-              <div style="font-size:0.72rem; color:var(--text-sub);">${item.id === sel.id ? "현재 선택한 아이템" : "입어보기 중인 아이템"}</div>
+              <div style="font-size:0.72rem; color:var(--text-sub);">${sel && item.id === sel.id ? "현재 선택한 아이템" : "입어보기 중인 아이템"}</div>
             </div>
           </div>
           <strong style="color:#b45309; font-size:0.86rem; white-space:nowrap;">💿 ${item.price.toLocaleString()}</strong>
@@ -1494,28 +1610,29 @@ async function purchaseAndEquipPreviewItem(sel) {
     return;
   }
 
-  if (userState.cdCoins < sel.price) {
-    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${sel.price.toLocaleString()} CD)\n문제를 풀고 점수를 얻으면 CD가 지급됩니다!`);
+  const targetItem = unownedList[0];
+  if (userState.cdCoins < targetItem.price) {
+    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${targetItem.price.toLocaleString()} CD)\n문제를 풀고 점수를 얻으면 CD가 지급됩니다!`);
     return;
   }
 
   const buyTitle =
-    sel.cat === "fishing_rod"
+    targetItem.cat === "fishing_rod"
       ? "🎣 낚싯대 구매"
-      : sel.cat === "fishing_bait"
+      : targetItem.cat === "fishing_bait"
       ? "🪱 미끼 구매"
       : "🛍️ 코스튬 구매";
-  gameConfirm(`[${sel.name}] 아이템을 💿 ${sel.price.toLocaleString()} CD에 구매하고 장착할까요?`, async () => {
-    userState.cdCoins -= sel.price;
-    if (!userState.ownedItems.includes(sel.id)) {
-      userState.ownedItems.push(sel.id);
+  gameConfirm(`[${targetItem.name}] 아이템을 💿 ${targetItem.price.toLocaleString()} CD에 구매하고 장착할까요?`, async () => {
+    userState.cdCoins -= targetItem.price;
+    if (!userState.ownedItems.includes(targetItem.id)) {
+      userState.ownedItems.push(targetItem.id);
     }
     userState.avatarConfig = sanitizeAvatarConfigToOwned(shopPreviewState.config);
     shopPreviewState.config = { ...userState.avatarConfig };
     await syncProfileToServer();
     renderShopCategory(shopPreviewState.selectedCat);
     updateShopPreviewCanvas();
-    gameAlert(`🎉 [${sel.name}] 구매 및 장착 완료!`, "🛍️ 구매 성공");
+    gameAlert(`🎉 [${targetItem.name}] 구매 및 장착 완료!`, "🛍️ 구매 성공");
   }, buyTitle);
 }
 

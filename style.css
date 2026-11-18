@@ -2772,3 +2772,156 @@ body.on-fishing-screen.keyboard-open .app-shell {
     transform: translateY(-18px);
   }
 }
+
+/* ==================== 낚시터 좌측 보유 CD / 경험치 배지 ==================== */
+.fishing-balance-badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #f8fafc;
+  max-width: 152px;
+  pointer-events: none;
+}
+
+.fishing-balance-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fishing-balance-line.is-cd {
+  color: #fde047;
+}
+
+.fishing-balance-line.is-exp {
+  color: #bae6fd;
+}
+
+/* ==================== 랭킹 화면 중앙 상단 대형 TOP 3 포디엄 & 내 순위 ==================== */
+.ranking-my-rank-banner {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 2px solid var(--game-border);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  text-align: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 0 rgba(30, 27, 24, 0.14);
+}
+
+.ranking-top3-podium {
+  display: grid;
+  grid-template-columns: 1fr 1.18fr 1fr;
+  align-items: end;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 2px 0 2px;
+}
+
+.rank-podium-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 5px 7px;
+  border-radius: 14px;
+  border: 2.5px solid var(--game-border);
+  box-shadow: 0 3px 0 rgba(30, 27, 24, 0.85);
+  cursor: pointer;
+  min-width: 0;
+  text-align: center;
+  transition: transform 0.12s ease;
+}
+
+.rank-podium-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(30, 27, 24, 0.85);
+}
+
+.rank-podium-card.is-empty {
+  background: #f8fafc;
+  opacity: 0.72;
+  cursor: default;
+}
+
+.rank-podium-card.is-rank-1 {
+  background: linear-gradient(180deg, #fef08a 0%, #fde047 65%, #facc15 100%);
+  padding-top: 10px;
+  padding-bottom: 9px;
+}
+
+.rank-podium-card.is-rank-2 {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.rank-podium-card.is-rank-3 {
+  background: linear-gradient(180deg, #ffedd5 0%, #fdba74 100%);
+}
+
+.rank-podium-place {
+  font-size: 0.94rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #1e1b18;
+  letter-spacing: -0.3px;
+}
+
+.rank-podium-card.is-rank-1 .rank-podium-place {
+  font-size: 1.12rem;
+  color: #92400e;
+}
+
+.rank-podium-canvas {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 2px solid #1e1b18;
+  background: rgba(255, 255, 255, 0.72);
+  display: block;
+}
+
+.rank-podium-card.is-rank-1 .rank-podium-canvas {
+  width: 56px;
+  height: 56px;
+}
+
+.rank-podium-nick {
+  max-width: 100%;
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: #1e1b18;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-podium-card.is-rank-1 .rank-podium-nick {
+  font-size: 0.84rem;
+}
+
+.rank-podium-score {
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: #b45309;
+  white-space: nowrap;
+}
+
+.rank-podium-sub {
+  max-width: 100%;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

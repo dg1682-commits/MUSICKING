@@ -511,7 +511,7 @@ async function fetchItunesTrack(q) {
   }
   const info =
     typeof fetchItunesSongMeta === "function"
-      ? await fetchItunesSongMeta(q.itunesQuery || `${q.artist} ${q.title}`)
+      ? await fetchItunesSongMeta(q)
       : { previewUrl: null, artworkUrl: "" };
   state.itunesCache.set(q.id, info);
   return info;
@@ -1540,7 +1540,15 @@ function useKeywordHint() {
   btn.classList.add("used");
   btn.disabled = true;
 
-  appendHintBox("🔑 포인트 단어", `<strong>${q.keywordHint}</strong>`);
+  const safeKeywordHint =
+    typeof sanitizeKeywordHint === "function"
+      ? sanitizeKeywordHint(q.keywordHint, q, {
+          maskArtist: state.stage !== 1,
+          maskTitle: state.stage !== 2
+        })
+      : q.keywordHint;
+
+  appendHintBox("🔑 포인트 단어", `<strong>${safeKeywordHint}</strong>`);
 }
 
 function useAudioHint() {
@@ -1719,11 +1727,7 @@ async function showFinalResult() {
     ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
   `;
 
-  const earnedCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
-  document.getElementById("finalCdEarnedText").textContent = `💿 획득 보상: +${earnedCd} CD 지급 완료! (보유: ${userState.cdCoins + earnedCd} CD)`;
-  if (earnedCd > 0) {
-    userState.cdCoins += earnedCd;
-  }
+  const baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
 
   if (state.score > 0 && typeof submitScoreToRanking === "function") {
     await submitScoreToRanking({
@@ -1738,7 +1742,9 @@ async function showFinalResult() {
   }
 
   let rewardResult = {
-    earnedCd,
+    baseCd,
+    earnedCd: baseCd,
+    finalCd: baseCd,
     baseExp: Math.round(state.score * 0.1),
     finalExp: Math.round(state.score * 0.1),
     multiplier: 1,
@@ -1747,9 +1753,17 @@ async function showFinalResult() {
     expAfter: (userState.exp || 0) + Math.round(state.score * 0.1)
   };
   if (typeof checkAndProcessGameRewards === "function") {
-    const res = await checkAndProcessGameRewards(state.score, state.mode, state.stage);
-    rewardResult = { earnedCd, ...res };
+    const res = await checkAndProcessGameRewards(state.score, state.mode, state.stage, baseCd);
+    rewardResult = { ...rewardResult, ...res };
+  } else {
+    if (baseCd > 0) userState.cdCoins = (Number(userState.cdCoins) || 0) + baseCd;
   }
+
+  const finalCdGain = Number(rewardResult.earnedCd) || 0;
+  document.getElementById("finalCdEarnedText").textContent =
+    rewardResult.multiplier > 1
+      ? `💿 획득 보상: +${finalCdGain.toLocaleString()} CD (🏆 랭킹 ${rewardResult.achievedTopRank}위 ×${rewardResult.multiplier}배!) 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`
+      : `💿 획득 보상: +${finalCdGain.toLocaleString()} CD 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`;
 
   state.resultPlayingIndex = null;
   const listEl = document.getElementById("historyList");
@@ -1837,7 +1851,7 @@ window.showRewardSummaryModal = function (res) {
   if (top3Banner) {
     if (res.achievedTopRank && res.achievedTopRank <= 3) {
       const medal = res.achievedTopRank === 1 ? "🥇 1위" : res.achievedTopRank === 2 ? "🥈 2위" : "🥉 3위";
-      top3Banner.innerHTML = `🎉 축하합니다! 랭킹 <strong>${medal}</strong> 신규 달성!<br/>보너스 경험치 <strong>×${res.multiplier}배</strong> 적용!`;
+      top3Banner.innerHTML = `🎉 축하합니다! 랭킹 <strong>${medal}</strong> 신규 달성!<br/>보너스 경험치 · CD <strong>×${res.multiplier}배</strong> 동시 적용!`;
       top3Banner.classList.remove("hidden");
       launchTop3Confetti();
     } else {
@@ -1845,7 +1859,11 @@ window.showRewardSummaryModal = function (res) {
     }
   }
 
-  document.getElementById("rewardCdGain").textContent = `+${res.earnedCd || 0} CD`;
+  const cdGainVal = Number(res.earnedCd) || 0;
+  document.getElementById("rewardCdGain").textContent =
+    res.multiplier > 1
+      ? `+${cdGainVal.toLocaleString()} CD (×${res.multiplier}배!)`
+      : `+${cdGainVal.toLocaleString()} CD`;
   document.getElementById("rewardExpGain").textContent =
     res.multiplier > 1
       ? `+${res.finalExp.toLocaleString()} EXP (×${res.multiplier}배!)`

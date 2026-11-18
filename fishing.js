@@ -227,6 +227,20 @@ function renderFishingHud() {
     buffEl.textContent = parts.join(" · ");
     buffEl.classList.toggle("hidden", parts.length === 0);
   }
+
+  const myCdEl = document.getElementById("fishingMyCdText");
+  const myExpEl = document.getElementById("fishingMyExpText");
+  const curCd = typeof userState !== "undefined" ? Math.max(0, Math.floor(Number(userState.cdCoins) || 0)) : 0;
+  const curExp = typeof userState !== "undefined" ? Math.max(0, Math.floor(Number(userState.exp) || 0)) : 0;
+  if (myCdEl) myCdEl.textContent = `💿 보유 ${curCd.toLocaleString()} CD`;
+  if (myExpEl) {
+    if (typeof getLevelInfo === "function") {
+      const lv = getLevelInfo(curExp);
+      myExpEl.textContent = `✨ Lv.${lv.level} · ${curExp.toLocaleString()} EXP`;
+    } else {
+      myExpEl.textContent = `✨ ${curExp.toLocaleString()} EXP`;
+    }
+  }
 }
 
 // 낚시터 안에 머문 상태에서만 시간 흐름 (화면 내려놓기·오전 06:00 돌파 모두 정확히 분할 계산!)
