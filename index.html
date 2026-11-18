@@ -1,12 +1,129 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <!-- ⚠️ [원스토어 H5 Game SDK] 게임 코드/CSS보다 최상단 우선 로드 ({{version}} -> 임시 버전 '1.0.0'을 원스토어 최신 버전으로 수정) -->
+  <!-- ⚠️ [원스토어 H5 Game SDK v1.1.0] <head> 최상단 우선 로드 · 버전 경로는 반드시 'v' 접두사 포함(예: v1.1.0) -->
   <script type="module">
-    // ✏️ [버전 수정] 아래 URL의 '1.0.0' 부분을 원스토어 릴리즈 노트 최신 버전으로 교체하세요!
-    import { createSDK } from "https://h5sdk.onestore.net/lib/1.0.0/onestore-h5-sdk.js";
+    // ✏️ [버전 관리] 원스토어 공식 최신 SDK 버전 'v1.1.0' ('v' 접두사 필수 / 기존 '1.0.0' 경로는 CDN 404 오류)
+    import { createSDK } from "https://h5sdk.onestore.net/lib/v1.1.0/onestore-h5-sdk.min.js";
+
+    let resolveGameReady = null;
+    const gameReadyPromise = new Promise(resolve => {
+      resolveGameReady = resolve;
+    });
+    window.__markMusickingBootReady = () => {
+      window.__musickingBootReady = true;
+      if (resolveGameReady) {
+        resolveGameReady();
+        resolveGameReady = null;
+      }
+    };
+
+    function applyOnestoreSafeArea(safeArea) {
+      if (!safeArea || typeof safeArea !== "object") return;
+      const rootStyle = document.documentElement.style;
+      const toPx = v => (Number.isFinite(Number(v)) ? `${Math.max(0, Number(v))}px` : "0px");
+      rootStyle.setProperty("--os-safe-top", toPx(safeArea.top));
+      rootStyle.setProperty("--os-safe-bottom", toPx(safeArea.bottom));
+      rootStyle.setProperty("--os-safe-left", toPx(safeArea.left));
+      rootStyle.setProperty("--os-safe-right", toPx(safeArea.right));
+    }
+
+    function whenDocumentReady() {
+      if (document.readyState !== "loading") return Promise.resolve();
+      return new Promise(resolve => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
+    }
+
     try {
-      window.onestoreSdk = createSDK();
+      const sdk = createSDK();
+      window.onestoreSdk = sdk;
+      window.onestoreCtx = null;
+      window.__onestorePaused = false;
+      window.__onestoreRingerSilent = false;
+
+      // 1) 생명주기 콜백은 반드시 initializeAsync() 호출 전에 등록
+      sdk.on("pause", () => {
+        window.__onestorePaused = true;
+        if (typeof window.onOnestorePause === "function") {
+          try { window.onOnestorePause(); } catch (err) {}
+        } else if (typeof window.stopAllAppAudio === "function") {
+          try { window.stopAllAppAudio(false); } catch (err) {}
+        }
+      });
+
+      sdk.on("resume", event => {
+        window.__onestorePaused = false;
+        if (event && typeof event.ringerSilent === "boolean") {
+          window.__onestoreRingerSilent = event.ringerSilent;
+        }
+        if (typeof window.onOnestoreResume === "function") {
+          try { window.onOnestoreResume(event); } catch (err) {}
+        }
+      });
+
+      sdk.on("exit", () => {
+        if (typeof window.onOnestoreExit === "function") {
+          try { window.onOnestoreExit(); } catch (err) {}
+        } else {
+          if (typeof window.handleFishingForcedExit === "function") {
+            try { window.handleFishingForcedExit(); } catch (err) {}
+          }
+          if (typeof window.stopAllAppAudio === "function") {
+            try { window.stopAllAppAudio(true); } catch (err) {}
+          }
+        }
+      });
+
+      sdk.onBackPressed(() => {
+        if (typeof window.handleOnestoreBackPressed === "function") {
+          try {
+            return window.handleOnestoreBackPressed() === true;
+          } catch (err) {}
+        }
+        return false;
+      });
+
+      // 2) SDK 초기화(core.getConfig) -> 로딩 진행율(core.loadingProgress) -> 게임 준비 완료(core.ready)
+      sdk.initializeAsync()
+        .then(async info => {
+          if (info && info.err) {
+            // 일반 웹/PWA 환경에서는 에러를 띄우지 않고 단독 웹게임으로 그대로 실행
+            window.onestoreCtx = null;
+            return;
+          }
+
+          window.onestoreCtx = info || {};
+          if (typeof info?.ringerSilent === "boolean") {
+            window.__onestoreRingerSilent = info.ringerSilent;
+          }
+          if (info?.safeArea) {
+            applyOnestoreSafeArea(info.safeArea);
+          }
+
+          try { sdk.setLoadingProgress(35); } catch (err) {}
+
+          await whenDocumentReady();
+          if (!window.__musickingBootReady) {
+            await Promise.race([
+              gameReadyPromise,
+              new Promise(resolve => setTimeout(resolve, 2000))
+            ]);
+          }
+
+          try { sdk.setLoadingProgress(85); } catch (err) {}
+          await new Promise(resolve => setTimeout(resolve, 0));
+          try { sdk.setLoadingProgress(100); } catch (err) {}
+
+          const startInfo = await sdk.startGameAsync();
+          if (startInfo && !startInfo.err) {
+            window.onestoreCtx = { ...window.onestoreCtx, ...startInfo };
+          }
+          if (typeof window.onOnestoreGameStarted === "function") {
+            try { window.onOnestoreGameStarted(sdk, window.onestoreCtx); } catch (err) {}
+          }
+        })
+        .catch(err => {
+          console.warn("[ONEstore H5 SDK] init skipped:", err);
+        });
     } catch (e) {
       window.onestoreSdk = null;
       console.warn("[ONEstore H5 SDK] init skipped:", e);
@@ -41,9 +158,9 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=10.23" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <link rel="stylesheet" href="style.css?v=10.25" />
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
   <div class="app-shell">
@@ -1385,35 +1502,34 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script src="data.js?v=10.23"></script>
-  <script src="pixel_avatar.js?v=10.23"></script>
-  <script src="online.js?v=10.23"></script>
-  <script src="fishing.js?v=10.23"></script>
-  <script src="app.js?v=10.23"></script>
-  <script>
-    (function () {
-      var banner = document.getElementById("smart-pwa-banner");
-      var iosContent = document.getElementById("pwa-ios-content");
-      var iosArrow = document.getElementById("pwa-ios-arrow");
-      var androidContent = document.getElementById("pwa-android-content");
-      var installBtn = document.getElementById("pwa-install-btn");
-      var closeBtn = document.getElementById("pwa-banner-close");
+  <script defer src="data.js?v=10.25"></script>
+  <script defer src="pixel_avatar.js?v=10.25"></script>
+  <script defer src="online.js?v=10.25"></script>
+  <script defer src="fishing.js?v=10.25"></script>
+  <script defer src="app.js?v=10.25"></script>
+  <script type="module">
+    const banner = document.getElementById("smart-pwa-banner");
+    const iosContent = document.getElementById("pwa-ios-content");
+    const iosArrow = document.getElementById("pwa-ios-arrow");
+    const androidContent = document.getElementById("pwa-android-content");
+    const installBtn = document.getElementById("pwa-install-btn");
+    const closeBtn = document.getElementById("pwa-banner-close");
 
-      var isStandalone =
-        window.navigator.standalone === true ||
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.matchMedia("(display-mode: fullscreen)").matches ||
-        document.referrer.indexOf("android-app://") !== -1;
+    const isStandalone =
+      window.navigator.standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      document.referrer.indexOf("android-app://") !== -1;
 
-      var dismissedTime = localStorage.getItem("musicking_pwa_hide");
-      var isDismissed = dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 24 * 60 * 60 * 1000;
+    const isEmbedded = window.self !== window.top || Boolean(window.onestoreCtx);
+    const dismissedTime = localStorage.getItem("musicking_pwa_hide");
+    const isDismissed = dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 24 * 60 * 60 * 1000;
 
-      if (isStandalone || isDismissed) return;
-
-      var isIOS =
+    if (!isStandalone && !isEmbedded && !isDismissed) {
+      const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      var isAndroid = /Android/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
 
       if (isIOS && banner && iosContent) {
         banner.style.display = "block";
@@ -1421,7 +1537,7 @@
         if (iosArrow) iosArrow.style.display = "block";
       }
 
-      var deferredPrompt = null;
+      let deferredPrompt = null;
       window.addEventListener("beforeinstallprompt", function (e) {
         e.preventDefault();
         deferredPrompt = e;
@@ -1456,7 +1572,7 @@
           localStorage.setItem("musicking_pwa_hide", Date.now().toString());
         });
       }
-    })();
+    }
   </script>
 </body>
 </html>

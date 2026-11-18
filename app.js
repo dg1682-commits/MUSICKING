@@ -352,6 +352,13 @@ function performCleanAppExit() {
   }
 
   try {
+    if (window.onestoreSdk && typeof window.onestoreSdk.isSupported === "function" && window.onestoreSdk.isSupported()) {
+      window.onestoreSdk.quit();
+      return;
+    }
+  } catch (e) {}
+
+  try {
     window.close();
   } catch (e) {}
   try {
@@ -359,13 +366,15 @@ function performCleanAppExit() {
   } catch (e) {}
 }
 
-window.addEventListener("popstate", () => {
+window.processInAppBackStep = function (fromOnestore = false) {
   if (appExited || allowAppExit) {
     stopAllAppAudio(true);
-    return;
+    return false;
   }
 
-  hasBackGuardPushed = false;
+  if (!fromOnestore) {
+    hasBackGuardPushed = false;
+  }
 
   const dialog = document.getElementById("customDialogModal");
   if (dialog && !dialog.classList.contains("hidden")) {
@@ -373,61 +382,62 @@ window.addEventListener("popstate", () => {
       // 종료 확인 창이 열린 상태에서 뒤로가기를 한 번 더 누르면 모달만 닫지 않고 종료를 원할 수 있으므로 확인창 유지/재무장
       dialog.classList.add("hidden");
       delete dialog.dataset.isExitConfirm;
-      armAppBackGuard(true);
-      return;
+      if (!fromOnestore) armAppBackGuard(true);
+      return true;
     }
     dialog.classList.add("hidden");
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   const openModals = Array.from(document.querySelectorAll(".modal-backdrop:not(.hidden)"));
   if (openModals.length > 0) {
     window.closeAllModals();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (state.currentScreen === "battlePlayScreen") {
     if (typeof confirmExitOnlineBattle === "function") confirmExitOnlineBattle();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (state.currentScreen === "fishingScreen") {
     if (typeof confirmExitFishingRoom === "function") confirmExitFishingRoom();
     else if (typeof exitFishingScreenWithLoading === "function") exitFishingScreenWithLoading();
     else showHome();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (state.currentScreen === "battleRoomScreen") {
     leaveBattleRoom();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (state.currentScreen === "dmChatScreen") {
     switchScreen("socialScreen");
     if (typeof loadFriendsData === "function") loadFriendsData();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (["setupScreen", "plazaScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (["gameScreen", "judgeScreen"].includes(state.currentScreen)) {
     confirmExitSingleGame();
-    armAppBackGuard(true);
-    return;
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   if (state.currentScreen === "homeScreen") {
+    if (fromOnestore) return false;
     const dlg = document.getElementById("customDialogModal");
     if (dlg) dlg.dataset.isExitConfirm = "true";
     gameConfirm(
@@ -442,8 +452,18 @@ window.addEventListener("popstate", () => {
         armAppBackGuard(true);
       }
     );
-    return;
+    return true;
   }
+
+  return false;
+};
+
+window.handleOnestoreBackPressed = function () {
+  return window.processInAppBackStep(true) === true;
+};
+
+window.addEventListener("popstate", () => {
+  window.processInAppBackStep(false);
 });
 
 // ============================================================================
@@ -783,26 +803,30 @@ bgmState.fishAudio.loop = true;
 bgmState.fishAudio.volume = 0.25;
 bgmState.fishAudio.preload = "none";
 
+function isAppAudioBlocked() {
+  return Boolean(appExited || document.hidden || bgmState.muted || window.__onestorePaused || window.__onestoreRingerSilent);
+}
+
 bgmState.fishAudio.addEventListener("error", () => {
   if (appExited || !bgmState.fishAudio.getAttribute("src")) return;
   if (bgmState.fishAudioIdx + 1 < FISH_BGM_CANDIDATES.length) {
     bgmState.fishAudioIdx += 1;
     bgmState.fishAudio.src = FISH_BGM_CANDIDATES[bgmState.fishAudioIdx];
     bgmState.fishAudio.load();
-    if (!bgmState.muted && !document.hidden && bgmState.currentType === "fish") {
+    if (!isAppAudioBlocked() && bgmState.currentType === "fish") {
       bgmState.fishAudio.play().catch(() => {});
     }
   }
 });
 
 bgmState.fishAudio.addEventListener("canplay", () => {
-  if (!bgmState.muted && !appExited && !document.hidden && bgmState.currentType === "fish" && bgmState.fishAudio.paused) {
+  if (!isAppAudioBlocked() && bgmState.currentType === "fish" && bgmState.fishAudio.paused) {
     bgmState.fishAudio.play().catch(() => {});
   }
 });
 
 function playFishingBgmSafely() {
-  if (!bgmState.fishAudio || appExited || document.hidden || bgmState.muted) return;
+  if (!bgmState.fishAudio || isAppAudioBlocked()) return;
   const hasSrc = Boolean(bgmState.fishAudio.getAttribute("src"));
   if (!hasSrc || bgmState.fishAudio.error) {
     bgmState.fishAudioIdx = 0;
@@ -815,7 +839,7 @@ function playFishingBgmSafely() {
 }
 
 window.playClickSfx = function () {
-  if (appExited || document.hidden || bgmState.muted) return;
+  if (isAppAudioBlocked()) return;
   try {
     const sfx = bgmState.clickPool[bgmState.clickIdx];
     bgmState.clickIdx = (bgmState.clickIdx + 1) % bgmState.clickPool.length;
@@ -887,7 +911,7 @@ window.toggleBgmMute = function () {
 function updateBgmForScreen(screenId) {
   syncFloatingSoundBtn(screenId);
 
-  if (appExited || document.hidden || bgmState.muted) {
+  if (isAppAudioBlocked()) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
     if (bgmState.fishAudio) bgmState.fishAudio.pause();
@@ -929,10 +953,10 @@ function updateBgmForScreen(screenId) {
 document.addEventListener(
   "pointerdown",
   () => {
-    if (appExited || document.hidden) return;
+    if (appExited || document.hidden || window.__onestorePaused) return;
     armAppBackGuard(true);
     unlockQuizAudio();
-    if (!bgmState.muted && bgmState.currentType !== "none") {
+    if (!isAppAudioBlocked() && bgmState.currentType !== "none") {
       if (bgmState.currentType === "fish") {
         playFishingBgmSafely();
       } else {
@@ -981,6 +1005,47 @@ window.addEventListener("beforeunload", e => {
     handleFishingForcedExit(e);
   }
 });
+
+window.onOnestorePause = function () {
+  window.__onestorePaused = true;
+  if (typeof handleFishingVisibilityChange === "function") {
+    handleFishingVisibilityChange(true);
+  } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+    advanceFishingClockTo(Date.now());
+    if (typeof syncProfileToServer === "function") syncProfileToServer();
+  }
+  stopAllAppAudio(false);
+};
+
+window.onOnestoreResume = function (event) {
+  window.__onestorePaused = false;
+  if (event && typeof event.ringerSilent === "boolean") {
+    window.__onestoreRingerSilent = event.ringerSilent;
+  }
+  if (!appExited) {
+    if (typeof handleFishingVisibilityChange === "function") {
+      handleFishingVisibilityChange(false);
+    } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+      advanceFishingClockTo(Date.now());
+    }
+    updateBgmForScreen(state.currentScreen);
+  }
+};
+
+window.onOnestoreExit = function () {
+  if (typeof handleFishingForcedExit === "function") {
+    handleFishingForcedExit();
+  }
+  stopAllAppAudio(true);
+};
+
+window.onOnestoreGameStarted = function () {
+  updateBgmForScreen(state.currentScreen);
+  requestAnimationFrame(() => {
+    if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
+    syncHomeCornerFloatingButtons();
+  });
+};
 
 // 쿠팡 파트너스 동적 배너가 body 루트 등 외부로 떨어졌을 경우 홈 하단 전용 슬롯(#homeCoupangFrameWrap)으로 안전 재배치
 function relocateCoupangAdBanner() {
@@ -1886,6 +1951,9 @@ window.addEventListener("load", syncHomeCornerFloatingButtons);
 
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();
+  if (typeof window.__markMusickingBootReady === "function") {
+    window.__markMusickingBootReady();
+  }
   relocateCoupangAdBanner();
   setTimeout(relocateCoupangAdBanner, 450);
   setTimeout(relocateCoupangAdBanner, 1500);

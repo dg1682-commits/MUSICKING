@@ -38,6 +38,10 @@
   --shadow-game: 0 5px 0 #1e1b18, 0 10px 24px rgba(0, 0, 0, 0.12);
   /* 기본 폰트: 깔끔하고 통통한 기본 고딕 */
   --font-main: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --os-safe-top: 0px;
+  --os-safe-bottom: 0px;
+  --os-safe-left: 0px;
+  --os-safe-right: 0px;
 }
 
 body.use-pixel-font {
@@ -93,11 +97,15 @@ body {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding: max(20px, calc(env(safe-area-inset-top) + 8px)) 16px max(42px, calc(env(safe-area-inset-bottom) + 18px));
+  padding:
+    max(20px, calc(var(--os-safe-top, 0px) + 8px), calc(env(safe-area-inset-top) + 8px))
+    max(16px, var(--os-safe-right, 0px), env(safe-area-inset-right))
+    max(42px, calc(var(--os-safe-bottom, 0px) + 18px), calc(env(safe-area-inset-bottom) + 18px))
+    max(16px, var(--os-safe-left, 0px), env(safe-area-inset-left));
 }
 
 body.on-home-screen .app-shell {
-  padding-bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px));
+  padding-bottom: max(14px, calc(var(--os-safe-bottom, 0px) + 8px), calc(env(safe-area-inset-bottom) + 8px));
 }
 
 /* ==================== 상단 액션퍼즐패밀리 스타일 헤더 ==================== */

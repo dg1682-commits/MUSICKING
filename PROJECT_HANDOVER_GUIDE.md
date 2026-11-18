@@ -19,16 +19,16 @@
 
 | 파일명 | 역할 | 비고 |
 | :--- | :--- | :--- |
-| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (최상단 `<head>` 원스토어 H5 Game SDK `<script type="module">` `window.onestoreSdk` + 14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`, OG 공유 메타태그·개인정보/외부탈퇴 URL 라우팅·상점 풀배경 캔버스 포함) | `<head>` 최상단 원스토어 SDK 및 `.hidden` 인라인 스타일 필수 |
-| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (홈 2×3 버튼 도크·16:10 와이드 홈 스테이지 + 낚시터 상/하 분할 및 키보드 입력창 부양 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
-| [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
-| [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `online.js`, `fishing.js`, `app.js`보다 **반드시 먼저** 로드 |
-| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·낚시 인벤토리 슬롯·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링, `_fishingDaily`·`_fishingLive`·`keepalive` 저장) | `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
-| [fishing.js](file:///c:/Users/user1/Desktop/개발/음악왕/fishing.js) | **통합 방치형 소셜 낚시터 모듈 (`fishing_room_1`)**: Realtime(Presence/Broadcast) + 4초 DB 로스터(`_fishingLive`) 하이브리드 동기화 & WS 자동 재연결, 폰 홈버튼 유지(`mode: "bg"`, `💤`) & 스와이프 강제종료(`beforeunload`/`pagehide` keepalive) 자동 퇴장, KST 오전 `06:00` 초기화, 6시간 기본 `+1,000 EXP / +3,000 CD` + 낚싯대·미끼 버프 연동, 15fps 호수 캔버스·바닥 이동·5초 말풍선, 2초 바운스 로딩 | `online.js` 다음, `app.js` 전에 로드 |
-| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진(랜덤 플레이 `startRandomGame` 포함), iTunes 음원 검색/1초 듣기/결과표 미리듣기 토글, 3단계 엔터 포커스, BGM(`main.mp3`/`shop.mp3`/`fish.mp3`)/클릭 효과음(`click.wav`), 백그라운드 전환 시 낚시터 유지·강제종료 정리(`visibilitychange`/`pagehide`/`beforeunload`)·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치(`relocateCoupangAdBanner`), 모바일 키보드 뷰포트 제어(`setupMobileKeyboardViewportHandler`), 폭죽/결과 공유(`html2canvas`) | `DOMContentLoaded`에서 `initEvents()` 및 `sw.js` 등록 |
+| [index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) | 메인 SPA 진입점 (최상단 `<head>` 원스토어 H5 Game SDK `v1.1.0` `<script type="module">` `window.onestoreSdk` 및 `initializeAsync`→`setLoadingProgress`→`startGameAsync` 생명주기 + 모든 게임/CDN 스크립트 `defer` 순서 보장 + 14개 전체화면 `<section>`/`<main>` + 16개 모달 + `#fishingLoadingOverlay`) | `<head>` 최상단 원스토어 SDK (`v` 접두사 `v1.1.0`) 및 `.hidden` 인라인 스타일 필수 |
+| [style.css](file:///c:/Users/user1/Desktop/개발/음악왕/style.css) | 전체 UI 스타일 (홈 2×3 버튼 도크·16:10 와이드 홈 스테이지 + 낚시터 상/하 분할 및 키보드 입력창 부양 + 상점 + MIDI 다크 스튜디오 + 카톡 DM 테마 + `--os-safe-*` 원스토어 노치 대응) | 기본 폰트: 고딕 (`use-pixel-font` 토글 지원) |
+| [data.js](file:///c:/Users/user1/Desktop/개발/음악왕/data.js) | 1990s~2020s K-POP 문제 DB (`QUESTIONS_DB`), `HARD_MODE_ARTISTS`, 공용 MD 문제 파서(`parseMarkdownQuestions`)·정답 마스킹(`maskAnswerInBehindText`)·iTunes 조회 유틸 | `defer` 로드 · 비하인드 추리 단서 보강 & MD 자동 마스킹 포함 |
+| [pixel_avatar.js](file:///c:/Users/user1/Desktop/개발/음악왕/pixel_avatar.js) | 1~20레벨 테이블(`EXP_LEVEL_TABLE`), 상점 아이템 카탈로그(`BASE_AVATAR_SHOP_ITEMS`, v12), 최소 480×480 고디테일 캐릭터·배경·의상·헤어·악기·도트 로고 캔버스 렌더러 | `defer` 로드 · `online.js`, `fishing.js`, `app.js`보다 **반드시 먼저** 실행 |
+| [online.js](file:///c:/Users/user1/Desktop/개발/음악왕/online.js) | Supabase 연동 (회원/세션·인게임/외부 탈퇴 RPC `delete_my_account`, 약관·삭제 URL 라우팅 `?page=privacy/delete`, 신고/차단 `user_reports`, 유저별 최고점 랭킹 TOP 20·TOP 3 보너스, 상점 단일/선택 일괄 구매·낚시 인벤토리 슬롯·`#shopBgCanvas` 풀배경 연동, 1:1/4인 필터 대기실·대결 전적, 카톡 친구/1:1 DM, 5초 DB 폴링, `_fishingDaily`·`_fishingLive`·`keepalive` 저장) | `defer` 로드 · `userState`, `dmState`, `dmNotiState`, `plazaState` 관리 |
+| [fishing.js](file:///c:/Users/user1/Desktop/개발/음악왕/fishing.js) | **통합 방치형 소셜 낚시터 모듈 (`fishing_room_1`)**: Realtime(Presence/Broadcast) + 4초 DB 로스터(`_fishingLive`) 하이브리드 동기화 & WS 자동 재연결, 폰 홈버튼 유지(`mode: "bg"`, `💤`) & 스와이프 강제종료(`beforeunload`/`pagehide` keepalive) 자동 퇴장, KST 오전 `06:00` 초기화, 6시간 기본 `+1,000 EXP / +3,000 CD` + 낚싯대·미끼 버프 연동, 15fps 호수 캔버스·바닥 이동·5초 말풍선, 2초 바운스 로딩 | `defer` 로드 · `online.js` 다음, `app.js` 전에 실행 |
+| [app.js](file:///c:/Users/user1/Desktop/개발/음악왕/app.js) | 싱글 게임 엔진, iTunes 음원 검색/1초 듣기, BGM(`main.mp3`/`shop.mp3`/`fish.mp3`)/클릭 효과음, 원스토어 H5 SDK 생명주기 연동(`onOnestorePause`/`Resume`/`Exit`/`GameStarted`, `handleOnestoreBackPressed`, `ringerSilent`), 백그라운드 전환 시 낚시터 유지·강제종료 정리·물리 뒤로가기 종료 가드, 상점 고스트 스크롤, 화면 전환(`switchScreen`), 쿠팡 배너 슬롯 재배치, 모바일 키보드 뷰포트 제어, 폭죽/결과 공유 | `defer` 로드 · `DOMContentLoaded`에서 `initEvents()`, `__markMusickingBootReady()`, `sw.js` 등록 |
 | [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) | 관리자 백엔드 대시보드 (음악 더블클릭 수정·`➕ 1곡 직접 추가`·**`📂 MD 파일 일괄 추가`**·삭제, 상점 시세 관리, 유저 CD/계정 초기화, **`🚨 신고 내역 조회`**, **`📦 스토어 출시 정보`**) | 닉네임 `"관리자"` 세션 이중 잠금 |
 | [manifest.json](file:///c:/Users/user1/Desktop/개발/음악왕/manifest.json) | PWA 매니페스트 (`standalone`, `portrait`, `launch_handler: focus-existing`, 192/512/maskable/svg 아이콘) | PWABuilder 패키징 기준 |
-| [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 |
+| [sw.js](file:///c:/Users/user1/Desktop/개발/음악왕/sw.js) | Service Worker (동일 출처 Network-First + 오프라인 폴백 / 외부 API 직통) | 버전 변경 시 `CACHE_NAME` 수정 필수 (`v10.25`) |
 | [.nojekyll](file:///c:/Users/user1/Desktop/개발/음악왕/.nojekyll) | GitHub Pages Jekyll 비활성화 (`.well-known` 폴더 404 방지) | 절대 삭제 금지 *(GitHub 웹 업로드 시 주의!)* |
 | [.well-known/assetlinks.json](file:///c:/Users/user1/Desktop/개발/음악왕/.well-known/assetlinks.json) | Android TWA 상단 주소창 완전 제거용 Digital Asset Links | PWABuilder 서명 키 지문 등록됨 |
 | [가수목록.md](file:///c:/Users/user1/Desktop/개발/음악왕/가수목록.md) | 1990s~2020s 연대별 50팀씩 총 200팀 가수 리스트 & 제외 가수·동의어 규칙 메모 | 문제 확장 참고 목록 |
@@ -36,13 +36,15 @@
 | `icons/` | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, [icon.svg](file:///c:/Users/user1/Desktop/개발/음악왕/icons/icon.svg), [make_icons.html](file:///c:/Users/user1/Desktop/개발/음악왕/icons/make_icons.html) | APK 아이콘 생성용 자산 |
 | `bgm/` | `main.mp3`, `shop.mp3`, `fish.mp3`, `click.wav` | GitHub 저장소 내 `bgm/` 폴더에 실파일 위치 (`fish.mp3`는 낚시터 전용) |
 
-### ⚠️ 스크립트 로드 순서 (절대 유지)
-[index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) 및 [admin.html](file:///c:/Users/user1/Desktop/개발/음악왕/admin.html) 하단에서 반드시 아래 순서를 지켜야 합니다:
-1. `data.js`
-2. `pixel_avatar.js`
-3. `online.js`
-4. `fishing.js` *(index.html 전용)*
-5. `app.js` *(index.html 전용)*
+### ⚠️ 스크립트 로드·실행 순서 (절대 유지)
+[index.html](file:///c:/Users/user1/Desktop/개발/음악왕/index.html) 최상단 `<head>`의 원스토어 H5 SDK `<script type="module">`이 **무조건 가장 먼저 실행**되도록 하단 게임 스크립트와 외부 CDN 스크립트에 모두 `defer`가 적용되어 있으며, 반드시 아래 순서를 지켜야 합니다:
+1. `<head>` 최상단 `<script type="module">` (ONE store H5 SDK `v1.1.0`)
+2. `supabase-js@2` (`defer`), `html2canvas` (`defer`)
+3. `data.js` (`defer`)
+4. `pixel_avatar.js` (`defer`)
+5. `online.js` (`defer`)
+6. `fishing.js` *(index.html 전용, `defer`)*
+7. `app.js` *(index.html 전용, `defer`)*
 
 ---
 
