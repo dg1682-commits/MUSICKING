@@ -5,8 +5,10 @@
 // - 좌측 상단 내 닉네임 클릭 시: 통산 전적 & 최고 점수 & 내 랭킹 순위 프로필 팝업 표시
 // ============================================================================
 
-const SUPABASE_URL = "https://szafomntmenppcbczrwl.supabase.co";
-const SUPABASE_KEY = "sb_publishable_msR49lWjgSJQnMQxSzIaug_XXlJUd4Z";
+// [V2.0 테섭(Staging) Supabase] 본섭 반영 시 아래 주석의 본섭 URL/KEY로 교체하세요.
+// 본섭: "https://szafomntmenppcbczrwl.supabase.co" / "sb_publishable_msR49lWjgSJQnMQxSzIaug_XXlJUd4Z"
+const SUPABASE_URL = "https://ntayjjpakcbtrqdppjle.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tGc8gA_738CIahaHy71CUQ_SlHhT7JE";
 
 let sbClient = null;
 window.mkSupabaseAccessToken = "";
@@ -122,10 +124,61 @@ const userState = {
   blockedUsers: [],
   fishingDaily: null,
   fishingLive: null,
+  inventory: {},
+  equippedItems: [],
+  dailyState: null,
+  v2BaitMigrated: false,
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
 };
+
+function getV2KstDayKey(nowMs = Date.now()) {
+  const shifted = new Date(nowMs + (9 * 60 * 60 * 1000) - (6 * 60 * 60 * 1000));
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function createFreshDailyState(dayKey = getV2KstDayKey()) {
+  return {
+    kstDate: dayKey,
+    dailyCdClaimed: false,
+    randomBoxClaimed: false,
+    attendanceClaimedToday: false,
+    attendanceStreak: 0,
+    shopAdCount: 0,
+    itemAdCounts: {},
+    fishing2xExpiresAt: 0,
+    fishing2xKstDate: dayKey
+  };
+}
+
+function ensureV2DailyState() {
+  const today = getV2KstDayKey();
+  const cur = userState.dailyState && typeof userState.dailyState === "object"
+    ? { ...userState.dailyState }
+    : createFreshDailyState(today);
+  if (cur.kstDate !== today) {
+    cur.kstDate = today;
+    cur.dailyCdClaimed = false;
+    cur.randomBoxClaimed = false;
+    cur.attendanceClaimedToday = false;
+    cur.shopAdCount = 0;
+    cur.itemAdCounts = {};
+    cur.fishing2xExpiresAt = 0;
+    cur.fishing2xKstDate = today;
+    if (Number(cur.attendanceStreak) >= 28) {
+      cur.attendanceStreak = 0;
+    }
+  }
+  if (!cur.itemAdCounts || typeof cur.itemAdCounts !== "object") {
+    cur.itemAdCounts = {};
+  }
+  userState.dailyState = cur;
+  return cur;
+}
 
 function escapeJsSingleArg(str) {
   return String(str || "")
@@ -206,6 +259,10 @@ function resetUserStateToFreshDefaults() {
   userState.blockedUsers = [];
   userState.fishingDaily = null;
   userState.fishingLive = null;
+  userState.inventory = {};
+  userState.equippedItems = [];
+  userState.dailyState = createFreshDailyState();
+  userState.v2BaitMigrated = false;
   userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
   userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
   userState.isLoggedIn = false;
@@ -518,11 +575,40 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
     rawCfg._fishingLive && typeof rawCfg._fishingLive === "object"
       ? { ...rawCfg._fishingLive }
       : null;
+  userState.inventory =
+    rawCfg._inventory && typeof rawCfg._inventory === "object"
+      ? { ...rawCfg._inventory }
+      : {};
+  userState.equippedItems = Array.isArray(rawCfg._equippedItems)
+    ? rawCfg._equippedItems.filter(Boolean).slice(0, 6)
+    : [];
+  userState.dailyState =
+    rawCfg._dailyState && typeof rawCfg._dailyState === "object"
+      ? { ...rawCfg._dailyState }
+      : createFreshDailyState();
+  userState.v2BaitMigrated = Boolean(rawCfg._v2BaitMigrated);
   userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
   userState.ownedItems = Array.isArray(prof?.owned_items)
     ? [...prof.owned_items]
     : ["meadow", "default", "none", "basic", "mic_silver"];
   userState.isLoggedIn = true;
+
+  // [V2.0] 기존 영구 미끼 보유 유저 -> 황금 떡밥(bait_s) 소모품 2개 자동 전환
+  if (!userState.v2BaitMigrated) {
+    const legacyBaitIds = ["bait_c", "bait_b", "bait_a", "bait_s"];
+    const hasLegacyBait =
+      legacyBaitIds.some(bid => userState.ownedItems.includes(bid)) ||
+      legacyBaitIds.includes(userState.avatarConfig.fishingBait);
+    if (hasLegacyBait) {
+      userState.inventory.bait_s = Math.max(0, Number(userState.inventory.bait_s) || 0) + 2;
+      userState.ownedItems = userState.ownedItems.filter(id => !legacyBaitIds.includes(id));
+      userState.avatarConfig.fishingBait = "bait_s";
+    }
+    userState.v2BaitMigrated = true;
+    setTimeout(() => { try { syncProfileToServer(); } catch (e) {} }, 250);
+  }
+  ensureV2DailyState();
+
   shopPreviewState.config = { ...userState.avatarConfig };
   shopPreviewState.selectedItem = null;
   loadBlockedUsersFromStorage(rawCfg._blockedUsers);
@@ -607,6 +693,10 @@ function buildProfilePayloadConfig() {
   delete cleanAvatar._blockedUsers;
   delete cleanAvatar._fishingDaily;
   delete cleanAvatar._fishingLive;
+  delete cleanAvatar._inventory;
+  delete cleanAvatar._equippedItems;
+  delete cleanAvatar._dailyState;
+  delete cleanAvatar._v2BaitMigrated;
   return {
     ...cleanAvatar,
     _exp: userState.exp,
@@ -614,7 +704,11 @@ function buildProfilePayloadConfig() {
     _battleStats: normalizeBattleStats(userState.battleStats),
     _blockedUsers: userState.blockedUsers || [],
     _fishingDaily: userState.fishingDaily || null,
-    _fishingLive: userState.fishingLive || null
+    _fishingLive: userState.fishingLive || null,
+    _inventory: userState.inventory || {},
+    _equippedItems: userState.equippedItems || [],
+    _dailyState: userState.dailyState || null,
+    _v2BaitMigrated: Boolean(userState.v2BaitMigrated)
   };
 }
 
@@ -1240,13 +1334,60 @@ window.loadRankingsList = async function () {
 // - 성별은 회원가입 시 설정하며, 이후 변경은 [성별 변경권 10,000 CD] 아이템으로만 가능!
 // - [닉네임 변경권 5,000 CD] 아이템 판매
 // ============================================================================
-window.openShopModal = function () {
+window.openShopModal = function (initialCat = null) {
   shopPreviewState.config = sanitizeAvatarConfigShape(userState.avatarConfig);
-  const initItem = getItemById("hair", shopPreviewState.config.hair);
-  shopPreviewState.selectedItem = { cat: "hair", ...initItem };
+  const targetCat = initialCat || shopPreviewState.selectedCat || "hair";
+  shopPreviewState.selectedCat = targetCat;
+  if (targetCat === "game_item") {
+    const firstGameItem = (typeof GAME_ITEMS_CATALOG !== "undefined" && GAME_ITEMS_CATALOG[0]) || null;
+    shopPreviewState.selectedItem = firstGameItem ? { cat: "game_item", ...firstGameItem } : null;
+  } else {
+    const initItem = getItemById(targetCat, shopPreviewState.config[getShopCatConfigKey(targetCat)] || "default");
+    shopPreviewState.selectedItem = { cat: targetCat, ...initItem };
+  }
   switchScreen("shopScreen");
-  renderShopCategory(shopPreviewState.selectedCat || "hair");
+  syncShopMainTabsUI(targetCat);
+  renderShopCategory(targetCat);
   updateShopPreviewCanvas();
+  if (typeof updateShopFreeCdAdButton === "function") updateShopFreeCdAdButton();
+};
+
+const SHOP_GROUP_MAP = {
+  fashion: ["bg", "hair", "hat", "face", "outfit", "acc", "wing"],
+  item: ["game_item"],
+  feature: ["fishing_rod", "fishing_bait"],
+  special: ["special"]
+};
+
+function getShopMainGroupForCat(cat) {
+  for (const [grp, cats] of Object.entries(SHOP_GROUP_MAP)) {
+    if (cats.includes(cat)) return grp;
+  }
+  return "fashion";
+}
+
+function syncShopMainTabsUI(cat) {
+  const grp = getShopMainGroupForCat(cat);
+  document.querySelectorAll("[data-shop-group]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-shop-group") === grp);
+  });
+  const fashionSub = document.getElementById("shopSubTabsFashion");
+  const featureSub = document.getElementById("shopSubTabsFeature");
+  if (fashionSub) fashionSub.classList.toggle("hidden", grp !== "fashion");
+  if (featureSub) featureSub.classList.toggle("hidden", grp !== "feature");
+}
+
+window.switchShopMainGroup = function (grp) {
+  const cats = SHOP_GROUP_MAP[grp] || ["hair"];
+  const nextCat = cats.includes(shopPreviewState.selectedCat) ? shopPreviewState.selectedCat : cats[0];
+  syncShopMainTabsUI(nextCat);
+  renderShopCategory(nextCat);
+  const list = nextCat === "game_item"
+    ? (typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [])
+    : (AVATAR_SHOP_ITEMS[nextCat] || []);
+  if (list[0]) {
+    previewShopItem(nextCat, list[0].id);
+  }
 };
 
 function getShopCatConfigKey(cat) {
@@ -1256,7 +1397,12 @@ function getShopCatConfigKey(cat) {
 function getEquippableShopCatsList() {
   return typeof EQUIPPABLE_SHOP_CATS !== "undefined"
     ? EQUIPPABLE_SHOP_CATS
-    : ["bg", "hair", "hat", "face", "outfit", "acc", "fishing_rod", "fishing_bait"];
+    : ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "fishing_rod", "fishing_bait"];
+}
+
+function getConsumableCount(id) {
+  if (!id || id === "none") return 0;
+  return Math.max(0, Number((userState.inventory && userState.inventory[id]) || 0));
 }
 
 window.renderShopInventorySlots = function () {
@@ -1287,11 +1433,12 @@ window.renderShopInventorySlots = function () {
 
   const baitId = cfg.fishingBait || "none";
   const baitItem = getItemById("fishing_bait", baitId);
-  const baitEquipped = baitId !== "none" && baitItem && baitItem.id !== "none";
+  const baitCount = getConsumableCount(baitId);
+  const baitEquipped = baitId !== "none" && baitItem && baitItem.id !== "none" && baitCount > 0;
   if (baitSlot) baitSlot.classList.toggle("is-equipped", baitEquipped);
   if (baitBadge) {
     const pct = baitEquipped ? Math.round(((Number(baitItem.cdMultiplier) || 1) - 1) * 100) : 0;
-    baitBadge.textContent = baitEquipped ? `CD+${pct}%` : "미착용";
+    baitBadge.textContent = baitEquipped ? `CD+${pct}% (${baitCount}개)` : "미착용";
   }
   if (baitName) baitName.textContent = baitEquipped ? baitItem.name : "미끼";
   if (baitCanvas && typeof renderItemThumbnail === "function") {
@@ -1391,6 +1538,45 @@ function updateShopPreviewCanvas() {
     return;
   }
 
+  if (sel.cat === "game_item") {
+    const cnt = getConsumableCount(sel.id);
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD · 보유 ${cnt}개`;
+    confirmBtn.textContent = "🛍️ 1개 구매하기";
+    confirmBtn.className = "btn btn-gold";
+    confirmBtn.onclick = () => purchaseConsumableShopItem("game_item", sel);
+    return;
+  }
+
+  if (sel.cat === "fishing_bait") {
+    const cnt = getConsumableCount(sel.id);
+    const isEquipped = userState.avatarConfig && userState.avatarConfig.fishingBait === sel.id && cnt > 0;
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD · 보유 ${cnt}개`;
+    confirmBtn.textContent = cnt > 0 && !isEquipped ? "✅ 장착하기 (또는 추가구매)" : "🛍️ 1개 구매하기";
+    confirmBtn.className = "btn btn-gold";
+    confirmBtn.onclick = () => {
+      if (cnt > 0 && !isEquipped) {
+        gameConfirm(`[${sel.name}] (보유 ${cnt}개)\n장착하시겠습니까, 아니면 1개 더 구매하시겠습니까?`, async () => {
+          await equipOwnedFishingGear(sel);
+        }, "🪱 미끼 선택", () => purchaseConsumableShopItem("fishing_bait", sel));
+        const okBtn = document.getElementById("dialogConfirmBtn");
+        const cancelBtn = document.getElementById("dialogCancelBtn");
+        if (okBtn) okBtn.textContent = "✅ 장착하기";
+        if (cancelBtn) cancelBtn.textContent = "🛍️ 1개 더 구매";
+      } else {
+        purchaseConsumableShopItem("fishing_bait", sel);
+      }
+    };
+    return;
+  }
+
+  if (sel.purchasable === false && !userState.ownedItems.includes(sel.id)) {
+    if (priceBadgeEl) priceBadgeEl.textContent = "🎁 28일 출석 한정판";
+    confirmBtn.textContent = "🔒 구매 불가 (출석 보상)";
+    confirmBtn.className = "btn";
+    confirmBtn.onclick = () => gameAlert("이 아이템은 상점에서 구매할 수 없는 28일차 출석체크 한정판입니다!\n우측 📅 출첵 보드에서 28일 출석을 달성해 획득하세요.");
+    return;
+  }
+
   const isOwned = !sel.price || sel.price === 0 || userState.ownedItems.includes(sel.id);
   const unownedPreviewList = getUnownedPreviewItems();
   const hasAnyUnownedPreview = unownedPreviewList.length > 0;
@@ -1478,6 +1664,8 @@ const SHOP_CAT_LABELS = {
   face: "얼굴",
   outfit: "의상",
   acc: "악기",
+  wing: "날개",
+  game_item: "아이템",
   fishing_rod: "낚싯대",
   fishing_bait: "미끼"
 };
@@ -1485,11 +1673,12 @@ const SHOP_CAT_LABELS = {
 function getUnownedPreviewItems() {
   const list = [];
   for (const cat of getEquippableShopCatsList()) {
+    if (cat === "fishing_bait") continue;
     const cfgKey = getShopCatConfigKey(cat);
     const id = shopPreviewState.config[cfgKey];
     if (!id || id === "none") continue;
     const item = getItemById(cat, id);
-    if (item && item.price > 0 && !userState.ownedItems.includes(item.id)) {
+    if (item && item.purchasable !== false && item.price > 0 && !userState.ownedItems.includes(item.id)) {
       list.push({ cat, ...item });
     }
   }
@@ -1506,8 +1695,12 @@ function sanitizeAvatarConfigToOwned(previewCfg) {
       safe[cfgKey] = "none";
       continue;
     }
+    if (cat === "fishing_bait") {
+      if (getConsumableCount(id) > 0) safe[cfgKey] = id;
+      continue;
+    }
     const item = getItemById(cat, id);
-    if (item && (!item.price || item.price === 0 || userState.ownedItems.includes(item.id))) {
+    if (item && (((!item.price || item.price === 0) && item.purchasable !== false) || userState.ownedItems.includes(item.id))) {
       safe[cfgKey] = id;
     }
   }
@@ -1700,8 +1893,31 @@ function purchaseGenderTicket() {
   }, "⚧️ 성별 변경권 사용");
 }
 
+async function purchaseConsumableShopItem(cat, item) {
+  if (!item || !item.id) return;
+  const price = Number(item.price) || 0;
+  if (userState.cdCoins < price) {
+    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${price.toLocaleString()} CD)`);
+    return;
+  }
+  gameConfirm(`[${item.name}] 1개를 💿 ${price.toLocaleString()} CD에 구매할까요?`, async () => {
+    userState.cdCoins -= price;
+    if (!userState.inventory || typeof userState.inventory !== "object") userState.inventory = {};
+    userState.inventory[item.id] = getConsumableCount(item.id) + 1;
+    if (cat === "fishing_bait") {
+      userState.avatarConfig.fishingBait = item.id;
+      shopPreviewState.config.fishingBait = item.id;
+    }
+    await syncProfileToServer();
+    renderShopCategory(shopPreviewState.selectedCat);
+    updateShopPreviewCanvas();
+    gameAlert(`🎉 [${item.name}] 1개를 구매했습니다! (현재 보유: ${userState.inventory[item.id]}개)`, "🛍️ 구매 완료");
+  }, "🛍️ 소모품 구매");
+}
+
 window.renderShopCategory = function (cat) {
   shopPreviewState.selectedCat = cat;
+  syncShopMainTabsUI(cat);
   document.querySelectorAll("[data-shop-cat]").forEach(btn => {
     btn.classList.toggle("active", btn.getAttribute("data-shop-cat") === cat);
   });
@@ -1711,24 +1927,37 @@ window.renderShopCategory = function (cat) {
 
   const cfgKey = getShopCatConfigKey(cat);
   const isFishingGearCat = cat === "fishing_rod" || cat === "fishing_bait";
-  const items = AVATAR_SHOP_ITEMS[cat] || [];
+  const isGameItemCat = cat === "game_item";
+  const items = isGameItemCat
+    ? (typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [])
+    : (AVATAR_SHOP_ITEMS[cat] || []);
+
   grid.innerHTML = items
     .map((item, idx) => {
-      const owned = item.price === 0 || userState.ownedItems.includes(item.id);
+      const cnt = getConsumableCount(item.id);
+      const isConsumable = cat === "fishing_bait" || isGameItemCat;
+      const owned = isConsumable
+        ? cnt > 0
+        : (item.purchasable !== false && item.price === 0) || userState.ownedItems.includes(item.id);
       const isEquipped =
         isFishingGearCat &&
         userState.avatarConfig &&
-        userState.avatarConfig[cfgKey] === item.id;
+        userState.avatarConfig[cfgKey] === item.id &&
+        (cat !== "fishing_bait" || cnt > 0);
       const previewing =
-        cat === "special"
+        cat === "special" || isGameItemCat
           ? shopPreviewState.selectedItem?.id === item.id
           : shopPreviewState.config[cfgKey] === item.id;
       const grade = item.grade || "C";
       const priceText =
-        cat === "special"
+        cat === "special" || isGameItemCat
           ? `💿${item.price.toLocaleString()}`
+          : item.purchasable === false && !owned
+          ? "출석한정"
           : isEquipped
-          ? "착용중"
+          ? `착용(${cat === "fishing_bait" ? `${cnt}개` : "중"})`
+          : cat === "fishing_bait"
+          ? `💿${item.price.toLocaleString()}${cnt > 0 ? `(${cnt})` : ""}`
           : owned
           ? "보유"
           : `💿${item.price.toLocaleString()}`;
@@ -1740,14 +1969,19 @@ window.renderShopCategory = function (cat) {
       } else if (cat === "fishing_bait" && Number(item.cdMultiplier) > 1) {
         const pct = Math.round((Number(item.cdMultiplier) - 1) * 100);
         buffHtml = `<span class="apf-tile-buff is-cd">CD +${pct}%</span>`;
+      } else if (isGameItemCat) {
+        buffHtml = `<span class="apf-tile-buff">${item.scopeLabel || "아이템"} · ${cnt}개</span>`;
       }
       const thumbSize = isFishingGearCat ? 40 : 52;
+      const iconEmoji = isGameItemCat ? (item.name.split(" ")[0] || "🎒") : "";
 
       return `
-      <div class="apf-tile ${owned && cat !== "special" ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
-        <span class="apf-tile-price ${isEquipped ? "is-equipped" : owned && cat !== "special" ? "is-owned" : ""}">${priceText}</span>
+      <div class="apf-tile ${owned && cat !== "special" && !isGameItemCat ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
+        <span class="apf-tile-price ${isEquipped ? "is-equipped" : owned && cat !== "special" && !isGameItemCat ? "is-owned" : ""}">${priceText}</span>
         ${previewing ? `<div class="apf-tile-check">✔</div>` : `<div class="apf-tile-grade grade-${grade}">${grade}</div>`}
-        <canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:${thumbSize}px; height:${thumbSize}px; margin-top:7px;"></canvas>
+        ${isGameItemCat
+          ? `<div style="font-size:2rem; line-height:52px; height:52px; margin-top:7px;">${iconEmoji}</div>`
+          : `<canvas id="shopThumb_${cat}_${idx}" width="480" height="480" style="width:${thumbSize}px; height:${thumbSize}px; margin-top:7px;"></canvas>`}
         ${buffHtml}
         <span class="apf-tile-name">${item.name}</span>
       </div>
@@ -1755,16 +1989,21 @@ window.renderShopCategory = function (cat) {
     })
     .join("");
 
-  items.forEach((item, idx) => {
-    const cv = document.getElementById(`shopThumb_${cat}_${idx}`);
-    if (cv) renderItemThumbnail(cv, cat, item);
-  });
+  if (!isGameItemCat) {
+    items.forEach((item, idx) => {
+      const cv = document.getElementById(`shopThumb_${cat}_${idx}`);
+      if (cv) renderItemThumbnail(cv, cat, item);
+    });
+  }
 };
 
 window.previewShopItem = function (cat, itemId) {
-  const item = getItemById(cat, itemId);
+  const item = cat === "game_item"
+    ? (typeof getGameItemById === "function" ? getGameItemById(itemId) : null)
+    : getItemById(cat, itemId);
+  if (!item) return;
   shopPreviewState.selectedItem = { cat, ...item };
-  if (cat !== "special") {
+  if (cat !== "special" && cat !== "game_item") {
     shopPreviewState.config[getShopCatConfigKey(cat)] = itemId;
   } else if (itemId === "gender_ticket") {
     // 성별 변경권 선택 시 피팅룸에서 반대 성별 미리보기 제공
@@ -2601,6 +2840,11 @@ window.setPlazaRoomFilter = function (filterType = "ALL") {
   refreshRoomsList();
 };
 
+window.enterMultiPlazaWithMode = function (modeType = "ALL") {
+  plazaState.roomFilter = modeType || "ALL";
+  enterPlazaScreen();
+};
+
 window.enterPlazaScreen = async function () {
   switchScreen("plazaScreen");
   syncPlazaRoomFilterUI();
@@ -2724,13 +2968,15 @@ window.refreshRoomsList = async function () {
     .map(room => {
       const maxP = room.room_type === "1v1" ? 2 : 4;
       const curP = room.players.length;
-      const cfg = room.game_config || { mode: "behind", stage: 1, decade: "ALL" };
+      const cfg = room.game_config || { mode: "behind", stage: 1, decade: "ALL", itemMode: "notem" };
       const modeName = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[cfg.mode] || "비하인드";
+      const itemTag = cfg.itemMode === "item" ? "🎒아이템전" : "🚫노템전";
       return `
       <div class="pixel-list-item">
         <div>
           <span class="badge primary" style="margin-right:4px;">${room.room_type === "1v1" ? "1:1" : "4인"}</span>
           <span class="badge accent" style="margin-right:4px;">${modeName}·${cfg.stage || 1}단계</span>
+          <span class="badge ${cfg.itemMode === "item" ? "gold" : ""}" style="margin-right:4px;">${itemTag}</span>
           <strong>${room.title}</strong>
           <span style="font-size:0.76rem; color:var(--text-sub);">(${curP}/${maxP}명)</span>
         </div>
@@ -2745,7 +2991,8 @@ const createRoomState = {
   roomType: "1v1",
   decade: "ALL",
   mode: "behind",
-  stage: 1
+  stage: 1,
+  itemMode: "notem"
 };
 
 window.openCreateRoomModal = function (defaultType = "1v1") {
@@ -2760,6 +3007,7 @@ window.openCreateRoomModal = function (defaultType = "1v1") {
   selectRoomConfig("decade", createRoomState.decade);
   selectRoomConfig("mode", createRoomState.mode);
   selectRoomConfig("stage", createRoomState.stage);
+  selectRoomConfig("itemMode", createRoomState.itemMode || "notem");
   openModal("createRoomModal");
 };
 
@@ -2802,7 +3050,8 @@ window.confirmCreateOnlineRoom = async function () {
       game_config: {
         decade: createRoomState.decade,
         mode: createRoomState.mode,
-        stage: createRoomState.stage
+        stage: createRoomState.stage,
+        itemMode: createRoomState.itemMode || "notem"
       },
       status: "waiting",
       players: initialPlayers,
@@ -2948,6 +3197,7 @@ function subscribeToBattleRoom(room) {
       const changed =
         latest.status !== cur.status ||
         latest.current_q_index !== cur.current_q_index ||
+        JSON.stringify(latest.game_config) !== JSON.stringify(cur.game_config) ||
         JSON.stringify(latest.players) !== JSON.stringify(cur.players);
       if (changed) {
         plazaState.currentRoom = latest;
@@ -3079,10 +3329,12 @@ function startRoomStageCanvasLoop() {
 function renderBattleRoomState(room) {
   document.getElementById("battleRoomTitle").textContent = `[${room.room_type === "1v1" ? "1:1 선착순" : "4인 점수제"}] ${room.title}`;
 
-  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem" };
   const decLabel = cfg.decade === "ALL" ? "전연대" : String(cfg.decade).replace("s", "년대");
   const modeLabel = { behind: "📖 비하인드", lyrics: "📝 가사", onesec: "⚡ 1초듣기" }[cfg.mode] || "📖 비하인드";
   const stageLabel = `${cfg.stage || 1}단계(${cfg.stage === 2 ? "가수" : cfg.stage === 3 ? "가수+노래" : "노래"})`;
+  const itemModeLabel = cfg.itemMode === "item" ? "🎒 아이템전" : "🚫 노템전";
+  const isHost = room.host_id === userState.id;
 
   const configBar = document.getElementById("battleRoomConfigBar");
   if (configBar) {
@@ -3090,7 +3342,21 @@ function renderBattleRoomState(room) {
       <span class="badge">${decLabel}</span>
       <span class="badge primary">${modeLabel}</span>
       <span class="badge accent">${stageLabel}</span>
+      <span class="badge ${cfg.itemMode === "item" ? "gold" : ""}">${itemModeLabel}</span>
     `;
+  }
+
+  const hostEditBox = document.getElementById("battleHostConfigEditor");
+  if (hostEditBox) {
+    hostEditBox.classList.toggle("hidden", !isHost || room.status !== "waiting");
+    const decSel = document.getElementById("roomEditDecade");
+    const modeSel = document.getElementById("roomEditMode");
+    const stageSel = document.getElementById("roomEditStage");
+    const itemSel = document.getElementById("roomEditItemMode");
+    if (decSel) decSel.value = cfg.decade || "ALL";
+    if (modeSel) modeSel.value = cfg.mode || "behind";
+    if (stageSel) stageSel.value = String(cfg.stage || 1);
+    if (itemSel) itemSel.value = cfg.itemMode || "notem";
   }
 
   const playersEl = document.getElementById("battlePlayersBoard");
@@ -3107,7 +3373,6 @@ function renderBattleRoomState(room) {
 
   const startBtn = document.getElementById("battleHostStartBtn");
   const waitBanner = document.getElementById("battleGuestWaitBanner");
-  const isHost = room.host_id === userState.id;
 
   if (room.status === "waiting") {
     plazaState.lastRenderedQIndex = null;
@@ -3212,9 +3477,11 @@ function renderBattlePlayScreen(room) {
       const me = (room.players || []).find(p => p.id === userState.id);
       const myScore = me ? Number(me.score) || 0 : 0;
       const isWinner = !!(winner && winner.id === userState.id && myScore > 0);
-      const earnedCd = isWinner ? 30 : myScore > 0 ? 10 : 0;
+      const baseEarnedCd = isWinner ? 30 : myScore > 0 ? 10 : 0;
+      const doubleMult = plazaState.battleDoubleActive ? 2 : 1;
+      const earnedCd = baseEarnedCd * doubleMult;
       const expBefore = Number(userState.exp) || 0;
-      const gainExp = Math.round(myScore * 0.1);
+      const gainExp = Math.round(myScore * 0.1) * doubleMult;
       userState.exp = expBefore + gainExp;
       if (earnedCd > 0) userState.cdCoins += earnedCd;
 
@@ -3316,6 +3583,9 @@ function renderBattlePlayScreen(room) {
       playOnlineBattleAudio(0, true);
     }
   }
+  if (typeof renderBattlePlayItemBar === "function") {
+    renderBattlePlayItemBar(room);
+  }
 }
 
 window.playOnlineBattleAudio = function (offsetIdx = 0, isAutoPlay = false) {
@@ -3349,6 +3619,8 @@ window.hostStartOnlineBattle = async function () {
   room.question_ids = nextIds;
   room.players = (room.players || []).map(p => ({ ...p, score: 0, passQ: -1 }));
   plazaState.lastRenderedQIndex = null;
+  plazaState.usedBattleItems = new Set();
+  plazaState.battleDoubleActive = false;
 
   await sbClient
     .from("rooms")
@@ -3561,3 +3833,667 @@ window.leaveBattleRoom = async function () {
   switchScreen("plazaScreen");
   refreshRoomsList();
 };
+
+// ============================================================================
+// [V2.0] 방장 대기방 설정 변경 & 멀티 아이템전
+// ============================================================================
+window.updateBattleRoomSettingsByHost = async function () {
+  const room = plazaState.currentRoom;
+  if (!room || room.host_id !== userState.id || room.status !== "waiting" || !sbClient) return;
+  const decade = document.getElementById("roomEditDecade")?.value || "ALL";
+  const mode = document.getElementById("roomEditMode")?.value || "behind";
+  const stage = Number(document.getElementById("roomEditStage")?.value || 1);
+  const itemMode = document.getElementById("roomEditItemMode")?.value || "notem";
+
+  room.game_config = { decade, mode, stage, itemMode };
+  const decLabel = decade === "ALL" ? "전연대" : decade.replace("s", "년대");
+  const modeLabel = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[mode] || mode;
+  const itemLabel = itemMode === "item" ? "아이템전" : "노템전";
+  const sysText = `⚙️ 방장이 설정을 변경했습니다: [${decLabel} · ${modeLabel} · ${stage}단계 · ${itemLabel}]`;
+
+  await sbClient.from("rooms").update({ game_config: room.game_config }).eq("id", room.id);
+  appendRoomChatLine("시스템", sysText);
+  broadcastMyRoomCharacter(sysText);
+  if (plazaState.roomChannel) {
+    plazaState.roomChannel.send({ type: "broadcast", event: "room_update", payload: room });
+  }
+  renderBattleRoomState(room);
+};
+
+window.renderBattlePlayItemBar = function (room) {
+  const bar = document.getElementById("battleItemSlotsBar");
+  if (!bar) return;
+  const cfg = room?.game_config || {};
+  if (room?.status !== "playing" || cfg.itemMode !== "item") {
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  const allowedIds = ["item_3sec", "item_chosung", "item_double"];
+  const equipped = (userState.equippedItems || []).filter(id => allowedIds.includes(id));
+  if (equipped.length === 0) {
+    bar.innerHTML = `<span style="font-size:0.75rem; color:#94a3b8;">장착한 공용 아이템이 없습니다 (가방에서 장착 가능)</span>`;
+    return;
+  }
+  const used = plazaState.usedBattleItems || new Set();
+  bar.innerHTML = equipped
+    .map(id => {
+      const meta = typeof getGameItemById === "function" ? getGameItemById(id) : null;
+      if (!meta) return "";
+      const cnt = getConsumableCount(id);
+      const isUsed = used.has(id);
+      const disabled = isUsed || cnt <= 0;
+      return `<button type="button" class="quick-item-btn ${isUsed ? "is-used" : ""}" ${disabled ? "disabled" : ""} onclick="useBattleGameItem('${id}')">${meta.name} (${cnt})</button>`;
+    })
+    .join("");
+};
+
+window.useBattleGameItem = async function (itemId) {
+  const room = plazaState.currentRoom;
+  if (!room || room.status !== "playing") return;
+  const cfg = room.game_config || {};
+  if (cfg.itemMode !== "item") return;
+  if (!["item_3sec", "item_chosung", "item_double"].includes(itemId)) return;
+
+  if (!plazaState.usedBattleItems) plazaState.usedBattleItems = new Set();
+  if (plazaState.usedBattleItems.has(itemId)) {
+    showBattleRoundToast("이번 판에서 이미 사용한 아이템입니다!", true);
+    return;
+  }
+  const cnt = getConsumableCount(itemId);
+  if (cnt <= 0) {
+    showBattleRoundToast("보유 수량이 부족합니다!", true);
+    return;
+  }
+
+  userState.inventory[itemId] = cnt - 1;
+  plazaState.usedBattleItems.add(itemId);
+  await syncProfileToServer();
+
+  const curIdx = room.current_q_index || 0;
+  const qId = (room.question_ids || [])[curIdx];
+  const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
+
+  if (itemId === "item_3sec") {
+    if (typeof playAudioSnippet === "function") {
+      playAudioSnippet(
+        3.0,
+        6,
+        q,
+        document.getElementById("battleVinylDisc"),
+        document.getElementById("battleAudioStatusText"),
+        { isAutoPlay: false }
+      );
+    }
+    showBattleRoundToast("🎧 3초 듣기 아이템 발동!", false);
+  } else if (itemId === "item_chosung") {
+    const stage = Number(cfg.stage || 1);
+    const toCho = typeof getChosungString === "function" ? getChosungString : (s => String(s || ""));
+    const hintStr =
+      stage === 1
+        ? `노래 초성: ${toCho(q.title)}`
+        : stage === 2
+        ? `가수 초성: ${toCho(q.artist)}`
+        : `가수: ${toCho(q.artist)} / 노래: ${toCho(q.title)}`;
+    showBattleRoundToast(`🔤 ${hintStr}`, false);
+  } else if (itemId === "item_double") {
+    plazaState.battleDoubleActive = true;
+    showBattleRoundToast("⚡ 더블어택 발동! 이번 판 점수·CD 2배!", false);
+  }
+  renderBattlePlayItemBar(room);
+};
+
+// ============================================================================
+// [V2.0] 플랫폼별 광고 어댑터 (AdMob / ONE AdMax / 자체 광고 15초)
+// ============================================================================
+const AD_CONFIG = {
+  ADMOB_BANNER_ID: "",
+  ADMOB_REWARD_ID: "",
+  ONESTORE_ADMAX_ID: ""
+};
+
+window.getCurrentPlatformEnv = function () {
+  if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) {
+    return "capacitor";
+  }
+  if (window.onestoreCtx) {
+    return "onestore";
+  }
+  return "web";
+};
+
+window.updateHomeAdBannerPlatform = function () {
+  const env = getCurrentPlatformEnv();
+  const coupangWrap = document.getElementById("homeCoupangFrameWrap");
+  const coupangDisc = document.querySelector("#homeAdBannerSlot .coupang-disclosure");
+  const admobSlot = document.getElementById("homeAdmobBannerSlot");
+  if (env === "capacitor") {
+    if (coupangWrap) coupangWrap.classList.add("hidden");
+    if (coupangDisc) coupangDisc.classList.add("hidden");
+    if (admobSlot) admobSlot.classList.remove("hidden");
+  } else {
+    if (coupangWrap) coupangWrap.classList.remove("hidden");
+    if (coupangDisc) coupangDisc.classList.remove("hidden");
+    if (admobSlot) admobSlot.classList.add("hidden");
+  }
+};
+
+let selfAdTimerId = null;
+window.showRewardedAd = function (reasonLabel, onRewardCallback) {
+  const env = getCurrentPlatformEnv();
+  // Capacitor AdMob 실키가 등록된 경우에만 네이티브 호출, 미등록 시 자체 광고 폴백
+  if (env === "capacitor" && AD_CONFIG.ADMOB_REWARD_ID && window.Capacitor?.Plugins?.AdMob) {
+    try {
+      window.Capacitor.Plugins.AdMob.prepareRewardVideoAd({ adId: AD_CONFIG.ADMOB_REWARD_ID })
+        .then(() => window.Capacitor.Plugins.AdMob.showRewardVideoAd())
+        .then(() => { if (typeof onRewardCallback === "function") onRewardCallback(); })
+        .catch(() => gameAlert("광고를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."));
+      return;
+    } catch (e) {}
+  }
+  // ONE AdMax 실키가 등록된 경우 호출, 미등록 시 자체 광고 폴백
+  if (env === "onestore" && AD_CONFIG.ONESTORE_ADMAX_ID && window.onestoreSdk?.showRewardedAd) {
+    try {
+      window.onestoreSdk.showRewardedAd({ placementId: AD_CONFIG.ONESTORE_ADMAX_ID })
+        .then(() => { if (typeof onRewardCallback === "function") onRewardCallback(); })
+        .catch(() => gameAlert("원스토어 광고를 불러오지 못했습니다."));
+      return;
+    } catch (e) {}
+  }
+
+  // 자체 책 광고 모달 (myad/ad1.png · 15초 카운트다운)
+  const modal = document.getElementById("selfAdModal");
+  const titleEl = document.getElementById("selfAdRewardLabel");
+  const timerEl = document.getElementById("selfAdCountdownText");
+  const barEl = document.getElementById("selfAdProgressFill");
+  const claimBtn = document.getElementById("selfAdClaimBtn");
+  const imgEl = document.getElementById("selfAdImage");
+  if (!modal) {
+    if (typeof onRewardCallback === "function") onRewardCallback();
+    return;
+  }
+
+  if (imgEl) {
+    imgEl.src = "myad/ad1.png?v=20.0";
+  }
+  if (titleEl) titleEl.textContent = reasonLabel || "15초 시청 시 보상이 지급됩니다!";
+  if (selfAdTimerId) clearInterval(selfAdTimerId);
+
+  let remain = 15;
+  const updateTimerUi = () => {
+    if (timerEl) {
+      timerEl.textContent = remain > 0 ? `⏳ ${remain}초 후 보상 받기 가능` : "✅ 시청 완료! 아래 버튼을 눌러 보상을 받으세요!";
+    }
+    if (barEl) {
+      barEl.style.width = `${Math.round(((15 - remain) / 15) * 100)}%`;
+    }
+    if (claimBtn) {
+      claimBtn.disabled = remain > 0;
+      claimBtn.textContent = remain > 0 ? `⏳ 대기 중 (${remain}s)` : "🎁 보상 받기!";
+    }
+  };
+
+  if (claimBtn) {
+    claimBtn.onclick = () => {
+      if (remain > 0) return;
+      if (selfAdTimerId) { clearInterval(selfAdTimerId); selfAdTimerId = null; }
+      closeModal("selfAdModal");
+      if (typeof onRewardCallback === "function") onRewardCallback();
+    };
+  }
+
+  updateTimerUi();
+  openModal("selfAdModal");
+
+  selfAdTimerId = setInterval(() => {
+    remain = Math.max(0, remain - 1);
+    updateTimerUi();
+    if (remain <= 0 && selfAdTimerId) {
+      clearInterval(selfAdTimerId);
+      selfAdTimerId = null;
+    }
+  }, 1000);
+};
+
+window.closeSelfAdModal = function () {
+  if (selfAdTimerId) {
+    clearInterval(selfAdTimerId);
+    selfAdTimerId = null;
+  }
+  closeModal("selfAdModal");
+};
+
+// ============================================================================
+// [V2.0] 가방 (인벤토리 · 착용 슬롯 6칸 · 광고 충전)
+// ============================================================================
+let bagSelectedItemId = "item_3sec";
+
+window.openBagScreen = function () {
+  ensureV2DailyState();
+  switchScreen("bagScreen");
+  renderBagScreen();
+};
+
+window.renderBagScreen = function () {
+  ensureV2DailyState();
+  const avCv = document.getElementById("bagAvatarCanvas");
+  if (avCv && typeof renderPixelAvatar === "function") {
+    renderPixelAvatar(avCv, userState.avatarConfig);
+  }
+
+  const equipped = userState.equippedItems || [];
+  const slotsEl = document.getElementById("bagEquipSlotsRow");
+  if (slotsEl) {
+    const html = [];
+    for (let i = 0; i < 6; i++) {
+      const id = equipped[i];
+      const meta = id && typeof getGameItemById === "function" ? getGameItemById(id) : null;
+      const cnt = id ? getConsumableCount(id) : 0;
+      if (meta) {
+        const emoji = meta.name.split(" ")[0] || "🎒";
+        html.push(`
+          <button type="button" class="bag-slot-card is-filled" onclick="toggleEquipBagItem('${id}')" title="터치하여 장착 해제">
+            <span class="bag-slot-emoji">${emoji}</span>
+            <span class="bag-slot-count">x${cnt}</span>
+          </button>
+        `);
+      } else {
+        html.push(`<div class="bag-slot-card is-empty"><span>빈 슬롯</span></div>`);
+      }
+    }
+    slotsEl.innerHTML = html.join("");
+  }
+
+  const listEl = document.getElementById("bagItemsGrid");
+  if (listEl && typeof GAME_ITEMS_CATALOG !== "undefined") {
+    listEl.innerHTML = GAME_ITEMS_CATALOG.map(item => {
+      const cnt = getConsumableCount(item.id);
+      const isEquipped = equipped.includes(item.id);
+      const isSelected = bagSelectedItemId === item.id;
+      const emoji = item.name.split(" ")[0] || "🎒";
+      return `
+        <div class="bag-item-tile ${isEquipped ? "is-equipped" : ""} ${isSelected ? "is-selected" : ""}" onclick="selectBagItem('${item.id}')">
+          <span class="bag-item-scope">${item.scopeLabel}</span>
+          <div style="font-size:1.75rem; margin:6px 0 2px;">${emoji}</div>
+          <div class="bag-item-name">${item.name.replace(/^[^\s]+\s/, "")}</div>
+          <div class="bag-item-cnt">${isEquipped ? "✅ 장착중 · " : ""}보유 ${cnt}개</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  renderBagSelectedDetail();
+};
+
+window.selectBagItem = function (itemId) {
+  bagSelectedItemId = itemId;
+  renderBagScreen();
+};
+
+function renderBagSelectedDetail() {
+  const item = typeof getGameItemById === "function" ? getGameItemById(bagSelectedItemId) : null;
+  if (!item) return;
+  const titleEl = document.getElementById("bagDetailTitle");
+  const scopeEl = document.getElementById("bagDetailScope");
+  const descEl = document.getElementById("bagDetailDesc");
+  const equipBtn = document.getElementById("bagToggleEquipBtn");
+  const adBtn = document.getElementById("bagAdRechargeBtn");
+
+  const cnt = getConsumableCount(item.id);
+  const isEquipped = (userState.equippedItems || []).includes(item.id);
+
+  if (titleEl) titleEl.textContent = `${item.name} (보유 ${cnt}개)`;
+  if (scopeEl) scopeEl.textContent = `사용 가능: ${item.scopeLabel}`;
+  if (descEl) descEl.textContent = item.desc;
+
+  if (equipBtn) {
+    equipBtn.textContent = isEquipped ? "❎ 장착 해제" : "✅ 슬롯에 장착";
+    equipBtn.className = isEquipped ? "btn" : "btn btn-primary";
+    equipBtn.onclick = () => toggleEquipBagItem(item.id);
+  }
+
+  if (adBtn) {
+    if (!item.adRechargeable) {
+      adBtn.disabled = true;
+      adBtn.textContent = "🚫 광고 충전 불가";
+    } else {
+      const ds = ensureV2DailyState();
+      const used = Number(ds.itemAdCounts[item.id] || 0);
+      const max = item.maxAdPerDay || 3;
+      adBtn.disabled = used >= max;
+      adBtn.textContent = used >= max ? `✅ 충전 완료 (${used}/${max})` : `📺 광고 보고 충전 (${used}/${max})`;
+      adBtn.onclick = () => rechargeBagItemWithAd(item.id);
+    }
+  }
+}
+
+window.toggleEquipBagItem = async function (itemId) {
+  if (!userState.equippedItems) userState.equippedItems = [];
+  const idx = userState.equippedItems.indexOf(itemId);
+  if (idx !== -1) {
+    userState.equippedItems.splice(idx, 1);
+  } else {
+    if (userState.equippedItems.length >= 6) {
+      gameAlert("착용 슬롯 6칸이 모두 찼습니다! 기존 아이템을 먼저 해제해주세요.");
+      return;
+    }
+    userState.equippedItems.push(itemId);
+  }
+  await syncProfileToServer();
+  renderBagScreen();
+};
+
+window.rechargeBagItemWithAd = function (itemId) {
+  const item = typeof getGameItemById === "function" ? getGameItemById(itemId) : null;
+  if (!item || !item.adRechargeable) return;
+  const ds = ensureV2DailyState();
+  const used = Number(ds.itemAdCounts[itemId] || 0);
+  if (used >= (item.maxAdPerDay || 3)) {
+    gameAlert("오늘 이 아이템의 광고 충전 횟수(3회)를 모두 사용했습니다.\n매일 오전 6시에 초기화됩니다.");
+    return;
+  }
+  showRewardedAd(`[${item.name}] 1개 무료 충전`, async () => {
+    const fresh = ensureV2DailyState();
+    fresh.itemAdCounts[itemId] = Number(fresh.itemAdCounts[itemId] || 0) + 1;
+    userState.inventory[itemId] = getConsumableCount(itemId) + 1;
+    await syncProfileToServer();
+    renderBagScreen();
+    gameAlert(`🎉 [${item.name}] 1개가 가방에 충전되었습니다!`, "🎒 충전 완료");
+  });
+};
+
+// ============================================================================
+// [V2.0] 상점 무료 CD 광고 (일 3회 · 200 CD)
+// ============================================================================
+window.updateShopFreeCdAdButton = function () {
+  const btn = document.getElementById("shopFreeCdAdBtn");
+  if (!btn) return;
+  const ds = ensureV2DailyState();
+  const used = Number(ds.shopAdCount || 0);
+  btn.disabled = used >= 3;
+  btn.textContent = used >= 3 ? "✅ 무료 CD 완료 (3/3)" : `📺 무료 +200 CD (${used}/3)`;
+};
+
+window.claimShopFreeCdAd = function () {
+  const ds = ensureV2DailyState();
+  if (Number(ds.shopAdCount || 0) >= 3) {
+    gameAlert("오늘 무료 CD 충전(3회)을 모두 완료했습니다!\n매일 오전 6시에 초기화됩니다.");
+    return;
+  }
+  showRewardedAd("상점 무료 +200 CD 충전", async () => {
+    const fresh = ensureV2DailyState();
+    fresh.shopAdCount = Number(fresh.shopAdCount || 0) + 1;
+    userState.cdCoins += 200;
+    await syncProfileToServer();
+    updateShopFreeCdAdButton();
+    updateShopPreviewCanvas();
+    gameAlert("💿 +200 CD가 지급되었습니다!", "📺 무료 CD 충전");
+  });
+};
+
+// ============================================================================
+// [V2.0] 홈 일일 CD · 오늘의 랜덤상자 · 28일 출석체크 · 이벤트 팝업
+// ============================================================================
+function playDingSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    [880, 1318.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + i * 0.08);
+      gain.gain.setValueAtTime(0.18, now + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.08);
+      osc.stop(now + i * 0.08 + 0.46);
+    });
+  } catch (e) {}
+}
+
+window.syncHomeV2BadgesUI = function () {
+  const ds = ensureV2DailyState();
+  const cdDot = document.getElementById("dailyCdNotiDot");
+  const boxDot = document.getElementById("dailyBoxNotiDot");
+  const attDot = document.getElementById("dailyAttendanceNotiDot");
+  if (cdDot) cdDot.classList.toggle("hidden", Boolean(ds.dailyCdClaimed));
+  if (boxDot) boxDot.classList.toggle("hidden", Boolean(ds.randomBoxClaimed));
+  if (attDot) attDot.classList.toggle("hidden", Boolean(ds.attendanceClaimedToday));
+};
+
+window.claimDailyCd = async function () {
+  if (!userState.isLoggedIn) {
+    gameConfirm("로그인 후 매일 +100 CD를 받을 수 있습니다.", () => showLoginScreen());
+    return;
+  }
+  const ds = ensureV2DailyState();
+  if (ds.dailyCdClaimed) {
+    gameAlert("오늘의 일일 무료 +100 CD를 이미 받았습니다!\n매일 오전 6시에 초기화됩니다.", "💿 일일 CD");
+    return;
+  }
+  ds.dailyCdClaimed = true;
+  userState.cdCoins += 100;
+  playDingSound();
+  await syncProfileToServer();
+  syncHomeV2BadgesUI();
+  gameAlert("🎉 오늘의 일일 CD 보너스 💿 +100 CD가 지급되었습니다!", "💿 일일 CD 수령");
+};
+
+window.openRandomBoxModal = function () {
+  if (!userState.isLoggedIn) {
+    gameConfirm("로그인 후 오늘의 랜덤상자를 열 수 있습니다.", () => showLoginScreen());
+    return;
+  }
+  const ds = ensureV2DailyState();
+  const btn = document.getElementById("openRandomBoxBtn");
+  const resEl = document.getElementById("randomBoxResultText");
+  const boxVisual = document.getElementById("randomBoxVisual");
+  if (boxVisual) boxVisual.classList.remove("is-opened");
+  if (ds.randomBoxClaimed) {
+    if (btn) { btn.disabled = true; btn.textContent = "✅ 오늘 수령 완료 (06시 초기화)"; }
+    if (resEl) resEl.textContent = "오늘의 선물상자를 이미 열어보셨습니다!";
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = "🎁 상자 열어보기!"; }
+    if (resEl) resEl.textContent = "노란·빨간 리본 선물상자를 터치해 오늘의 행운을 확인하세요!";
+  }
+  openModal("randomBoxModal");
+};
+
+window.claimDailyRandomBox = async function () {
+  const ds = ensureV2DailyState();
+  if (ds.randomBoxClaimed) return;
+  const pool = [
+    { label: "💿 +100 CD", type: "cd", amount: 100 },
+    { label: "💿 +200 CD", type: "cd", amount: 200 },
+    { label: "🪱 지렁이 미끼 +1개", type: "inv", id: "bait_c", amount: 1 },
+    { label: "🎧 3초 듣기 +1개", type: "inv", id: "item_3sec", amount: 1 },
+    { label: "🔤 초성힌트 +1개", type: "inv", id: "item_chosung", amount: 1 },
+    { label: "⏳ 모래시계 +1개", type: "inv", id: "item_hourglass", amount: 1 },
+    { label: "💖 하트요정 +1개", type: "inv", id: "item_heart", amount: 1 }
+  ];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  ds.randomBoxClaimed = true;
+  if (pick.type === "cd") {
+    userState.cdCoins += pick.amount;
+  } else {
+    userState.inventory[pick.id] = getConsumableCount(pick.id) + pick.amount;
+  }
+  playDingSound();
+  const boxVisual = document.getElementById("randomBoxVisual");
+  const btn = document.getElementById("openRandomBoxBtn");
+  const resEl = document.getElementById("randomBoxResultText");
+  if (boxVisual) boxVisual.classList.add("is-opened");
+  if (btn) { btn.disabled = true; btn.textContent = "✅ 수령 완료!"; }
+  if (resEl) resEl.innerHTML = `<strong style="color:#d97706; font-size:1.05rem;">✨ 축하합니다! [${pick.label}] 획득!</strong>`;
+  await syncProfileToServer();
+  syncHomeV2BadgesUI();
+};
+
+const ATTENDANCE_REWARDS_28 = (() => {
+  const arr = [];
+  for (let day = 1; day <= 28; day++) {
+    if (day === 28) {
+      arr.push({ day, label: "🧚 요정날개(S+)", type: "wing", id: "wing_fairy" });
+    } else if (day === 14) {
+      arr.push({ day, label: "⚡ 더블어택 +1", type: "inv", id: "item_double", amount: 1 });
+    } else {
+      const mod = ((day - 1) % 14) + 1;
+      if (mod === 2 || mod === 9) arr.push({ day, label: "🪱 지렁이미끼+2", type: "inv", id: "bait_c", amount: 2 });
+      else if (mod === 4) arr.push({ day, label: "🎧 3초듣기+2", type: "inv", id: "item_3sec", amount: 2 });
+      else if (mod === 6) arr.push({ day, label: "🔤 초성힌트+2", type: "inv", id: "item_chosung", amount: 2 });
+      else if (mod === 11) arr.push({ day, label: "⏳ 모래시계+2", type: "inv", id: "item_hourglass", amount: 2 });
+      else if (mod === 13) arr.push({ day, label: "💖 하트요정+2", type: "inv", id: "item_heart", amount: 2 });
+      else if (mod === 7 || mod === 14) arr.push({ day, label: "💿 +500 CD", type: "cd", amount: 500 });
+      else arr.push({ day, label: "💿 +200 CD", type: "cd", amount: 200 });
+    }
+  }
+  return arr;
+})();
+
+window.openAttendanceModal = function () {
+  if (!userState.isLoggedIn) {
+    gameConfirm("로그인 후 출석체크 보상을 받을 수 있습니다.", () => showLoginScreen());
+    return;
+  }
+  renderAttendanceBoard();
+  openModal("attendanceModal");
+};
+
+function renderAttendanceBoard() {
+  const ds = ensureV2DailyState();
+  const streak = Math.max(0, Math.min(28, Number(ds.attendanceStreak) || 0));
+  const claimedToday = Boolean(ds.attendanceClaimedToday);
+  const nextDay = claimedToday ? streak : streak + 1;
+
+  const grid = document.getElementById("attendanceBoardGrid");
+  if (grid) {
+    grid.innerHTML = ATTENDANCE_REWARDS_28.map(r => {
+      const isDone = r.day <= streak;
+      const isTodayTarget = !claimedToday && r.day === nextDay;
+      return `
+        <div class="att-day-cell ${isDone ? "is-done" : ""} ${isTodayTarget ? "is-today" : ""} ${r.day === 14 || r.day === 28 ? "is-special" : ""}">
+          <div class="att-day-num">Day ${r.day}</div>
+          <div class="att-day-reward">${r.label}</div>
+          ${isDone ? `<span class="att-done-mark">✔</span>` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  const btn = document.getElementById("claimAttendanceBtn");
+  if (btn) {
+    btn.disabled = claimedToday;
+    btn.textContent = claimedToday ? "✅ 오늘 출석 완료 (내일 06시 초기화)" : `📅 Day ${nextDay} 출석 보상 받기!`;
+  }
+}
+
+window.claimAttendanceDay = async function () {
+  const ds = ensureV2DailyState();
+  if (ds.attendanceClaimedToday) return;
+  const nextDay = Math.min(28, (Number(ds.attendanceStreak) || 0) + 1);
+  const reward = ATTENDANCE_REWARDS_28[nextDay - 1];
+  if (!reward) return;
+
+  ds.attendanceStreak = nextDay;
+  ds.attendanceClaimedToday = true;
+
+  if (reward.type === "cd") {
+    userState.cdCoins += reward.amount;
+  } else if (reward.type === "inv") {
+    userState.inventory[reward.id] = getConsumableCount(reward.id) + reward.amount;
+  } else if (reward.type === "wing") {
+    if (!userState.ownedItems.includes(reward.id)) userState.ownedItems.push(reward.id);
+    userState.avatarConfig.wing = reward.id;
+  }
+
+  playDingSound();
+  await syncProfileToServer();
+  renderAttendanceBoard();
+  syncHomeV2BadgesUI();
+  gameAlert(`🎉 Day ${nextDay} 출석 완료!\n[${reward.label}] 보상이 지급되었습니다!`, "📅 출석체크 완료");
+};
+
+// ============================================================================
+// [V2.0] 이벤트 팝업 (최대 5개 현수막 배너 크기 + 백엔드 연동)
+// ============================================================================
+const DEFAULT_FALLBACK_EVENTS = [
+  {
+    id: 1,
+    title: "신고하고 보상받자!",
+    content: "신고만해도 보상해드립니다!, 이용해주셔서 감사합니다 이용하시다가 음악이나 가사, 듣기가 뭐 오류가 있거나 잘못되어있는 부분을 '관리자' 아이디 친구추천 해서 DM으로 신고해주시면 내용 반영 후 건마다 1,000CD 드리겠습니다",
+    banner_url: "",
+    is_published: true
+  }
+];
+let cachedPublishedEvents = [...DEFAULT_FALLBACK_EVENTS];
+let selectedEventIndex = 0;
+
+window.openEventModal = async function () {
+  openModal("eventModal");
+  const bannersEl = document.getElementById("eventBannersList");
+  if (bannersEl) bannersEl.innerHTML = `<div style="text-align:center; padding:14px; font-size:0.82rem; color:var(--text-sub);">이벤트 불러오는 중...</div>`;
+
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient
+        .from("events")
+        .select("*")
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(5);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        cachedPublishedEvents = data;
+      } else if (!error && Array.isArray(data) && data.length === 0) {
+        cachedPublishedEvents = [];
+      }
+    } catch (e) {}
+  }
+
+  selectedEventIndex = 0;
+  renderEventModalContent();
+};
+
+window.selectEventBanner = function (idx) {
+  selectedEventIndex = idx;
+  renderEventModalContent();
+};
+
+function renderEventModalContent() {
+  const bannersEl = document.getElementById("eventBannersList");
+  const titleEl = document.getElementById("eventDetailTitle");
+  const bodyEl = document.getElementById("eventDetailBody");
+  if (!bannersEl || !titleEl || !bodyEl) return;
+
+  if (!cachedPublishedEvents || cachedPublishedEvents.length === 0) {
+    bannersEl.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-sub); font-size:0.84rem;">현재 진행 중인 이벤트가 없습니다.</div>`;
+    titleEl.textContent = "진행 중인 이벤트 없음";
+    bodyEl.textContent = "새로운 이벤트가 등록되면 이곳에서 확인하실 수 있습니다.";
+    return;
+  }
+
+  bannersEl.innerHTML = cachedPublishedEvents
+    .slice(0, 5)
+    .map((ev, idx) => {
+      const active = idx === selectedEventIndex;
+      const bgStyle = ev.banner_url
+        ? `background-image:linear-gradient(90deg, rgba(15,23,42,0.72), rgba(15,23,42,0.35)), url('${ev.banner_url}'); background-size:cover; background-position:center; color:#ffffff;`
+        : "";
+      return `
+        <button type="button" class="event-banner-pill ${active ? "active" : ""}" style="${bgStyle}" onclick="selectEventBanner(${idx})">
+          <span class="event-banner-badge">EVENT ${idx + 1}</span>
+          <span class="event-banner-title">${ev.title}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const cur = cachedPublishedEvents[selectedEventIndex] || cachedPublishedEvents[0];
+  titleEl.textContent = cur.title || "이벤트";
+  bodyEl.innerHTML = String(cur.content || "").replace(/\n/g, "<br/>");
+}
+

@@ -124,21 +124,35 @@ function getNextFishingResetTimestampMs(timestampMs = Date.now()) {
   return nextResetKst - FISHING_KST_OFFSET_MS;
 }
 
+function isFishing2xBuffActive(nowTs = Date.now()) {
+  if (typeof userState === "undefined" || !userState.dailyState) return false;
+  const ds = userState.dailyState;
+  const curCycle = getFishingCycleKey(nowTs);
+  return ds.fishing2xKstDate === curCycle && Number(ds.fishing2xExpiresAt || 0) > nowTs;
+}
+
 function getFishingBuffMultipliers() {
-  // 추후 상점 '낚싯대(fishing_rod)' / '미끼(fishing_bait)' 등급별 버프 자동 연동
+  // [V2.0] 낚싯대(영구 EXP 버프) + 소모품 미끼(보유 > 0일 때만 CD 버프) + 광고 2배 버프
   let expMultiplier = 1.0;
   let cdMultiplier = 1.0;
+  const is2xActive = isFishing2xBuffActive();
 
   if (typeof AVATAR_SHOP_ITEMS !== "undefined" && typeof userState !== "undefined" && userState.avatarConfig) {
     const rodItem = (AVATAR_SHOP_ITEMS.fishing_rod || []).find(r => r.id === userState.avatarConfig.fishingRod);
-    const baitItem = (AVATAR_SHOP_ITEMS.fishing_bait || []).find(b => b.id === userState.avatarConfig.fishingBait);
+    const baitId = userState.avatarConfig.fishingBait;
+    const baitItem = (AVATAR_SHOP_ITEMS.fishing_bait || []).find(b => b.id === baitId);
+    const baitCount = typeof getConsumableCount === "function" ? getConsumableCount(baitId) : 0;
     if (rodItem && Number(rodItem.expMultiplier) > 0) expMultiplier *= Number(rodItem.expMultiplier);
-    if (baitItem && Number(baitItem.cdMultiplier) > 0) cdMultiplier *= Number(baitItem.cdMultiplier);
+    if (baitItem && baitCount > 0 && Number(baitItem.cdMultiplier) > 0) cdMultiplier *= Number(baitItem.cdMultiplier);
+  }
+  if (is2xActive) {
+    cdMultiplier *= 2;
   }
 
   return {
     expMultiplier,
     cdMultiplier,
+    is2xActive,
     expPerMin: FISHING_EXP_PER_MINUTE * expMultiplier,
     cdPerMin: FISHING_CD_PER_MINUTE * cdMultiplier,
     maxExp: Math.round(FISHING_BASE_MAX_EXP * expMultiplier),
@@ -224,8 +238,23 @@ function renderFishingHud() {
     const parts = [];
     if (mults.expMultiplier > 1) parts.push(`🎣EXP+${Math.round((mults.expMultiplier - 1) * 100)}%`);
     if (mults.cdMultiplier > 1) parts.push(`🪱CD+${Math.round((mults.cdMultiplier - 1) * 100)}%`);
+    if (mults.is2xActive) parts.push("⚡광고2배");
     buffEl.textContent = parts.join(" · ");
     buffEl.classList.toggle("hidden", parts.length === 0);
+  }
+
+  const ad2xBtn = document.getElementById("fishing2xBuffBtn");
+  if (ad2xBtn) {
+    if (mults.is2xActive && typeof userState !== "undefined" && userState.dailyState) {
+      const remSec = Math.max(0, Math.ceil((Number(userState.dailyState.fishing2xExpiresAt) - Date.now()) / 1000));
+      const mm = String(Math.floor(remSec / 60)).padStart(2, "0");
+      const ss = String(remSec % 60).padStart(2, "0");
+      ad2xBtn.disabled = true;
+      ad2xBtn.textContent = `⚡ 2배 버프중 (${mm}:${ss})`;
+    } else {
+      ad2xBtn.disabled = false;
+      ad2xBtn.textContent = "📺 30분 CD 2배";
+    }
   }
 
   const myCdEl = document.getElementById("fishingMyCdText");
@@ -288,6 +317,30 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
           userState.cdCoins = (Number(userState.cdCoins) || 0) + gainCd;
         }
         changedRewards = true;
+      }
+
+      // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모
+      if (typeof userState !== "undefined" && userState.avatarConfig) {
+        const curBaitId = userState.avatarConfig.fishingBait;
+        const curBaitCnt = typeof getConsumableCount === "function" ? getConsumableCount(curBaitId) : 0;
+        if (curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
+          fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + deltaSec;
+          while (fishingState.baitSecCarry >= 1800 && getConsumableCount(curBaitId) > 0) {
+            fishingState.baitSecCarry -= 1800;
+            const nextCnt = Math.max(0, getConsumableCount(curBaitId) - 1);
+            userState.inventory[curBaitId] = nextCnt;
+            changedRewards = true;
+            if (nextCnt <= 0) {
+              userState.avatarConfig.fishingBait = "none";
+              if (typeof appendFishingChatLine === "function") {
+                appendFishingChatLine("시스템", "🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
+              }
+              break;
+            }
+          }
+        } else {
+          fishingState.baitSecCarry = 0;
+        }
       }
     }
 
@@ -1518,4 +1571,25 @@ window.exitFishingScreenWithLoading = function () {
       showHome();
     }
   }, FISHING_LOADING_DURATION_MS);
+};
+
+// [V2.0] 낚시터 황금 떡밥 2배 버프 (광고 시청 시 30분 CD 2배 · 중첩 불가 · 06시 초기화)
+window.activateFishing2xBuffAd = function () {
+  if (isFishing2xBuffActive()) {
+    gameAlert("이미 30분 CD 2배 버프가 적용 중입니다! (중첩 불가)");
+    return;
+  }
+  if (typeof showRewardedAd !== "function") return;
+  showRewardedAd("낚시터 30분 CD 2배 버프", async () => {
+    const ds = typeof ensureV2DailyState === "function" ? ensureV2DailyState() : null;
+    if (ds) {
+      ds.fishing2xKstDate = getFishingCycleKey();
+      ds.fishing2xExpiresAt = Date.now() + 30 * 60 * 1000;
+    }
+    if (typeof syncProfileToServer === "function") await syncProfileToServer();
+    renderFishingHud();
+    if (typeof appendFishingChatLine === "function") {
+      appendFishingChatLine("시스템", "⚡ [황금 떡밥 2배 버프] 30분간 낚시터 CD 획득량이 2배가 됩니다!");
+    }
+  });
 };

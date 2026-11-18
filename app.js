@@ -25,6 +25,9 @@ const state = {
   usedHintKeyword: false,
   usedHintAudio: false,
   questionEnded: false,
+  usedItemsInRun: new Set(),
+  doubleAttackActive: false,
+  revivedInRun: false,
 
   timerInterval: null,
   timeLeftMs: 15000,
@@ -1224,15 +1227,31 @@ function relocateCoupangAdBanner() {
   });
 }
 
-// 홈 화면에서 🔔(우측 상단) · 🔊(우측 하단) 버튼을 흰색 메인 카드(.home-hero) 모서리에 정밀 정렬
+// 홈 화면에서 좌측(? / 🔊 / 🎉) · 우측(🔔 / 💿 / 🎁 / 📅) 세로 일렬 정밀 정렬
 window.syncHomeCornerFloatingButtons = function () {
   const shell = document.querySelector(".app-shell");
   const hero = document.querySelector("#homeScreen .home-hero");
   const notiBtn = document.getElementById("floatingDmNotiBtn");
   const soundBtn = document.getElementById("floatingSoundBtn");
-  if (!shell || (!notiBtn && !soundBtn)) return;
+  const helpBtn = document.getElementById("floatingHelpBtn");
+  const eventBtn = document.getElementById("floatingEventBtn");
+  const dailyCdBtn = document.getElementById("floatingDailyCdBtn");
+  const randomBoxBtn = document.getElementById("floatingRandomBoxBtn");
+  const attBtn = document.getElementById("floatingAttendanceBtn");
+
+  const homeOnlyBtns = [eventBtn, dailyCdBtn, randomBoxBtn, attBtn];
+
+  if (!shell) return;
 
   if (state.currentScreen !== "homeScreen" || !hero) {
+    homeOnlyBtns.forEach(b => {
+      if (b) {
+        b.classList.add("hidden");
+        b.style.top = "";
+        b.style.left = "";
+        b.style.right = "";
+      }
+    });
     if (notiBtn) {
       notiBtn.style.top = "";
       notiBtn.style.right = "";
@@ -1240,6 +1259,7 @@ window.syncHomeCornerFloatingButtons = function () {
     if (soundBtn) {
       soundBtn.style.top = "";
       soundBtn.style.right = "";
+      soundBtn.style.left = "";
       soundBtn.style.bottom = "";
     }
     return;
@@ -1249,23 +1269,48 @@ window.syncHomeCornerFloatingButtons = function () {
   const hRect = hero.getBoundingClientRect();
   if (hRect.width <= 0 || hRect.height <= 0) return;
 
-  // 좌상단 ? 버튼(top: 10px, left: 10px)과 완벽히 대칭되는 우상단 🔔 위치
-  if (notiBtn) {
-    notiBtn.style.top = `${Math.round(hRect.top - sRect.top + 13)}px`;
-    notiBtn.style.right = `${Math.round(sRect.right - hRect.right + 13)}px`;
+  const topBase = Math.round(hRect.top - sRect.top + 12);
+  const leftX = Math.round(hRect.left - sRect.left + 10);
+  const rightX = Math.round(sRect.right - hRect.right + 12);
+  const gapY = 40;
+
+  // 좌측 세로 일렬: ? -> 🔊 -> 🎉
+  if (helpBtn) {
+    helpBtn.style.top = "10px";
+    helpBtn.style.left = "10px";
+  }
+  if (soundBtn) {
+    soundBtn.classList.remove("hidden");
+    soundBtn.style.bottom = "auto";
+    soundBtn.style.right = "auto";
+    soundBtn.style.left = `${leftX}px`;
+    soundBtn.style.top = `${topBase + gapY}px`;
+  }
+  if (eventBtn) {
+    eventBtn.classList.remove("hidden");
+    eventBtn.style.left = `${leftX}px`;
+    eventBtn.style.top = `${topBase + gapY * 2}px`;
   }
 
-  // .home-hero 우측 하단 모서리 안쪽 위로 올려 하단 쿠팡 배너와 터치 영역이 겹치지 않도록 분리
-  if (soundBtn) {
-    const adSlot = document.getElementById("homeAdBannerSlot");
-    let desiredTop = Math.round(hRect.bottom - sRect.top - 46);
-    if (adSlot) {
-      const adTopInShell = Math.round(adSlot.getBoundingClientRect().top - sRect.top);
-      desiredTop = Math.min(desiredTop, adTopInShell - 48);
-    }
-    soundBtn.style.bottom = "auto";
-    soundBtn.style.top = `${Math.max(0, desiredTop)}px`;
-    soundBtn.style.right = `${Math.round(sRect.right - hRect.right + 10)}px`;
+  // 우측 세로 일렬: 🔔 -> 💿 -> 🎁 -> 📅
+  if (notiBtn) {
+    notiBtn.style.top = `${topBase}px`;
+    notiBtn.style.right = `${rightX}px`;
+  }
+  if (dailyCdBtn) {
+    dailyCdBtn.classList.remove("hidden");
+    dailyCdBtn.style.right = `${rightX}px`;
+    dailyCdBtn.style.top = `${topBase + gapY}px`;
+  }
+  if (randomBoxBtn) {
+    randomBoxBtn.classList.remove("hidden");
+    randomBoxBtn.style.right = `${rightX}px`;
+    randomBoxBtn.style.top = `${topBase + gapY * 2}px`;
+  }
+  if (attBtn) {
+    attBtn.classList.remove("hidden");
+    attBtn.style.right = `${rightX}px`;
+    attBtn.style.top = `${topBase + gapY * 3}px`;
   }
 };
 
@@ -1301,6 +1346,8 @@ window.switchScreen = function (targetId, opts = {}) {
 
   if (targetId === "homeScreen") {
     relocateCoupangAdBanner();
+    if (typeof updateHomeAdBannerPlatform === "function") updateHomeAdBannerPlatform();
+    if (typeof syncHomeV2BadgesUI === "function") syncHomeV2BadgesUI();
   }
 
   if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
@@ -1485,6 +1532,11 @@ function initEvents() {
   window.closeAllModals();
   showLoginScreen();
 
+  if (typeof loadRemoteQuestionsDb === "function") {
+    loadRemoteQuestionsDb().then(() => {
+      if (typeof updateLobbyCounts === "function") updateLobbyCounts();
+    });
+  }
   if (typeof initAuthPreferences === "function") {
     initAuthPreferences();
   }
@@ -1549,6 +1601,9 @@ window.startGame = function () {
   state.streak = 0;
   state.hearts = 5;
   state.history = [];
+  state.usedItemsInRun = new Set();
+  state.doubleAttackActive = false;
+  state.revivedInRun = false;
 
   loadCurrentQuestion();
 };
@@ -1659,7 +1714,106 @@ function loadCurrentQuestion() {
   }
 
   startTimeAttackTimer();
+  renderSingleItemSlotsBar();
 }
+
+function getChosungString(str) {
+  const CHO = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  let res = "";
+  for (const ch of String(str || "")) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xac00 && code <= 0xd7a3) {
+      res += CHO[Math.floor((code - 0xac00) / 588)];
+    } else {
+      res += ch;
+    }
+  }
+  return res;
+}
+window.getChosungString = getChosungString;
+
+window.renderSingleItemSlotsBar = function () {
+  const bar = document.getElementById("singleItemSlotsBar");
+  if (!bar) return;
+  const equipped = (typeof userState !== "undefined" && Array.isArray(userState.equippedItems)) ? userState.equippedItems : [];
+  if (equipped.length === 0) {
+    bar.innerHTML = `<span style="font-size:0.72rem; color:#94a3b8;">🎒 가방에서 아이템을 장착하면 여기서 바로 쓸 수 있습니다</span>`;
+    return;
+  }
+  bar.innerHTML = equipped
+    .map(id => {
+      const meta = typeof getGameItemById === "function" ? getGameItemById(id) : null;
+      if (!meta) return "";
+      const cnt = typeof getConsumableCount === "function" ? getConsumableCount(id) : 0;
+      const used = state.usedItemsInRun && state.usedItemsInRun.has(id);
+      let scopeDisabled = false;
+      if (id === "item_hourglass" && !state.timeAttack) scopeDisabled = true;
+      if ((id === "item_heart" || id === "item_revive") && state.questionLimit !== "infinite") scopeDisabled = true;
+      const isPassiveRevive = id === "item_revive";
+      const disabled = used || cnt <= 0 || scopeDisabled || isPassiveRevive;
+      const title = isPassiveRevive ? "하트 0 시 자동 발동" : meta.desc;
+      return `<button type="button" class="quick-item-btn ${used ? "is-used" : ""}" ${disabled ? "disabled" : ""} title="${title}" onclick="useSingleGameItem('${id}')">${meta.name} (${cnt})</button>`;
+    })
+    .join("");
+};
+
+window.useSingleGameItem = async function (itemId) {
+  if (state.questionEnded) return;
+  if (!state.usedItemsInRun) state.usedItemsInRun = new Set();
+  if (state.usedItemsInRun.has(itemId)) {
+    gameAlert("이 아이템은 판당 1회만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_hourglass" && !state.timeAttack) {
+    gameAlert("모래시계는 타임어택 ON 모드에서만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_heart" && state.questionLimit !== "infinite") {
+    gameAlert("하트요정은 무한도전 모드에서만 사용할 수 있습니다!");
+    return;
+  }
+  if (itemId === "item_revive") {
+    gameAlert("부활날개는 장착 시 하트가 0이 될 때 자동으로 부활 여부를 물어봅니다!");
+    return;
+  }
+
+  const cnt = typeof getConsumableCount === "function" ? getConsumableCount(itemId) : 0;
+  if (cnt <= 0) {
+    gameAlert("보유 수량이 부족합니다!");
+    return;
+  }
+
+  userState.inventory[itemId] = cnt - 1;
+  state.usedItemsInRun.add(itemId);
+  if (typeof syncProfileToServer === "function") syncProfileToServer();
+
+  const q = state.currentQ;
+  if (itemId === "item_3sec") {
+    playAudioSnippet(3.0, 6, q, null, null, { isAutoPlay: false });
+    appendHintBox("🎧 3초 듣기", "하이라이트 3초 재생!");
+  } else if (itemId === "item_chosung") {
+    const chosungText =
+      state.stage === 1
+        ? `노래 초성: <strong>${getChosungString(q.title)}</strong>`
+        : state.stage === 2
+        ? `가수 초성: <strong>${getChosungString(q.artist)}</strong>`
+        : `가수: <strong>${getChosungString(q.artist)}</strong> / 노래: <strong>${getChosungString(q.title)}</strong>`;
+    appendHintBox("🔤 초성힌트", chosungText);
+  } else if (itemId === "item_hourglass") {
+    state.timeLeftMs = (Number(state.timeLeftMs) || 0) + 10000;
+    state.maxTimeMs = Math.max(Number(state.maxTimeMs) || 15000, state.timeLeftMs);
+    appendHintBox("⏳ 모래시계", "제한시간 +10초 연장!");
+  } else if (itemId === "item_heart") {
+    state.hearts = (Number(state.hearts) || 0) + 1;
+    const heartsEl = document.getElementById("heartsDisplay");
+    if (heartsEl) heartsEl.textContent = `❤️${state.hearts}`;
+    appendHintBox("💖 하트요정", `하트 +1 추가 (현재 ❤️${state.hearts})`);
+  } else if (itemId === "item_double") {
+    state.doubleAttackActive = true;
+    appendHintBox("⚡ 더블어택", "이번 판 획득 점수·CD 2배 적용!");
+  }
+  renderSingleItemSlotsBar();
+};
 
 window.playOneSecMain = function () {
   const offsets = [6, 12, 18];
@@ -1827,8 +1981,9 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
 
   const nextBtn = document.getElementById("nextQuestionBtn");
   const isLast =
-    state.currentIndex + 1 >= state.pool.length ||
-    (state.questionLimit === "infinite" && state.hearts <= 0);
+    state.questionLimit === "infinite"
+      ? state.hearts <= 0
+      : state.currentIndex + 1 >= state.pool.length;
   nextBtn.textContent = isLast ? "🏆 최종 결과 보기 ➔" : "다음 문제 넘어가기 ➔";
 
   const track = await fetchItunesTrack(q);
@@ -1843,11 +1998,56 @@ window.playFullPreviewInReveal = function () {
 
 function nextQuestion() {
   stopAudio();
-  const isGameOver =
-    state.currentIndex + 1 >= state.pool.length ||
-    (state.questionLimit === "infinite" && state.hearts <= 0);
+  if (state.questionLimit === "infinite") {
+    if (state.hearts <= 0) {
+      const canRevive =
+        !state.revivedInRun &&
+        typeof userState !== "undefined" &&
+        Array.isArray(userState.equippedItems) &&
+        userState.equippedItems.includes("item_revive") &&
+        typeof getConsumableCount === "function" &&
+        getConsumableCount("item_revive") > 0;
 
-  if (isGameOver) {
+      if (canRevive) {
+        gameConfirm(
+          "하트가 모두 소진되었습니다!\n장착 중인 [🪽 부활날개] 1개를 사용하여 하트 1개로 이어하시겠습니까?",
+          async () => {
+            userState.inventory.item_revive = getConsumableCount("item_revive") - 1;
+            if (!state.usedItemsInRun) state.usedItemsInRun = new Set();
+            state.usedItemsInRun.add("item_revive");
+            state.revivedInRun = true;
+            state.hearts = 1;
+            if (typeof syncProfileToServer === "function") await syncProfileToServer();
+            advanceInfiniteNextQuestion();
+          },
+          "🪽 부활날개 발동!",
+          () => showFinalResult()
+        );
+        return;
+      }
+      showFinalResult();
+      return;
+    }
+    advanceInfiniteNextQuestion();
+    return;
+  }
+
+  if (state.currentIndex + 1 >= state.pool.length) {
+    showFinalResult();
+  } else {
+    state.currentIndex++;
+    loadCurrentQuestion();
+  }
+}
+
+function advanceInfiniteNextQuestion() {
+  if (state.currentIndex + 1 >= state.pool.length) {
+    const extra = shuffleArray(getFilteredQuestions());
+    if (extra.length > 0) {
+      state.pool.push(...extra);
+    }
+  }
+  if (state.currentIndex + 1 >= state.pool.length) {
     showFinalResult();
   } else {
     state.currentIndex++;
@@ -1867,9 +2067,15 @@ async function showFinalResult() {
   else if (accuracy >= 75) rankTitle = "🔥 가요계 척척박사";
   else if (accuracy >= 50) rankTitle = "🎶 음악 고수";
 
+  const effectiveScore = state.doubleAttackActive ? state.score * 2 : state.score;
+  const isNoItemClear = !state.usedItemsInRun || state.usedItemsInRun.size === 0;
+
   document.getElementById("finalPlayerBadge").textContent = `🎤 도전자: ${userState?.nickname || "도전자"}`;
   document.getElementById("finalRankTitle").textContent = rankTitle;
-  document.getElementById("finalScoreText").textContent = `총점 ${state.score}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
+  document.getElementById("finalScoreText").textContent =
+    state.doubleAttackActive
+      ? `총점 ${effectiveScore}점 (기본 ${state.score} ×2 · 정답 ${solvedCount}/${totalTried} · ${accuracy}%)`
+      : `총점 ${effectiveScore}점 (정답 ${solvedCount}/${totalTried} · ${accuracy}%)`;
 
   const decadeStr =
     state.decades.size === 4
@@ -1889,35 +2095,48 @@ async function showFinalResult() {
     <span class="badge">${limitStr}</span>
     ${state.timeAttack ? `<span class="badge gold">⏱️타임어택×2</span>` : ""}
     ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
+    ${state.doubleAttackActive ? `<span class="badge gold">⚡더블어택×2</span>` : ""}
+    ${isNoItemClear ? `<span class="badge" style="background:#ecfdf5; color:#047857; border-color:#6ee7b7;">🌿노템 +10%</span>` : ""}
   `;
 
-  const baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(state.score / 10));
+  let baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(effectiveScore / 10));
+  if (isNoItemClear && baseCd > 0) baseCd = Math.round(baseCd * 1.1);
 
-  if (state.score > 0 && typeof submitScoreToRanking === "function") {
+  if (effectiveScore > 0 && typeof submitScoreToRanking === "function") {
     await submitScoreToRanking({
       decadeFilter: decadeStr,
       mode: state.mode,
       stage: state.stage,
       limit: state.questionLimit,
       timeAttack: state.timeAttack,
-      score: state.score,
+      score: effectiveScore,
       accuracy
     });
   }
+
+  let baseExpVal = Math.round(effectiveScore * 0.1);
+  if (isNoItemClear && baseExpVal > 0) baseExpVal = Math.round(baseExpVal * 1.1);
 
   let rewardResult = {
     baseCd,
     earnedCd: baseCd,
     finalCd: baseCd,
-    baseExp: Math.round(state.score * 0.1),
-    finalExp: Math.round(state.score * 0.1),
+    baseExp: baseExpVal,
+    finalExp: baseExpVal,
     multiplier: 1,
     achievedTopRank: null,
     expBefore: userState.exp || 0,
-    expAfter: (userState.exp || 0) + Math.round(state.score * 0.1)
+    expAfter: (userState.exp || 0) + baseExpVal
   };
   if (typeof checkAndProcessGameRewards === "function") {
-    const res = await checkAndProcessGameRewards(state.score, state.mode, state.stage, baseCd);
+    const res = await checkAndProcessGameRewards(effectiveScore, state.mode, state.stage, baseCd);
+    if (isNoItemClear && res && res.baseExp > 0) {
+      const bonusExp = Math.round(res.baseExp * 0.1);
+      userState.exp = (Number(userState.exp) || 0) + bonusExp;
+      res.finalExp = (Number(res.finalExp) || 0) + bonusExp;
+      res.expAfter = userState.exp;
+      if (typeof syncProfileToServer === "function") await syncProfileToServer();
+    }
     rewardResult = { ...rewardResult, ...res };
   } else {
     if (baseCd > 0) userState.cdCoins = (Number(userState.cdCoins) || 0) + baseCd;

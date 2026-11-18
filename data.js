@@ -4,7 +4,7 @@
 // - 에픽하이, V.O.S 제외 / 드렁큰 타이거, 더 클래식 포함 / 국카스텐(하현우) 복수 정답 지원
 // ============================================================================
 
-const QUESTIONS_DB = [
+let QUESTIONS_DB = [
   // ==================== 1990년대 (25문제) ====================
   {
     id: "1990_01",
@@ -6945,6 +6945,38 @@ async function fetchItunesSongMeta(qOrQuery) {
 
   return { previewUrl: null, artworkUrl: "" };
 }
+
+// ============================================================================
+// [V2.0 하이브리드 방식 3] 원격 문제 DB 로드 (questions.json + 폴백 내장 DB)
+// ============================================================================
+window.__remoteQuestionsLoaded = false;
+window.loadRemoteQuestionsDb = async function () {
+  if (window.__remoteQuestionsLoaded) return QUESTIONS_DB;
+  const candidates = [
+    "./questions.json?t=" + Date.now(),
+    "https://dg1682-commits.github.io/MUSICKING/questions.json?t=" + Date.now()
+  ];
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const byId = new Map(QUESTIONS_DB.map(q => [q.id, q]));
+        data.forEach(q => {
+          if (q && q.id && q.artist && q.title) {
+            byId.set(q.id, q);
+          }
+        });
+        QUESTIONS_DB = Array.from(byId.values());
+        window.__remoteQuestionsLoaded = true;
+        break;
+      }
+    } catch (e) {}
+  }
+  return QUESTIONS_DB;
+};
+
 
 
 

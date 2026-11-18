@@ -69,121 +69,201 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 13;
+const SHOP_CATALOG_VERSION = 14;
+
+const GAME_ITEMS_CATALOG = [
+  {
+    id: "item_3sec",
+    name: "🎧 3초 듣기",
+    price: 200,
+    grade: "B",
+    scope: "common",
+    scopeLabel: "공용",
+    maxAdPerDay: 3,
+    adRechargeable: true,
+    desc: "1초 듣기 포함 모든 모드에서\n해당 곡 하이라이트를 3초간 재생합니다."
+  },
+  {
+    id: "item_chosung",
+    name: "🔤 초성힌트",
+    price: 200,
+    grade: "B",
+    scope: "common",
+    scopeLabel: "공용",
+    maxAdPerDay: 3,
+    adRechargeable: true,
+    desc: "점수 감점 없이 정답(가수·제목)의\n초성 힌트를 즉시 공개합니다."
+  },
+  {
+    id: "item_hourglass",
+    name: "⏳ 모래시계",
+    price: 350,
+    grade: "A",
+    scope: "timeattack",
+    scopeLabel: "타임어택용",
+    maxAdPerDay: 3,
+    adRechargeable: true,
+    desc: "타임어택 모드 진행 중 현재 문제의\n제한시간을 +10초 연장합니다."
+  },
+  {
+    id: "item_heart",
+    name: "💖 하트요정",
+    price: 350,
+    grade: "A",
+    scope: "infinite",
+    scopeLabel: "무한도전용",
+    maxAdPerDay: 3,
+    adRechargeable: true,
+    desc: "무한도전 진행 중 남은 하트(생명)를\n즉시 +1개 추가합니다."
+  },
+  {
+    id: "item_revive",
+    name: "🪽 부활날개",
+    price: 350,
+    grade: "A",
+    scope: "infinite",
+    scopeLabel: "무한도전용",
+    maxAdPerDay: 3,
+    adRechargeable: true,
+    desc: "무한도전에 사전 장착 시 하트가 0이 되어도\n하트 1개로 부활하여 이어할 수 있습니다."
+  },
+  {
+    id: "item_double",
+    name: "⚡ 더블어택",
+    price: 19000,
+    grade: "S",
+    scope: "common",
+    scopeLabel: "공용 · 희귀 S",
+    maxAdPerDay: 0,
+    adRechargeable: false,
+    desc: "사용 시 해당 판에서 획득하는\n최종 점수와 CD 보상을 2배로 만듭니다. (광고 충전 불가)"
+  }
+];
+
+function getGameItemById(id) {
+  return GAME_ITEMS_CATALOG.find(item => item.id === id) || null;
+}
 
 const BASE_AVATAR_SHOP_ITEMS = {
   bg: [
     { id: "meadow", name: "초원 잔디마당", price: 0, grade: "C", desc: "따사로운 햇살과 꽃밭, 원목 울타리가\n반겨주는 평화로운 초원 뒷마당", colors: ["#5ec8f8", "#aee4ff", "#76d32d", "#4d9e12"] },
-    { id: "neon", name: "네온 뮤직뱅크", price: 400, grade: "B", desc: "화려한 레이저와 생방송 스포트라이트가\n쏟아지는 음악방송 메인 스테이지", colors: ["#1e1b4b", "#3730a3", "#f43f5e", "#1e1b4b"] },
-    { id: "sakura", name: "봄날 벚꽃동산", price: 500, grade: "B", desc: "만개한 벚꽃나무 아래 분홍 꽃잎이\n흩날리는 설레는 봄날 피크닉 동산", colors: ["#fda4af", "#fff1f2", "#86efac", "#22c55e"] },
-    { id: "sunset_beach", name: "노을 해변 페스티벌", price: 650, grade: "A", desc: "붉은 석양 바다와 야자수 실루엣이\n어우러진 여름 밤 락 페스티벌 무대", colors: ["#f43f5e", "#fdba74", "#d97706", "#92400e"] },
-    { id: "hangang_night", name: "한강 불꽃 야경", price: 850, grade: "A", desc: "서울 마천루, 한강 대교 조명과\n불꽃놀이가 수놓은 한강 야외공연장", colors: ["#0f172a", "#312e81", "#1e293b", "#090d16"] },
-    { id: "retro_alley", name: "골목", price: 850, grade: "A", desc: "정겨운 붉은 벽돌과 감성 가로등,\n전봇대와 라이브 벽보가 붙은 레트로 골목", colors: ["#1e293b", "#475569", "#334155", "#0f172a"] },
-    { id: "midi_cyber", name: "일렉트로 미디 룸", price: 950, grade: "A", desc: "사이버 네온 이퀄라이저와 모니터 스피커가\n빛나는 최첨단 전자 미디 녹음실", colors: ["#0f172a", "#1e3a8a", "#0284c7", "#0f172a"] },
-    { id: "sunny_beach", name: "해변", price: 950, grade: "A", desc: "청량한 에메랄드 바다와 하얀 파도,\n비치 파라솔이 펼쳐진 한낮의 여름 해변", colors: ["#0284c7", "#bae6fd", "#fef08a", "#eab308"] },
-    { id: "galaxy", name: "스타라이트 우주홀", price: 1200, grade: "S", desc: "고리 달린 토성과 은하수, 별똥별이\n반짝이는 신비로운 우주 음악왕 무대", colors: ["#090d16", "#2e1065", "#4c1d95", "#1e1b4b"] },
-    { id: "secret_basement", name: "지하실", price: 1250, grade: "S", desc: "노출 벽돌과 알전구 줄조명, 빈티지 앰프가\n모여있는 비밀 밴드 합주 지하실", colors: ["#1c1917", "#44403c", "#57534e", "#292524"] },
-    { id: "sky_clouds", name: "구름", price: 1400, grade: "S", desc: "무지개가 걸린 파스텔 천공 하늘 위,\n폭신한 뭉게구름을 밟고 선 하늘 스테이지", colors: ["#38bdf8", "#e0f2fe", "#f8fafc", "#bae6fd"] },
-    { id: "royal", name: "황금 음악왕성", price: 2000, grade: "S", desc: "대리석 기둥과 샹들리에, 레드카펫이 깔린\n순금빛 궁전 로얄 스테이지", colors: ["#fef08a", "#fde047", "#dc2626", "#7f1d1d"] }
+    { id: "neon", name: "네온 뮤직뱅크", price: 1200, grade: "B", desc: "화려한 레이저와 생방송 스포트라이트가\n쏟아지는 음악방송 메인 스테이지", colors: ["#1e1b4b", "#3730a3", "#f43f5e", "#1e1b4b"] },
+    { id: "sakura", name: "봄날 벚꽃동산", price: 1800, grade: "B", desc: "만개한 벚꽃나무 아래 분홍 꽃잎이\n흩날리는 설레는 봄날 피크닉 동산", colors: ["#fda4af", "#fff1f2", "#86efac", "#22c55e"] },
+    { id: "sunset_beach", name: "노을 해변 페스티벌", price: 3200, grade: "A", desc: "붉은 석양 바다와 야자수 실루엣이\n어우러진 여름 밤 락 페스티벌 무대", colors: ["#f43f5e", "#fdba74", "#d97706", "#92400e"] },
+    { id: "hangang_night", name: "한강 불꽃 야경", price: 3900, grade: "A", desc: "서울 마천루, 한강 대교 조명과\n불꽃놀이가 수놓은 한강 야외공연장", colors: ["#0f172a", "#312e81", "#1e293b", "#090d16"] },
+    { id: "retro_alley", name: "골목", price: 4400, grade: "A", desc: "정겨운 붉은 벽돌과 감성 가로등,\n전봇대와 라이브 벽보가 붙은 레트로 골목", colors: ["#1e293b", "#475569", "#334155", "#0f172a"] },
+    { id: "midi_cyber", name: "일렉트로 미디 룸", price: 5100, grade: "A", desc: "사이버 네온 이퀄라이저와 모니터 스피커가\n빛나는 최첨단 전자 미디 녹음실", colors: ["#0f172a", "#1e3a8a", "#0284c7", "#0f172a"] },
+    { id: "sunny_beach", name: "해변", price: 5600, grade: "A", desc: "청량한 에메랄드 바다와 하얀 파도,\n비치 파라솔이 펼쳐진 한낮의 여름 해변", colors: ["#0284c7", "#bae6fd", "#fef08a", "#eab308"] },
+    { id: "galaxy", name: "스타라이트 우주홀", price: 6500, grade: "S", desc: "고리 달린 토성과 은하수, 별똥별이\n반짝이는 신비로운 우주 음악왕 무대", colors: ["#090d16", "#2e1065", "#4c1d95", "#1e1b4b"] },
+    { id: "secret_basement", name: "지하실", price: 7400, grade: "S", desc: "노출 벽돌과 알전구 줄조명, 빈티지 앰프가\n모여있는 비밀 밴드 합주 지하실", colors: ["#1c1917", "#44403c", "#57534e", "#292524"] },
+    { id: "sky_clouds", name: "구름", price: 8600, grade: "S", desc: "무지개가 걸린 파스텔 천공 하늘 위,\n폭신한 뭉게구름을 밟고 선 하늘 스테이지", colors: ["#38bdf8", "#e0f2fe", "#f8fafc", "#bae6fd"] },
+    { id: "royal", name: "황금 음악왕성", price: 10000, grade: "S", desc: "대리석 기둥과 샹들리에, 레드카펫이 깔린\n순금빛 궁전 로얄 스테이지", colors: ["#fef08a", "#fde047", "#dc2626", "#7f1d1d"] }
   ],
   hair: [
     { id: "default", name: "바가지 머리", price: 0, grade: "C", desc: "깔끔하게 둥글린 옆라인과 윤기 나는\n귀여운 시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
-    { id: "bald", name: "반짝 민머리", price: 300, grade: "B", desc: "햇빛 받으면 눈이 부실 정도로\n매끈반짝 별빛 광택의 시원한 민머리", color: "#fffdf9", style: "bald" },
-    { id: "blonde", name: "샤이닝 금발", price: 350, grade: "C", desc: "6:4 아이돌 가르마와 부드러운 레이어드\n금발 머릿결이 눈부신 센터 스타일", color: "#facc15", style: "idol_blonde" },
-    { id: "monkey_hood", name: "몽키 모자", price: 450, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 후드", color: "#6b3410", style: "monkey" },
-    { id: "sprout_hat", name: "초록 새싹모자", price: 500, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 스타일", color: "#4ade80", style: "sprout" },
-    { id: "mint_comma", name: "민트 쉼표머리", price: 550, grade: "B", desc: "이마 위로 둥글게 말려 내려오는\nC자 쉼표 앞머리의 상큼 민트초코 헤어", color: "#2dd4bf", style: "comma" },
-    { id: "pink_twin", name: "핑크 양갈래", price: 600, grade: "A", desc: "하트 가르마 앞머리에 별빛 머리끈으로\n통통 튀게 묶은 과즙미 핑크 양갈래", color: "#f472b6", style: "pink_twin" },
-    { id: "pigtails", name: "상큼 양갈래", price: 650, grade: "A", desc: "부드러운 M자 앞머리와 빨간 리본으로\n풍성하게 내린 다크 브라운 웨이브 양갈래", color: "#451a03", style: "brown_twin" },
-    { id: "ponytail", name: "하이 포니테일", price: 700, grade: "A", desc: "사선 앞머리와 함께 높게 묶어 올려\n경쾌하게 찰랑이는 하이 포니테일", color: "#1e293b", style: "ponytail" },
-    { id: "rock_red", name: "불꽃 샤기컷", price: 700, grade: "A", desc: "타오르는 불꽃처럼 사방으로 뻗친\n거친 스파이크와 레드 투톤 샤기컷", color: "#ef4444", style: "spiky" },
-    { id: "octo_hat", name: "문어 모자", price: 750, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c", style: "octo" },
-    { id: "buns", name: "동글 만두머리", price: 800, grade: "A", desc: "꽈배기 결이 살아있는 동글 경단 두 개에\n진주 비녀가 꽂힌 앙증맞은 만두머리", color: "#3f2e21", style: "buns" },
-    { id: "braids", name: "발랄 삐삐머리", price: 850, grade: "A", desc: "한올 한올 정교하게 땋아 올린\n개성 만점 발랄한 양쪽 삐삐머리", color: "#92400e", style: "braids" },
-    { id: "silver_perm", name: "실버 프로듀서", price: 850, grade: "A", desc: "풍성한 S컬 웨이브 펌이 몽글몽글\n살아있는 세련된 백금발 프로듀서 헤어", color: "#cbd5e1", style: "perm" },
-    { id: "violet_twin", name: "보라빛 요정트윈", price: 1100, grade: "S", desc: "요정 날개 머리핀과 영롱한 퍼플\n그라데이션이 빛나는 몽환적 요정 양갈래", color: "#a855f7", style: "violet_twin" }
+    { id: "blonde", name: "샤이닝 금발", price: 500, grade: "C", desc: "6:4 아이돌 가르마와 부드러운 레이어드\n금발 머릿결이 눈부신 센터 스타일", color: "#facc15", style: "idol_blonde" },
+    { id: "bald", name: "반짝 민머리", price: 1100, grade: "B", desc: "햇빛 받으면 눈이 부실 정도로\n매끈반짝 별빛 광택의 시원한 민머리", color: "#fffdf9", style: "bald" },
+    { id: "monkey_hood", name: "몽키 모자", price: 1600, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 후드", color: "#6b3410", style: "monkey" },
+    { id: "sprout_hat", name: "초록 새싹모자", price: 2100, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 스타일", color: "#4ade80", style: "sprout" },
+    { id: "mint_comma", name: "민트 쉼표머리", price: 2700, grade: "B", desc: "이마 위로 둥글게 말려 내려오는\nC자 쉼표 앞머리의 상큼 민트초코 헤어", color: "#2dd4bf", style: "comma" },
+    { id: "pink_twin", name: "핑크 양갈래", price: 3100, grade: "A", desc: "하트 가르마 앞머리에 별빛 머리끈으로\n통통 튀게 묶은 과즙미 핑크 양갈래", color: "#f472b6", style: "pink_twin" },
+    { id: "pigtails", name: "상큼 양갈래", price: 3500, grade: "A", desc: "부드러운 M자 앞머리와 빨간 리본으로\n풍성하게 내린 다크 브라운 웨이브 양갈래", color: "#451a03", style: "brown_twin" },
+    { id: "ponytail", name: "하이 포니테일", price: 3900, grade: "A", desc: "사선 앞머리와 함께 높게 묶어 올려\n경쾌하게 찰랑이는 하이 포니테일", color: "#1e293b", style: "ponytail" },
+    { id: "rock_red", name: "불꽃 샤기컷", price: 4200, grade: "A", desc: "타오르는 불꽃처럼 사방으로 뻗친\n거친 스파이크와 레드 투톤 샤기컷", color: "#ef4444", style: "spiky" },
+    { id: "octo_hat", name: "문어 모자", price: 4600, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c", style: "octo" },
+    { id: "buns", name: "동글 만두머리", price: 5000, grade: "A", desc: "꽈배기 결이 살아있는 동글 경단 두 개에\n진주 비녀가 꽂힌 앙증맞은 만두머리", color: "#3f2e21", style: "buns" },
+    { id: "braids", name: "발랄 삐삐머리", price: 5400, grade: "A", desc: "한올 한올 정교하게 땋아 올린\n개성 만점 발랄한 양쪽 삐삐머리", color: "#92400e", style: "braids" },
+    { id: "silver_perm", name: "실버 프로듀서", price: 5800, grade: "A", desc: "풍성한 S컬 웨이브 펌이 몽글몽글\n살아있는 세련된 백금발 프로듀서 헤어", color: "#cbd5e1", style: "perm" },
+    { id: "violet_twin", name: "보라빛 요정트윈", price: 8500, grade: "S", desc: "요정 날개 머리핀과 영롱한 퍼플\n그라데이션이 빛나는 몽환적 요정 양갈래", color: "#a855f7", style: "violet_twin" }
   ],
   hat: [
     { id: "none", name: "모자 벗기", price: 0, grade: "C", desc: "아무 모자도 쓰지 않은\n시원하고 깔끔한 기본 상태" },
-    { id: "headset", name: "프로 헤드셋", price: 450, grade: "B", desc: "메탈 밴드와 쿠션 패드가 정밀한\n블루투스 스튜디오 프로 헤드셋", color: "#0ea5e9" },
-    { id: "bucket_hat", name: "힙합 버킷햇", price: 500, grade: "B", desc: "스티치와 레드 포인트 로고 패치가 달린\n90년대 감성 블랙 힙합 버킷햇", color: "#1e293b" },
-    { id: "acorn_hat", name: "도토리 모자", price: 550, grade: "B", desc: "격자 무늬 도토리 갓과 나무 꼭지가\n귀여운 가을 숲속 도토리 베레모", color: "#854d0e" },
-    { id: "propeller_cap", name: "프로펠러 모자", price: 550, grade: "B", desc: "꼭대기 하늘색 프로펠러가 빙글빙글!\n개구쟁이 알록달록 패널 캡", color: "#ef4444" },
-    { id: "big_ribbon", name: "왕리본 머리핀", price: 600, grade: "B", desc: "주름 디테일과 화사한 핑크 광택이\n사랑스러운 초대형 빅 리본 머리핀", color: "#f43f5e" },
-    { id: "bunny_band", name: "토끼귀 머리띠", price: 600, grade: "B", desc: "부드러운 안쪽 속귀까지 정교한\n쫑긋쫑긋 핑크 토끼귀 머리띠", color: "#fb7185" },
-    { id: "cat_ear", name: "고양이 헤드폰", price: 650, grade: "A", desc: "LED 핑크 삼각 귀와 푹신한 이어컵이\n돋보이는 인기 만점 고양이 헤드폰", color: "#f43f5e" },
-    { id: "beret_art", name: "빨간 베레모", price: 700, grade: "A", desc: "사선 주름과 황금 브로치 배지가\n세련된 파리지앵 아티스트 베레모", color: "#dc2626" },
-    { id: "cloud_hat", name: "구름모자", price: 850, grade: "A", desc: "두둥실 하늘에서 따온 듯 몽글몽글하고\n포근한 구름 모양 모자", color: "#f8fafc" },
-    { id: "party_hat", name: "파티모자", price: 850, grade: "A", desc: "알록달록 땡땡이 패턴과 꼭대기\n보송보송 폼폼이 달린 축하 고깔모자", color: "#f43f5e" },
-    { id: "angel", name: "천사의 링", price: 900, grade: "A", desc: "머리 위에서 은은한 아우라로 빛나는\n순백·황금빛 천사의 헤일로", color: "#facc15" },
-    { id: "bear_hood", name: "곰돌이 모자", price: 950, grade: "A", desc: "포근한 속귀와 앙증맞은 주둥이 코,\n스티치까지 사랑스러운 곰돌이 모자", color: "#92400e" },
-    { id: "devil_horn", name: "꼬마 악마뿔", price: 950, grade: "A", desc: "강렬한 곡선 뿔과 마디 음영이 돋보이는\n락 스피릿 붉은 악마 뿔 머리띠", color: "#e11d48" },
-    { id: "sun_hat", name: "태양모자", price: 950, grade: "A", desc: "사방으로 눈부신 황금빛 햇살이\n반짝반짝 빛나는 태양 크라운 모자", color: "#f59e0b" },
-    { id: "star_hat", name: "별 모자", price: 1000, grade: "A", desc: "밤하늘 별빛 비니 위에 커다란\n황금 왕별이 반짝이는 스페셜 모자", color: "#eab308" },
-    { id: "punk_mohawk", name: "펑키스타일", price: 1350, grade: "S", desc: "뾰족뾰족 강렬한 네온 스파이크와\n스터드 밴드가 솟구친 락 펑키 스타일", color: "#ec4899" },
-    { id: "tree_hat", name: "트리 모자", price: 1400, grade: "S", desc: "반짝이는 오너먼트와 꼭대기 황금 별이\n장식된 홀리데이 크리스마스 트리 모자", color: "#16a34a" },
-    { id: "royal_crown", name: "보석 왕관", price: 1500, grade: "S", desc: "뾰족한 끝마다 영롱한 사파이어·루비가\n반짝이는 클래식 골드 왕관", color: "#fbbf24" },
-    { id: "crown", name: "음악왕 왕관", price: 2000, grade: "S", desc: "가요계 모든 문제를 정복한 절대강자의\n루비·에메랄드 풀세팅 황금 왕관", color: "#f59e0b" }
+    { id: "headset", name: "프로 헤드셋", price: 1100, grade: "B", desc: "메탈 밴드와 쿠션 패드가 정밀한\n블루투스 스튜디오 프로 헤드셋", color: "#0ea5e9" },
+    { id: "bucket_hat", name: "힙합 버킷햇", price: 1400, grade: "B", desc: "스티치와 레드 포인트 로고 패치가 달린\n90년대 감성 블랙 힙합 버킷햇", color: "#1e293b" },
+    { id: "acorn_hat", name: "도토리 모자", price: 1700, grade: "B", desc: "격자 무늬 도토리 갓과 나무 꼭지가\n귀여운 가을 숲속 도토리 베레모", color: "#854d0e" },
+    { id: "propeller_cap", name: "프로펠러 모자", price: 2000, grade: "B", desc: "꼭대기 하늘색 프로펠러가 빙글빙글!\n개구쟁이 알록달록 패널 캡", color: "#ef4444" },
+    { id: "big_ribbon", name: "왕리본 머리핀", price: 2400, grade: "B", desc: "주름 디테일과 화사한 핑크 광택이\n사랑스러운 초대형 빅 리본 머리핀", color: "#f43f5e" },
+    { id: "bunny_band", name: "토끼귀 머리띠", price: 2800, grade: "B", desc: "부드러운 안쪽 속귀까지 정교한\n쫑긋쫑긋 핑크 토끼귀 머리띠", color: "#fb7185" },
+    { id: "cat_ear", name: "고양이 헤드폰", price: 3100, grade: "A", desc: "LED 핑크 삼각 귀와 푹신한 이어컵이\n돋보이는 인기 만점 고양이 헤드폰", color: "#f43f5e" },
+    { id: "beret_art", name: "빨간 베레모", price: 3400, grade: "A", desc: "사선 주름과 황금 브로치 배지가\n세련된 파리지앵 아티스트 베레모", color: "#dc2626" },
+    { id: "cloud_hat", name: "구름모자", price: 3700, grade: "A", desc: "두둥실 하늘에서 따온 듯 몽글몽글하고\n포근한 구름 모양 모자", color: "#f8fafc" },
+    { id: "party_hat", name: "파티모자", price: 4000, grade: "A", desc: "알록달록 땡땡이 패턴과 꼭대기\n보송보송 폼폼이 달린 축하 고깔모자", color: "#f43f5e" },
+    { id: "angel", name: "천사의 링", price: 4400, grade: "A", desc: "머리 위에서 은은한 아우라로 빛나는\n순백·황금빛 천사의 헤일로", color: "#facc15" },
+    { id: "bear_hood", name: "곰돌이 모자", price: 4800, grade: "A", desc: "포근한 속귀와 앙증맞은 주둥이 코,\n스티치까지 사랑스러운 곰돌이 모자", color: "#92400e" },
+    { id: "devil_horn", name: "꼬마 악마뿔", price: 5100, grade: "A", desc: "강렬한 곡선 뿔과 마디 음영이 돋보이는\n락 스피릿 붉은 악마 뿔 머리띠", color: "#e11d48" },
+    { id: "sun_hat", name: "태양모자", price: 5400, grade: "A", desc: "사방으로 눈부신 황금빛 햇살이\n반짝반짝 빛나는 태양 크라운 모자", color: "#f59e0b" },
+    { id: "star_hat", name: "별 모자", price: 5800, grade: "A", desc: "밤하늘 별빛 비니 위에 커다란\n황금 왕별이 반짝이는 스페셜 모자", color: "#eab308" },
+    { id: "punk_mohawk", name: "펑키스타일", price: 6600, grade: "S", desc: "뾰족뾰족 강렬한 네온 스파이크와\n스터드 밴드가 솟구친 락 펑키 스타일", color: "#ec4899" },
+    { id: "tree_hat", name: "트리 모자", price: 7500, grade: "S", desc: "반짝이는 오너먼트와 꼭대기 황금 별이\n장식된 홀리데이 크리스마스 트리 모자", color: "#16a34a" },
+    { id: "royal_crown", name: "보석 왕관", price: 8800, grade: "S", desc: "뾰족한 끝마다 영롱한 사파이어·루비가\n반짝이는 클래식 골드 왕관", color: "#fbbf24" },
+    { id: "crown", name: "음악왕 왕관", price: 10000, grade: "S", desc: "가요계 모든 문제를 정복한 절대강자의\n루비·에메랄드 풀세팅 황금 왕관", color: "#f59e0b" }
   ],
   face: [
     { id: "default", name: "기본 미소", price: 0, grade: "C", desc: "초롱초롱한 눈망울과 보는 사람까지\n기분 좋아지는 동글동글 기본 미소" },
-    { id: "surprised", name: "오잉? 놀람 (:o)", price: 350, grade: "B", desc: "깜짝 놀라 올라간 눈썹과 동그래진 눈,\n앙증맞은 오 모양 입의 귀여운 얼굴" },
-    { id: "square_glass", name: "뿔테 안경", price: 350, grade: "B", desc: "음악 지식과 비하인드를 모두 꿰뚫고 있는\n척척박사 네모 뿔테 안경" },
-    { id: "wink", name: "심쿵 윙크", price: 400, grade: "B", desc: "무대 엔딩요정처럼 상큼하게 한쪽 눈을\n찡긋 감고 하트를 날리는 심쿵 얼굴" },
-    { id: "big_smile", name: "해맑은 웃음 (:D)", price: 450, grade: "B", desc: "세상 행복하게 입을 크게 벌리고\n해맑게 웃는 에너자이저 얼굴" },
-    { id: "cat_face", name: "고양이 입 (:3)", price: 500, grade: "B", desc: "분홍 코와 귀여운 수염, 앙증맞은\n고양이 입(:3)이 매력적인 얼굴" },
-    { id: "xd_laugh", name: "빵터짐 (>▽<)", price: 550, grade: "A", desc: "너무 웃겨서 눈을 꼭 찡그리고\n눈물 날 만큼 활짝 웃는 빵터짐 얼굴" },
-    { id: "swirl_glass", name: "골뱅이 안경", price: 550, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 동글 골뱅이 안경" },
-    { id: "wink_kiss", name: "쪽~ 윙크 (;3)", price: 600, grade: "A", desc: "애교 만점 윙크와 뾰족 쪽~ 입술로\n팬심을 사로잡는 아이돌 페이스" },
-    { id: "sunglass", name: "힙합 선글라스", price: 600, grade: "A", desc: "날렵한 각도와 은은한 사선 반사광이\n매력적인 연예인 블랙 선글라스" },
-    { id: "battle_scar", name: "상처", price: 750, grade: "A", desc: "눈가의 카리스마 X자 흉터와 볼 위\n귀여운 반창고가 포인트인 터프 페이스" },
-    { id: "heart_eyes", name: "하트 뿅뿅눈", price: 750, grade: "A", desc: "최애 가수를 만난 듯 두 눈에\n반짝이는 빨간 하트가 뿅뿅 뜨는 얼굴", color: "#f43f5e" },
-    { id: "tough_beard", name: "터프 수염", price: 850, grade: "A", desc: "짙은 눈썹 아래 멋스럽게 말아 올린\n카리스마 만점 터프 콧수염 & 턱수염" },
-    { id: "neon_visor", name: "사이버 고글", price: 900, grade: "S", desc: "미래에서 온 일렉트로닉 뮤지션!\n시안 레이저 네온 바이저 고글", color: "#38bdf8" },
-    { id: "dragonfly_glass", name: "잠자리안경", price: 950, grade: "A", desc: "얼굴의 반을 뒤덮을 만큼 엄청나게 큰\n복고 감성 초대형 잠자리 선글라스" },
-    { id: "star_eyes", name: "슈퍼스타 별눈", price: 1100, grade: "S", desc: "눈동자 속에서 황금별이 반짝이는\n진정한 톱스타의 눈빛", color: "#facc15" },
-    { id: "frog_eyes", name: "개구리 눈", price: 1200, grade: "S", desc: "머리 위로 툭 튀어나온 동글동글 왕눈이\n개구리 눈과 개굴개굴 싱긋 미소" },
-    { id: "santa_beard", name: "산타 수염", price: 1250, grade: "S", desc: "반짝이는 빨간 코와 얼굴 하단을 포근하게\n감싸는 구름 같은 순백 산타 수염" },
-    { id: "phantom_mask", name: "가면", price: 1500, grade: "S", desc: "황금 깃털과 루비 보석이 장식된\n신비로운 오페라 무도회 하프 가면" }
+    { id: "surprised", name: "오잉? 놀람 (:o)", price: 1000, grade: "B", desc: "깜짝 놀라 올라간 눈썹과 동그래진 눈,\n앙증맞은 오 모양 입의 귀여운 얼굴" },
+    { id: "square_glass", name: "뿔테 안경", price: 1300, grade: "B", desc: "음악 지식과 비하인드를 모두 꿰뚫고 있는\n척척박사 네모 뿔테 안경" },
+    { id: "wink", name: "심쿵 윙크", price: 1600, grade: "B", desc: "무대 엔딩요정처럼 상큼하게 한쪽 눈을\n찡긋 감고 하트를 날리는 심쿵 얼굴" },
+    { id: "big_smile", name: "해맑은 웃음 (:D)", price: 1900, grade: "B", desc: "세상 행복하게 입을 크게 벌리고\n해맑게 웃는 에너자이저 얼굴" },
+    { id: "cat_face", name: "고양이 입 (:3)", price: 2300, grade: "B", desc: "분홍 코와 귀여운 수염, 앙증맞은\n고양이 입(:3)이 매력적인 얼굴" },
+    { id: "swirl_glass", name: "골뱅이 안경", price: 2700, grade: "B", desc: "빙글뱅글 어지러워~!\n코믹 지수 200% 동글 골뱅이 안경" },
+    { id: "xd_laugh", name: "빵터짐 (>▽<)", price: 3100, grade: "A", desc: "너무 웃겨서 눈을 꼭 찡그리고\n눈물 날 만큼 활짝 웃는 빵터짐 얼굴" },
+    { id: "wink_kiss", name: "쪽~ 윙크 (;3)", price: 3500, grade: "A", desc: "애교 만점 윙크와 뾰족 쪽~ 입술로\n팬심을 사로잡는 아이돌 페이스" },
+    { id: "sunglass", name: "힙합 선글라스", price: 3900, grade: "A", desc: "날렵한 각도와 은은한 사선 반사광이\n매력적인 연예인 블랙 선글라스" },
+    { id: "battle_scar", name: "상처", price: 4300, grade: "A", desc: "눈가의 카리스마 X자 흉터와 볼 위\n귀여운 반창고가 포인트인 터프 페이스" },
+    { id: "heart_eyes", name: "하트 뿅뿅눈", price: 4700, grade: "A", desc: "최애 가수를 만난 듯 두 눈에\n반짝이는 빨간 하트가 뿅뿅 뜨는 얼굴", color: "#f43f5e" },
+    { id: "tough_beard", name: "터프 수염", price: 5200, grade: "A", desc: "짙은 눈썹 아래 멋스럽게 말아 올린\n카리스마 만점 터프 콧수염 & 턱수염" },
+    { id: "dragonfly_glass", name: "잠자리안경", price: 5700, grade: "A", desc: "얼굴의 반을 뒤덮을 만큼 엄청나게 큰\n복고 감성 초대형 잠자리 선글라스" },
+    { id: "neon_visor", name: "사이버 고글", price: 6400, grade: "S", desc: "미래에서 온 일렉트로닉 뮤지션!\n시안 레이저 네온 바이저 고글", color: "#38bdf8" },
+    { id: "star_eyes", name: "슈퍼스타 별눈", price: 7200, grade: "S", desc: "눈동자 속에서 황금별이 반짝이는\n진정한 톱스타의 눈빛", color: "#facc15" },
+    { id: "frog_eyes", name: "개구리 눈", price: 8000, grade: "S", desc: "머리 위로 툭 튀어나온 동글동글 왕눈이\n개구리 눈과 개굴개굴 싱긋 미소" },
+    { id: "santa_beard", name: "산타 수염", price: 8900, grade: "S", desc: "반짝이는 빨간 코와 얼굴 하단을 포근하게\n감싸는 구름 같은 순백 산타 수염" },
+    { id: "phantom_mask", name: "가면", price: 9800, grade: "S", desc: "황금 깃털과 루비 보석이 장식된\n신비로운 오페라 무도회 하프 가면" }
   ],
   outfit: [
     { id: "basic", name: "빨간 망토티", price: 0, grade: "C", desc: "빨간 목 스카프 망토와 흰 포켓이 달린\n귀여운 시그니처 모험가 티셔츠", main: "#ef4444", sub: "#ffffff" },
-    { id: "overalls", name: "캔디 멜빵룩", price: 500, grade: "B", desc: "상큼한 노란 티셔츠 위에 황금 단추가 달린\n90년대 감성 복고 데님 청멜빵", main: "#facc15", sub: "#2563eb" },
-    { id: "hoodie_mint", name: "스트릿 후드티", price: 550, grade: "B", desc: "후드 끈과 캥거루 앞주머니, 소매 시보리가\n살아있는 힙한 민트 오버핏 후드티", main: "#14b8a6", sub: "#f8fafc" },
-    { id: "uniform", name: "명문고 교복", price: 600, grade: "B", desc: "깔끔한 와이셔츠 깃과 빨간 넥타이,\n금장 배지가 달린 하이틴 스쿨 블레이저", main: "#1e293b", sub: "#ef4444" },
-    { id: "denim_90s", name: "90s 청청 힙합", price: 750, grade: "A", desc: "데님 카라, 주머니 스티치, 레트로 체인이\n포인트인 90년대 힙합 청청 자켓", main: "#3b82f6", sub: "#fef08a" },
-    { id: "rock_leather", name: "락스타 가죽자켓", price: 900, grade: "A", desc: "사선 실버 지퍼와 레드 이너티, 메탈 스터드가\n돋보이는 강렬한 락스타 라이더 자켓", main: "#18181b", sub: "#e11d48" },
-    { id: "plumber_outfit", name: "배관공", price: 1000, grade: "A", desc: "빨간 긴팔 티셔츠에 두툼한 청멜빵 바지와\n큼직한 황금 단추 두 개를 단 배관공 룩", main: "#ef4444", sub: "#2563eb" },
-    { id: "kindergarten_outfit", name: "5살유치원", price: 1050, grade: "A", desc: "강렬한 레드 반팔 티셔츠와 샛노란 반바지!\n어디서나 장난기 폭발하는 유치원 룩", main: "#ef4444", sub: "#facc15" },
-    { id: "pajama_outfit", name: "파자마", price: 1100, grade: "A", desc: "부드러운 민트 파스텔 바탕에 동글·세모·네모\n도형 패턴이 가득한 최애 꿀잠 파자마", main: "#a7f3d0", sub: "#ffffff" },
-    { id: "idol_suit", name: "아이돌 제복", price: 1100, grade: "S", desc: "어깨 황금 견장과 더블 금단추, 벨트까지\n시상식 대상을 휩쓸 화려한 스카이 제복", main: "#0284c7", sub: "#facc15" },
-    { id: "square_suit", name: "노란네모", price: 1300, grade: "S", desc: "단정한 화이트 칼라 셔츠에 빨간 넥타이,\n황금 버클 벨트와 브라운 반바지 슈트", main: "#fef08a", sub: "#78350f" },
-    { id: "astronaut", name: "우주비행사 슈트", price: 1400, grade: "S", desc: "가슴 생명유지 계기판과 산소 라인이\n정교한 하이테크 우주비행사 아스트로 슈트", main: "#f1f5f9", sub: "#38bdf8" },
-    { id: "bell_cat_outfit", name: "방울고양이", price: 1450, grade: "S", desc: "시원한 하늘색 슈트 위 흰 배 4차원 주머니와\n빨간 목걸이 황금 방울이 반짝이는 의상", main: "#0ea5e9", sub: "#ffffff" },
-    { id: "princess_dress", name: "드레스", price: 1600, grade: "S", desc: "퍼프 소매와 허리 빅 리본, 2단 레이스 스커트가\n우아하게 퍼지는 로맨틱 프린세스 드레스", main: "#f472b6", sub: "#fdf2f8" },
-    { id: "king_robe", name: "음악왕 망토", price: 1800, grade: "S", desc: "순백 털 카라 장식과 황금 왕관 브로치,\n바람에 휘날리는 임페리얼 로얄 골드 로브", main: "#b45309", sub: "#fde047" }
+    { id: "overalls", name: "캔디 멜빵룩", price: 1300, grade: "B", desc: "상큼한 노란 티셔츠 위에 황금 단추가 달린\n90년대 감성 복고 데님 청멜빵", main: "#facc15", sub: "#2563eb" },
+    { id: "hoodie_mint", name: "스트릿 후드티", price: 1900, grade: "B", desc: "후드 끈과 캥거루 앞주머니, 소매 시보리가\n살아있는 힙한 민트 오버핏 후드티", main: "#14b8a6", sub: "#f8fafc" },
+    { id: "uniform", name: "명문고 교복", price: 2600, grade: "B", desc: "깔끔한 와이셔츠 깃과 빨간 넥타이,\n금장 배지가 달린 하이틴 스쿨 블레이저", main: "#1e293b", sub: "#ef4444" },
+    { id: "denim_90s", name: "90s 청청 힙합", price: 3200, grade: "A", desc: "데님 카라, 주머니 스티치, 레트로 체인이\n포인트인 90년대 힙합 청청 자켓", main: "#3b82f6", sub: "#fef08a" },
+    { id: "rock_leather", name: "락스타 가죽자켓", price: 3800, grade: "A", desc: "사선 실버 지퍼와 레드 이너티, 메탈 스터드가\n돋보이는 강렬한 락스타 라이더 자켓", main: "#18181b", sub: "#e11d48" },
+    { id: "plumber_outfit", name: "배관공", price: 4500, grade: "A", desc: "빨간 긴팔 티셔츠에 두툼한 청멜빵 바지와\n큼직한 황금 단추 두 개를 단 배관공 룩", main: "#ef4444", sub: "#2563eb" },
+    { id: "kindergarten_outfit", name: "5살유치원", price: 5100, grade: "A", desc: "강렬한 레드 반팔 티셔츠와 샛노란 반바지!\n어디서나 장난기 폭발하는 유치원 룩", main: "#ef4444", sub: "#facc15" },
+    { id: "pajama_outfit", name: "파자마", price: 5700, grade: "A", desc: "부드러운 민트 파스텔 바탕에 동글·세모·네모\n도형 패턴이 가득한 최애 꿀잠 파자마", main: "#a7f3d0", sub: "#ffffff" },
+    { id: "idol_suit", name: "아이돌 제복", price: 6300, grade: "S", desc: "어깨 황금 견장과 더블 금단추, 벨트까지\n시상식 대상을 휩쓸 화려한 스카이 제복", main: "#0284c7", sub: "#facc15" },
+    { id: "square_suit", name: "노란네모", price: 7100, grade: "S", desc: "단정한 화이트 칼라 셔츠에 빨간 넥타이,\n황금 버클 벨트와 브라운 반바지 슈트", main: "#fef08a", sub: "#78350f" },
+    { id: "astronaut", name: "우주비행사 슈트", price: 7900, grade: "S", desc: "가슴 생명유지 계기판과 산소 라인이\n정교한 하이테크 우주비행사 아스트로 슈트", main: "#f1f5f9", sub: "#38bdf8" },
+    { id: "bell_cat_outfit", name: "방울고양이", price: 8600, grade: "S", desc: "시원한 하늘색 슈트 위 흰 배 4차원 주머니와\n빨간 목걸이 황금 방울이 반짝이는 의상", main: "#0ea5e9", sub: "#ffffff" },
+    { id: "princess_dress", name: "드레스", price: 9300, grade: "S", desc: "퍼프 소매와 허리 빅 리본, 2단 레이스 스커트가\n우아하게 퍼지는 로맨틱 프린세스 드레스", main: "#f472b6", sub: "#fdf2f8" },
+    { id: "king_robe", name: "음악왕 망토", price: 10000, grade: "S", desc: "순백 털 카라 장식과 황금 왕관 브로치,\n바람에 휘날리는 임페리얼 로얄 골드 로브", main: "#b45309", sub: "#fde047" }
   ],
   acc: [
     { id: "none", name: "악기 미착용", price: 0, grade: "C", desc: "손에 아무것도 들지 않은\n가벼운 기본 상태" },
     { id: "mic_silver", name: "보컬 마이크", price: 0, grade: "C", desc: "촘촘한 메탈 그릴망과 스위치가 달린\n스튜디오 표준 유선 마이크", color: "#94a3b8" },
-    { id: "tambourine", name: "별빛 탬버린", price: 350, grade: "C", desc: "노래방 분위기 메이커!\n흔들면 찰랑거리는 황금 징글 탬버린", color: "#facc15" },
-    { id: "lollipop", name: "회오리 왕사탕", price: 400, grade: "B", desc: "알록달록 달콤한 소용돌이 무늬가\n그려진 커다란 롤리팝 막대사탕", color: "#fb7185" },
-    { id: "acoustic_guitar", name: "포크 통기타", price: 650, grade: "B", desc: "감미로운 어쿠스틱 발라드에\n딱 어울리는 원목 어쿠스틱 통기타", color: "#d97706" },
-    { id: "lightstick", name: "하트 응원봉", price: 750, grade: "A", desc: "투명 돔 안에 하트가 빛나는\n공식 팬클럽 응원봉", color: "#ec4899" },
-    { id: "bear_doll", name: "곰돌이 인형", price: 850, grade: "A", desc: "귀여운 둥근 귀와 앙증맞은 표정의\n포근한 갈색 곰돌이 애착인형", color: "#b45309" },
-    { id: "retro_fan", name: "선풍기", price: 850, grade: "A", desc: "시원한 바람이 솔솔~ 그물망 안전가드와\n민트 회전 날개·조작 버튼까지 재현된 선풍기", color: "#38bdf8" },
-    { id: "boombox", name: "마스터 붐박스", price: 900, grade: "A", desc: "듀얼 우퍼와 카세트 데크가 달린\n스트릿 힙합 대형 라디오", color: "#334155" },
-    { id: "smartphone", name: "최신 스마트폰", price: 950, grade: "A", desc: "음악왕 랭킹과 가사를 확인하는\n블링블링 최신형 스마트폰", color: "#38bdf8" },
-    { id: "keytar", name: "숄더 키타", price: 950, grade: "A", desc: "어깨에 메고 건반을 연주하는\n신스팝 밴드 신디사이저", color: "#0ea5e9" },
-    { id: "skull_mic", name: "해골", price: 950, grade: "A", desc: "강렬한 락스피릿이 살아 숨쉬는\n메탈 스탠드 해골 스태프", color: "#f8fafc" },
-    { id: "synth_keyboard", name: "키보드", price: 1050, grade: "A", desc: "흑백 건반과 이펙터 노브, LED 화면과\nX자 스탠드까지 갖춘 전자 키보드", color: "#1e293b" },
-    { id: "saxophone", name: "재즈 색소폰", price: 1150, grade: "A", desc: "매혹적인 브라스 사운드!\n곡선이 우아한 황금 색소폰", color: "#f59e0b" },
-    { id: "guitar", name: "스트랫 기타", price: 1200, grade: "S", desc: "6현 줄과 픽업까지 정교한\n체리레드 커스텀 일렉기타", color: "#dc2626" },
-    { id: "snowboard", name: "스노우보드", price: 1300, grade: "S", desc: "눈꽃 결정 그래픽과 네온 스트라이프,\n바인딩 디테일이 살아있는 스노우보드", color: "#06b6d4" },
-    { id: "dj_deck", name: "DJ 턴테이블", price: 1350, grade: "S", desc: "LP 스크래칭이 가능한\n네온 LED 클럽 DJ 믹서", color: "#38bdf8" },
-    { id: "mic_gold", name: "황금 마이크", price: 1400, grade: "S", desc: "가왕의 목소리를 담아내는\n눈부신 24K 순금 마이크", color: "#facc15" },
-    { id: "xmas_gift", name: "X-Mas 선물", price: 1450, grade: "S", desc: "선명한 레드 선물 상자에 큼직한\n황금 왕리본이 묶인 크리스마스 선물", color: "#dc2626" },
-    { id: "trophy", name: "음악왕 트로피", price: 1800, grade: "S", desc: "1위 가수만 거머쥘 수 있는\n영광의 순금 음방 1위 트로피", color: "#fbbf24" }
+    { id: "tambourine", name: "별빛 탬버린", price: 400, grade: "C", desc: "노래방 분위기 메이커!\n흔들면 찰랑거리는 황금 징글 탬버린", color: "#facc15" },
+    { id: "lollipop", name: "회오리 왕사탕", price: 1300, grade: "B", desc: "알록달록 달콤한 소용돌이 무늬가\n그려진 커다란 롤리팝 막대사탕", color: "#fb7185" },
+    { id: "acoustic_guitar", name: "포크 통기타", price: 2200, grade: "B", desc: "감미로운 어쿠스틱 발라드에\n딱 어울리는 원목 어쿠스틱 통기타", color: "#d97706" },
+    { id: "lightstick", name: "하트 응원봉", price: 3100, grade: "A", desc: "투명 돔 안에 하트가 빛나는\n공식 팬클럽 응원봉", color: "#ec4899" },
+    { id: "bear_doll", name: "곰돌이 인형", price: 3400, grade: "A", desc: "귀여운 둥근 귀와 앙증맞은 표정의\n포근한 갈색 곰돌이 애착인형", color: "#b45309" },
+    { id: "retro_fan", name: "선풍기", price: 3700, grade: "A", desc: "시원한 바람이 솔솔~ 그물망 안전가드와\n민트 회전 날개·조작 버튼까지 재현된 선풍기", color: "#38bdf8" },
+    { id: "boombox", name: "마스터 붐박스", price: 4000, grade: "A", desc: "듀얼 우퍼와 카세트 데크가 달린\n스트릿 힙합 대형 라디오", color: "#334155" },
+    { id: "smartphone", name: "최신 스마트폰", price: 4400, grade: "A", desc: "음악왕 랭킹과 가사를 확인하는\n블링블링 최신형 스마트폰", color: "#38bdf8" },
+    { id: "keytar", name: "숄더 키타", price: 4700, grade: "A", desc: "어깨에 메고 건반을 연주하는\n신스팝 밴드 신디사이저", color: "#0ea5e9" },
+    { id: "skull_mic", name: "해골", price: 5000, grade: "A", desc: "강렬한 락스피릿이 살아 숨쉬는\n메탈 스탠드 해골 스태프", color: "#f8fafc" },
+    { id: "synth_keyboard", name: "키보드", price: 5400, grade: "A", desc: "흑백 건반과 이펙터 노브, LED 화면과\nX자 스탠드까지 갖춘 전자 키보드", color: "#1e293b" },
+    { id: "saxophone", name: "재즈 색소폰", price: 5800, grade: "A", desc: "매혹적인 브라스 사운드!\n곡선이 우아한 황금 색소폰", color: "#f59e0b" },
+    { id: "guitar", name: "스트랫 기타", price: 6400, grade: "S", desc: "6현 줄과 픽업까지 정교한\n체리레드 커스텀 일렉기타", color: "#dc2626" },
+    { id: "snowboard", name: "스노우보드", price: 7100, grade: "S", desc: "눈꽃 결정 그래픽과 네온 스트라이프,\n바인딩 디테일이 살아있는 스노우보드", color: "#06b6d4" },
+    { id: "dj_deck", name: "DJ 턴테이블", price: 7800, grade: "S", desc: "LP 스크래칭이 가능한\n네온 LED 클럽 DJ 믹서", color: "#38bdf8" },
+    { id: "mic_gold", name: "황금 마이크", price: 8500, grade: "S", desc: "가왕의 목소리를 담아내는\n눈부신 24K 순금 마이크", color: "#facc15" },
+    { id: "xmas_gift", name: "X-Mas 선물", price: 9200, grade: "S", desc: "선명한 레드 선물 상자에 큼직한\n황금 왕리본이 묶인 크리스마스 선물", color: "#dc2626" },
+    { id: "trophy", name: "음악왕 트로피", price: 10000, grade: "S", desc: "1위 가수만 거머쥘 수 있는\n영광의 순금 음방 1위 트로피", color: "#fbbf24" }
+  ],
+  wing: [
+    { id: "none", name: "날개 미착용", price: 0, grade: "C", desc: "등에 아무 날개도 달지 않은\n깔끔한 기본 상태" },
+    { id: "wing_mosquito", name: "모기날개", price: 4000, grade: "C", desc: "앙증맞고 투명한 작은 모기 날개!\n가볍게 파닥거리는 귀여운 등 장식", color: "#cbd5e1" },
+    { id: "wing_fly", name: "파리날개", price: 8000, grade: "B", desc: "무지갯빛 광택이 감도는 반투명 파리 날개!\n톡톡 튀는 개성 만점 날개", color: "#93c5fd" },
+    { id: "wing_dragonfly", name: "잠자리날개", price: 12000, grade: "A", desc: "시원한 4장 날개맥이 뻗어있는\n청량한 에메랄드 잠자리 날개", color: "#38bdf8" },
+    { id: "wing_fairy", name: "요정날개", price: 0, grade: "S+", purchasable: false, eventOnly: true, desc: "28일차 출석체크 한정판 S+ 날개!\n영롱한 핑크·골드 빛이 감도는 전설의 요정 날개", color: "#f472b6" }
   ],
   fishing_rod: [
     {
@@ -227,56 +307,60 @@ const BASE_AVATAR_SHOP_ITEMS = {
     {
       id: "bait_c",
       name: "지렁이 미끼",
-      price: 4000,
+      price: 200,
       grade: "C",
-      cdMultiplier: 1.10,
+      consumable: true,
+      cdMultiplier: 2.0,
       color: "#fb7185",
-      desc: "물고기들이 좋아하는 싱싱한 기본 지렁이 미끼\n[낚시터 버프] CD 획득량 +10%"
+      desc: "30분당 1개 소모되는 싱싱한 지렁이 미끼\n[낚시터 버프] CD 획득량 +100% (2배)"
     },
     {
       id: "bait_b",
       name: "새우 미끼",
-      price: 8000,
+      price: 400,
       grade: "B",
-      cdMultiplier: 1.20,
+      consumable: true,
+      cdMultiplier: 3.0,
       color: "#f97316",
-      desc: "통통하고 향긋한 특제 바닷새우 떡밥 미끼\n[낚시터 버프] CD 획득량 +20%"
+      desc: "30분당 1개 소모되는 특제 바닷새우 미끼\n[낚시터 버프] CD 획득량 +200% (3배)"
     },
     {
       id: "bait_a",
       name: "루어 미끼",
-      price: 16000,
+      price: 800,
       grade: "A",
-      cdMultiplier: 1.30,
+      consumable: true,
+      cdMultiplier: 5.0,
       color: "#38bdf8",
-      desc: "수면 아래서 반짝이며 대어를 유혹하는 루어 미끼\n[낚시터 버프] CD 획득량 +30%"
+      desc: "30분당 1개 소모되는 반짝 루어 미끼\n[낚시터 버프] CD 획득량 +400% (5배)"
     },
     {
       id: "bait_s",
       name: "황금 떡밥",
-      price: 24000,
+      price: 1600,
       grade: "S",
-      cdMultiplier: 1.50,
+      consumable: true,
+      cdMultiplier: 9.0,
       color: "#facc15",
-      desc: "황금 가루가 배합되어 대박 CD를 부르는 전설의 미끼\n[낚시터 버프] CD 획득량 +50%"
+      desc: "30분당 1개 소모되는 전설의 황금 떡밥\n[낚시터 버프] CD 획득량 +800% (9배)"
     }
   ],
   special: [
     {
       id: "nickname_ticket",
       name: "✨ 닉네임 변경권",
-      price: 5000,
+      price: 20000,
       grade: "S",
       consumable: true,
-      desc: "5,000 CD를 사용하여 내 계정의 닉네임을\n원하는 새 이름으로 즉시 변경합니다."
+      desc: "20,000 CD를 사용하여 내 계정의 닉네임을\n원하는 새 이름으로 즉시 변경합니다."
     },
     {
       id: "gender_ticket",
       name: "⚧️ 성별 변경권",
-      price: 10000,
+      price: 20000,
       grade: "S",
       consumable: true,
-      desc: "10,000 CD를 사용하여 기본 캐릭터 성별을\n(남자 ↔ 여자) 즉시 전환합니다."
+      desc: "20,000 CD를 사용하여 기본 캐릭터 성별을\n(남자 ↔ 여자) 즉시 전환합니다."
     }
   ]
 };
@@ -290,11 +374,12 @@ const AVATAR_CONFIG_KEY_BY_CAT = {
   face: "face",
   outfit: "outfit",
   acc: "acc",
+  wing: "wing",
   fishing_rod: "fishingRod",
   fishing_bait: "fishingBait"
 };
 
-const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "fishing_rod", "fishing_bait"];
+const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "fishing_rod", "fishing_bait"];
 
 const DEFAULT_AVATAR_CONFIG = {
   gender: "male",
@@ -304,6 +389,7 @@ const DEFAULT_AVATAR_CONFIG = {
   face: "default",
   outfit: "basic",
   acc: "mic_silver",
+  wing: "none",
   fishingRod: "none",
   fishingBait: "none"
 };
@@ -311,7 +397,7 @@ const DEFAULT_AVATAR_CONFIG = {
 function sanitizeAvatarConfigShape(config) {
   const cfg = { ...DEFAULT_AVATAR_CONFIG, ...(config || {}) };
   if (cfg.face === "singing") cfg.face = "default";
-  ["bg", "hair", "hat", "face", "outfit", "acc"].forEach(cat => {
+  ["bg", "hair", "hat", "face", "outfit", "acc", "wing"].forEach(cat => {
     const list = AVATAR_SHOP_ITEMS[cat] || [];
     if (list.length > 0 && !list.some(item => item.id === cfg[cat])) {
       cfg[cat] = DEFAULT_AVATAR_CONFIG[cat] || list[0].id;
@@ -2000,6 +2086,127 @@ function drawDetailedHat(ctx, hatItem) {
 }
 
 // ============================================================================
+// 고디테일 날개 렌더러 (V2.0 신규 4종 — 모기 / 파리 / 잠자리 / 요정)
+// ============================================================================
+function drawDetailedWing(ctx, wingItem) {
+  if (!wingItem || wingItem.id === "none") return;
+  const id = wingItem.id;
+  const outline = "#1e1b18";
+  ctx.save();
+
+  const drawPair = (fn) => {
+    ctx.save();
+    ctx.translate(240, 292);
+    fn(-1);
+    fn(1);
+    ctx.restore();
+  };
+
+  if (id === "wing_mosquito") {
+    drawPair(dir => {
+      ctx.save();
+      ctx.scale(dir, 1);
+      ctx.globalAlpha = 0.72;
+      ctx.fillStyle = "#e2e8f0";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(98, -14, 72, 22, -0.32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(42, -4);
+      ctx.lineTo(148, -26);
+      ctx.stroke();
+      ctx.restore();
+    });
+  } else if (id === "wing_fly") {
+    drawPair(dir => {
+      ctx.save();
+      ctx.scale(dir, 1);
+      ctx.globalAlpha = 0.80;
+      const grad = ctx.createLinearGradient(30, -40, 170, 20);
+      grad.addColorStop(0, "#dbeafe");
+      grad.addColorStop(0.5, "#93c5fd");
+      grad.addColorStop(1, "#e9d5ff");
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 6.5;
+      ctx.beginPath();
+      ctx.ellipse(104, -18, 76, 34, -0.25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#60a5fa";
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(42, -6); ctx.lineTo(156, -24);
+      ctx.moveTo(58, -16); ctx.lineTo(126, -34);
+      ctx.moveTo(64, 2); ctx.lineTo(132, 4);
+      ctx.stroke();
+      ctx.restore();
+    });
+  } else if (id === "wing_dragonfly") {
+    drawPair(dir => {
+      ctx.save();
+      ctx.scale(dir, 1);
+      ctx.globalAlpha = 0.84;
+      const grad = ctx.createLinearGradient(30, -50, 180, 40);
+      grad.addColorStop(0, "#bae6fd");
+      grad.addColorStop(1, "#38bdf8");
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(116, -32, 86, 22, -0.34, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(106, 14, 78, 20, 0.24, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "#0284c7";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(46, -12); ctx.lineTo(182, -52);
+      ctx.moveTo(46, 2); ctx.lineTo(170, 26);
+      ctx.stroke();
+      ctx.restore();
+    });
+  } else if (id === "wing_fairy") {
+    drawPair(dir => {
+      ctx.save();
+      ctx.scale(dir, 1);
+      ctx.globalAlpha = 0.88;
+      const grad = ctx.createLinearGradient(24, -76, 175, 65);
+      grad.addColorStop(0, "#fdf2f8");
+      grad.addColorStop(0.5, "#f9a8d4");
+      grad.addColorStop(1, "#fde047");
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(34, -10);
+      ctx.bezierCurveTo(68, -108, 178, -98, 172, -24);
+      ctx.bezierCurveTo(166, 22, 86, 26, 36, 4);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(36, 8);
+      ctx.bezierCurveTo(106, 8, 152, 52, 128, 76);
+      ctx.bezierCurveTo(102, 92, 52, 56, 34, 22);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      drawSparkle(ctx, 134, -44, 9, "#ffffff");
+      drawSparkle(ctx, 108, 46, 7, "#fef08a");
+      ctx.restore();
+    });
+  }
+  ctx.restore();
+}
+
+// ============================================================================
 // 2. 동글동글 만두형 귀요미 캐릭터 렌더러 (최소 480px 고해상도 · 1:1 정배율!)
 // ============================================================================
 function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {}) {
@@ -2039,6 +2246,7 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
   const faceItem = getItemById("face", cfg.face);
   const outfitItem = getItemById("outfit", cfg.outfit);
   const accItem = getItemById("acc", cfg.acc);
+  const wingItem = getItemById("wing", cfg.wing);
 
   if (!options.transparentBg) {
     renderApfWideBackground(ctx, W, H, bgItem);
@@ -2057,6 +2265,9 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
   // 발밑 동그란 그림자
   ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
   ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 날개 (등 뒤 최후방 레이어)
+  drawDetailedWing(ctx, wingItem);
 
   // 뒷머리 (양갈래·삐삐머리·포니테일·샤기·퍼머)
   drawHairBack(ctx, hairItem);
@@ -2182,6 +2393,18 @@ function renderItemThumbnail(canvas, category, item) {
       ctx.scale(0.74, 0.74);
       ctx.translate(-240, -68);
       drawDetailedHat(ctx, item);
+      ctx.restore();
+    }
+  } else if (category === "wing") {
+    if (!item || item.id === "none") {
+      ctx.strokeStyle = "#57534e"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(120, 120, 44, 0, Math.PI * 2); ctx.moveTo(90, 90); ctx.lineTo(150, 150); ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.translate(120, 124);
+      ctx.scale(0.56, 0.56);
+      ctx.translate(-240, -292);
+      drawDetailedWing(ctx, item);
       ctx.restore();
     }
   } else if (category === "outfit") {
