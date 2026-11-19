@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20.9" />
+  <link rel="stylesheet" href="style.css?v=21.0" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -1676,21 +1676,21 @@
     </div>
   </div>
 
-  <!-- ==================== [V2.1 모달 E] 실시간 접속 중인 유저 목록 팝업 ==================== -->
+  <!-- ==================== [V2.1 모달 E] 실시간 접속 · 낚시 잠수 유저 목록 팝업 ==================== -->
   <div id="onlineUsersModal" class="modal-backdrop hidden" style="z-index:2260;">
     <div class="modal-content" style="max-width:430px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <div style="display:flex; align-items:center; gap:7px;">
-          <h3 style="font-size:1rem;">🟢 실시간 접속 유저</h3>
-          <span id="onlineUsersModalCount" class="badge accent" style="font-size:0.72rem;">0명 접속중</span>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+          <h3 style="font-size:1rem;">👥 접속 · 잠수 유저</h3>
+          <span id="onlineUsersModalCount" class="badge accent" style="font-size:0.7rem; white-space:nowrap;">총 0명 (접속 0 · 잠수 0)</span>
         </div>
-        <div style="display:flex; align-items:center; gap:5px;">
+        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
           <button type="button" class="header-btn" onclick="openOnlineUsersModal()" title="새로고침">🔄</button>
           <button type="button" class="header-btn" onclick="closeModal('onlineUsersModal')">닫기 ✕</button>
         </div>
       </div>
-      <p style="font-size:0.76rem; color:var(--text-sub); margin-bottom:8px;">
-        현재 음악왕에 접속 중인 유저에게 바로 ➕ 친구추가, 💬 1:1 DM, 🪪 프로필 보기를 할 수 있어요!
+      <p style="font-size:0.75rem; color:var(--text-sub); margin-bottom:8px; line-height:1.4;">
+        🟢 실시간 접속 / 🩵 낚시 잠수 유저의 현재 활동을 확인하고 ➕ 친구추가, 💬 1:1 DM, 🪪 프로필 보기를 할 수 있어요!
       </p>
       <div id="onlineUsersModalList" class="history-scroll-box" style="max-height:360px;"></div>
     </div>
@@ -1742,11 +1742,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=20.9"></script>
-  <script defer src="pixel_avatar.js?v=20.9"></script>
-  <script defer src="online.js?v=20.9"></script>
-  <script defer src="fishing.js?v=20.9"></script>
-  <script defer src="app.js?v=20.9"></script>
+  <script defer src="data.js?v=21.0"></script>
+  <script defer src="pixel_avatar.js?v=21.0"></script>
+  <script defer src="online.js?v=21.0"></script>
+  <script defer src="fishing.js?v=21.0"></script>
+  <script defer src="app.js?v=21.0"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

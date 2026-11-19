@@ -39,6 +39,7 @@ const fishingState = {
   bgAnimFrame: null,
   lastTickAt: 0,
   lastServerSyncAt: 0,
+  bgEnteredAt: 0,
   msCarry: 0,
   expCarry: 0,
   cdCarry: 0,
@@ -933,6 +934,32 @@ function appendFishingSystemMessage(text) {
   appendFishingChatRow(escapeFishingHtml(text), "system-join");
 }
 
+function formatFishingElapsedLabel(totalSec) {
+  const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  if (sec >= 3600) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  }
+  if (sec >= 60) {
+    const m = Math.floor(sec / 60);
+    return `${m}분`;
+  }
+  return `${sec}초`;
+}
+
+function appendFishingBackgroundReturnNotice(elapsedSec, expGain, cdGain) {
+  const sec = Math.max(0, Math.floor(Number(elapsedSec) || 0));
+  const eGain = Math.max(0, Math.floor(Number(expGain) || 0));
+  const cGain = Math.max(0, Math.floor(Number(cdGain) || 0));
+  const parts = [];
+  if (sec > 0) parts.push(`${formatFishingElapsedLabel(sec)} 경과`);
+  if (eGain > 0) parts.push(`+${eGain.toLocaleString()} EXP`);
+  if (cGain > 0) parts.push(`+${cGain.toLocaleString()} CD 정산`);
+  const suffix = parts.length > 0 ? ` (${parts.join(" · ")})` : "";
+  appendFishingSystemMessage(`🔄 잠수 상태에서 복귀했습니다${suffix}`);
+}
+
 function appendFishingUserChat(nick, msg, isMe = false) {
   appendFishingChatRow(
     `<strong class="fishing-chat-nick${isMe ? " is-me" : ""}">${escapeFishingHtml(nick)}:</strong> <span>${escapeFishingHtml(msg)}</span>`,
@@ -1170,7 +1197,8 @@ function stopFishingNetworkSync() {
   }
 }
 
-function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
+function connectFishingRealtimeChannel(isReconnect = false, restorePos = null, opts = {}) {
+  const suppressJoinNotice = Boolean(opts && opts.suppressJoinNotice);
   disconnectFishingRealtimeChannel({ keepPlayers: isReconnect, sendLeaveSignal: false });
 
   const myKey = getMyFishingKey();
@@ -1317,7 +1345,7 @@ function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
     .subscribe(async status => {
       if (status === "SUBSCRIBED") {
         await trackMyFishingPresence(isReconnect);
-        if (!isReconnect) {
+        if (!isReconnect && !suppressJoinNotice) {
           appendFishingSystemMessage(`[${userState.nickname || "도전자"}]님이 입장하였습니다`);
         }
         syncFishingGlobalRosterFromDb();
@@ -1426,6 +1454,8 @@ function hideFishingLoadingOverlay() {
 window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {}) {
   const skipLoading = !!(opts && opts.skipLoading);
   const restorePos = opts && opts.restorePos ? opts.restorePos : null;
+  const rawRestoreFromAt = Number(opts && opts.restoreFromAt) || 0;
+  const isRestoreEntry = Boolean(skipLoading && (restorePos || rawRestoreFromAt > 0));
   if (fishingState.isTransitioning && !skipLoading) return;
   if (typeof userState !== "undefined" && !userState.isLoggedIn) {
     gameConfirm("낚시터는 로그인한 계정으로만 입장할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
@@ -1434,6 +1464,7 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
 
   fishingState.isTransitioning = !skipLoading;
   fishingState.hasRunForcedExit = false;
+  fishingState.bgEnteredAt = 0;
   currentFishingChannelId = channelId || FISHING_CHANNELS[0].id;
   fishingState.chatMessages = [];
   const logEl = document.getElementById("fishingChatLog");
@@ -1443,8 +1474,22 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
   const chBadge = document.getElementById("fishingChannelLabel");
   if (chBadge) chBadge.textContent = `🎣 ${chInfo.name}`;
 
-  loadFishingDailyFromUserState(Date.now());
+  const nowTs = Date.now();
+  const dbLive = typeof userState !== "undefined" ? userState.fishingLive : null;
+  const canAutoSettleRestore = Boolean(isRestoreEntry && rawRestoreFromAt > 0 && dbLive && dbLive.active);
+  const restoreAnchorTs = canAutoSettleRestore ? Math.max(rawRestoreFromAt, Number(dbLive.heartbeatAt) || 0) : nowTs;
+  const settleBaseTs = canAutoSettleRestore && restoreAnchorTs > 0 && restoreAnchorTs < nowTs ? restoreAnchorTs : nowTs;
+
+  if (restorePos && typeof restorePos.x === "number" && typeof restorePos.y === "number") {
+    fishingState.myPos = { x: restorePos.x, y: restorePos.y };
+  }
+
+  loadFishingDailyFromUserState(settleBaseTs);
   renderFishingHud();
+
+  if (typeof userState !== "undefined") {
+    userState.fishingLive = buildMyFishingLivePayload("fg", true);
+  }
 
   if (!skipLoading) {
     showFishingLoadingOverlay("🎣 낚시터 가는중..");
@@ -1455,7 +1500,38 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
     switchScreen("fishingScreen", skipLoading ? { replaceHistory: true } : {});
   }
   fishingState.isInside = true;
-  connectFishingRealtimeChannel(false, restorePos);
+
+  let restoreSettledSec = 0;
+  let restoreExpGain = 0;
+  let restoreCdGain = 0;
+  if (canAutoSettleRestore && settleBaseTs < nowTs) {
+    const settleTargetTs = Math.min(nowTs, settleBaseTs + FISHING_BG_IDLE_MAX_MS);
+    const expBefore = Number(userState.exp) || 0;
+    const cdBefore = Number(userState.cdCoins) || 0;
+    fishingState.lastTickAt = settleBaseTs;
+    window.advanceFishingClockTo(settleTargetTs);
+    if (getFishingCycleKey(settleTargetTs) !== getFishingCycleKey(nowTs)) {
+      fishingState.daily = {
+        date: getFishingCycleKey(nowTs),
+        seconds: 0,
+        earnedExp: 0,
+        earnedCd: 0
+      };
+      fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
+      syncUserStateFishingDaily();
+      renderFishingHud();
+    }
+    restoreSettledSec = Math.max(0, Math.floor((settleTargetTs - settleBaseTs) / 1000));
+    restoreExpGain = Math.max(0, (Number(userState.exp) || 0) - expBefore);
+    restoreCdGain = Math.max(0, (Number(userState.cdCoins) || 0) - cdBefore);
+  }
+
+  connectFishingRealtimeChannel(false, restorePos, { suppressJoinNotice: isRestoreEntry });
+  if (isRestoreEntry) {
+    appendFishingBackgroundReturnNotice(restoreSettledSec, restoreExpGain, restoreCdGain);
+  }
   persistFishingSessionMarker();
 
   if (typeof userState !== "undefined") {
@@ -1485,10 +1561,14 @@ window.handleFishingVisibilityChange = function (isHidden) {
 
   if (isHidden) {
     // 폰 홈버튼 전환: 낚시터에서 나가지 않고 방 + 경험치/CD 시계 + 백그라운드 상태 유지!
+    fishingState.bgEnteredAt = Date.now();
     window.advanceFishingClockTo(Date.now());
     persistFishingSessionMarker();
     if (typeof userState !== "undefined") {
       userState.fishingLive = buildMyFishingLivePayload("bg", true);
+    }
+    if (typeof syncGlobalOnlineActivity === "function") {
+      syncGlobalOnlineActivity("fishingScreen");
     }
     if (fishingState.channel) {
       try {
@@ -1514,12 +1594,28 @@ window.handleFishingVisibilityChange = function (isHidden) {
       syncProfileToServer();
     }
   } else {
-    // 폰 홈에서 복귀: 경과 시간 즉시 반영 + 끊긴 WebSocket·전역 로스터 즉시 재동기화!
-    window.advanceFishingClockTo(Date.now());
+    // 폰 홈에서 복귀: 경과 시간 즉시 반영 + 잠수 복귀 안내 + 끊긴 WebSocket·전역 로스터 즉시 재동기화!
+    const nowTs = Date.now();
+    const prevBgAt = Number(fishingState.bgEnteredAt) || 0;
+    fishingState.bgEnteredAt = 0;
+    const expBefore = typeof userState !== "undefined" ? Number(userState.exp) || 0 : 0;
+    const cdBefore = typeof userState !== "undefined" ? Number(userState.cdCoins) || 0 : 0;
+
+    window.advanceFishingClockTo(nowTs);
+    const expGain = typeof userState !== "undefined" ? Math.max(0, (Number(userState.exp) || 0) - expBefore) : 0;
+    const cdGain = typeof userState !== "undefined" ? Math.max(0, (Number(userState.cdCoins) || 0) - cdBefore) : 0;
+    const elapsedSec = prevBgAt > 0 ? Math.max(0, Math.floor((nowTs - prevBgAt) / 1000)) : 0;
+    if (prevBgAt > 0 && (elapsedSec >= 5 || expGain > 0 || cdGain > 0)) {
+      appendFishingBackgroundReturnNotice(elapsedSec, expGain, cdGain);
+    }
+
     persistFishingSessionMarker();
     if (typeof userState !== "undefined") {
       userState.fishingLive = buildMyFishingLivePayload("fg", true);
       if (typeof syncProfileToServer === "function") syncProfileToServer();
+    }
+    if (typeof syncGlobalOnlineActivity === "function") {
+      syncGlobalOnlineActivity("fishingScreen");
     }
     ensureFishingRealtimeHealthy();
     syncFishingGlobalRosterFromDb();

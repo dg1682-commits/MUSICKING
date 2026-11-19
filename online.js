@@ -676,10 +676,11 @@ async function restoreSupabaseSession() {
           savedFishingSession.uid === sessionUser.id &&
           typeof enterFishingRoom === "function"
         ) {
-          // 폰 홈버튼 전환 후 브라우저 탭 재로드 시에도 낚시터 유지!
+          // 폰 홈버튼 전환 후 브라우저 탭 재로드 시에도 낚시터 유지 + 백그라운드 경과시간 자동 정산!
           enterFishingRoom(savedFishingSession.channelId, {
             skipLoading: true,
-            restorePos: savedFishingSession.pos
+            restorePos: savedFishingSession.pos,
+            restoreFromAt: Number(savedFishingSession.savedAt) || 0
           });
         } else {
           // 강제종료(스와이프 종료) 후 새 앱 실행이면 기존 잔류 접속 상태 정리 후 홈으로 이동
@@ -2660,6 +2661,12 @@ async function loadFriendsData() {
 
   const otherIds = rels.map(r => (r.requester_id === userState.id ? r.receiver_id : r.requester_id));
   const { data: profs } = await sbClient.from("profiles").select("*").in("id", otherIds);
+  const nowTs = Date.now();
+  (profs || []).forEach(p => {
+    if (typeof syncSingleProfileFishingBgEntry === "function") {
+      syncSingleProfileFishingBgEntry(p, nowTs);
+    }
+  });
   const profMap = new Map((profs || []).map(p => [p.id, p]));
 
   const acceptedRels = rels.filter(r => {
@@ -2671,9 +2678,10 @@ async function loadFriendsData() {
   acceptedRels.sort((a, b) => {
     const aid = a.requester_id === userState.id ? a.receiver_id : a.requester_id;
     const bid = b.requester_id === userState.id ? b.receiver_id : b.requester_id;
-    const aOn = typeof isUserOnlineGlobally === "function" && isUserOnlineGlobally(aid) ? 1 : 0;
-    const bOn = typeof isUserOnlineGlobally === "function" && isUserOnlineGlobally(bid) ? 1 : 0;
-    return bOn - aOn;
+    const aInfo = typeof getUserPresenceState === "function" ? getUserPresenceState(aid) : { status: "offline" };
+    const bInfo = typeof getUserPresenceState === "function" ? getUserPresenceState(bid) : { status: "offline" };
+    const rankMap = { online: 2, fishing_afk: 1, offline: 0 };
+    return (rankMap[bInfo.status] || 0) - (rankMap[aInfo.status] || 0);
   });
   const pendingRels = rels.filter(r => {
     if (r.status !== "pending") return false;
@@ -2684,7 +2692,7 @@ async function loadFriendsData() {
 
   if (countLabel) countLabel.textContent = `친구 ${acceptedRels.length}`;
 
-  // 1) 카카오톡 스타일 친구 목록 (행 클릭 -> 즉시 카톡 1:1 DM 채팅방 전체화면 오픈! + 접속중 초록불)
+  // 1) 카카오톡 스타일 친구 목록 (행 클릭 -> 즉시 카톡 1:1 DM 채팅방 전체화면 오픈! + 실시간/잠수 상태 점·활동 배지)
   if (acceptedRels.length === 0) {
     acceptedBox.innerHTML = `<div style="text-align:center; padding:36px 16px; color:var(--text-sub); font-size:0.86rem;">아직 수락된 친구가 없습니다.<br/>우측 상단 <strong>[➕ 추가]</strong> 탭에서 요청을 확인해보세요!</div>`;
   } else {
@@ -2693,18 +2701,25 @@ async function loadFriendsData() {
         const otherId = r.requester_id === userState.id ? r.receiver_id : r.requester_id;
         const p = profMap.get(otherId) || { nickname: "유저", bio: "", avatar_config: DEFAULT_AVATAR_CONFIG };
         const safeNick = escapeJsSingleArg(p.nickname || "유저");
-        const isOnline = typeof isUserOnlineGlobally === "function" && isUserOnlineGlobally(otherId);
+        const pres =
+          typeof getUserPresenceState === "function"
+            ? getUserPresenceState(otherId)
+            : { status: "offline", activity: "오프라인" };
+        const dotCls =
+          pres.status === "online" ? "is-online" : pres.status === "fishing_afk" ? "is-fishing-afk" : "";
+        const pillCls =
+          pres.status === "fishing_afk" ? "is-fishing-afk" : pres.status === "offline" ? "hidden" : "";
         return `
         <div class="kakao-friend-row" onclick="prepareDmTo('${otherId}', '${safeNick}')">
           <div class="kakao-friend-main">
             <div class="kakao-avatar-wrap">
               <canvas class="friend-mini-cv kakao-avatar-sq" width="480" height="480" data-avatar='${JSON.stringify(p.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
-              <span class="online-status-dot ${isOnline ? "is-online" : ""}" data-online-uid="${otherId}" title="${isOnline ? "현재 접속중" : "오프라인"}"></span>
+              <span class="online-status-dot ${dotCls}" data-online-uid="${otherId}" title="${String(pres.activity || "오프라인").replace(/"/g, "&quot;")}"></span>
             </div>
             <div style="flex:1; min-width:0;">
               <div class="kakao-friend-nick" style="display:flex; align-items:center; gap:5px;">
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.nickname}</span>
-                <span class="friend-online-pill ${isOnline ? "" : "hidden"}" data-online-pill-uid="${otherId}">접속중</span>
+                <span class="friend-online-pill ${pillCls}" data-online-pill-uid="${otherId}">${pres.status === "offline" ? "" : pres.activity}</span>
               </div>
               <div class="kakao-friend-bio">${p.bio || "상태 메시지가 없습니다."}</div>
             </div>
@@ -3505,6 +3520,8 @@ function renderBattleRoomState(room) {
   } else if (room.status === "playing" || room.status === "finished") {
     if (typeof state !== "undefined" && state.currentScreen !== "battlePlayScreen") {
       switchScreen("battlePlayScreen");
+    } else if (typeof syncGlobalOnlineActivity === "function") {
+      syncGlobalOnlineActivity("battlePlayScreen");
     }
     renderBattlePlayScreen(room);
   }
@@ -4692,13 +4709,21 @@ function renderEventModalContent() {
 }
 
 // ============================================================================
-// [V2.1] 글로벌 실시간 유저 접속 상태 · 친구 초록불 · 실시간 접속 유저 목록 팝업
+// [V2.1] 글로벌 실시간 유저 접속 상태 · 낚시 잠수(하늘색) · 세부 활동 · 포그라운드 헬스체크
 // ============================================================================
+const FISHING_ONLINE_AFK_MAX_MS = 6 * 60 * 60 * 1000;
+
 const globalOnlineState = {
   channel: null,
   usersMap: new Map(),
+  fishingBgMap: new Map(),
   friendStatusMap: new Map(),
-  isSubscribing: false
+  reconnectTimer: null,
+  pollTimer: null,
+  bgTickCounter: 0,
+  lastActivitySignature: "",
+  lastBgSyncAt: 0,
+  bgSyncInFlight: false
 };
 
 const SCREEN_ACTIVITY_LABELS = {
@@ -4706,12 +4731,12 @@ const SCREEN_ACTIVITY_LABELS = {
   playHubScreen: "🎮 모드 선택",
   setupScreen: "⚙️ 게임 설정",
   gameScreen: "🎵 퀴즈 도전중",
-  judgeScreen: "🎵 정답 확인중",
+  judgeScreen: "🎵 퀴즈 도전중",
   resultScreen: "🏆 결과 확인",
   plazaScreen: "🏟️ 멀티 대기실",
   battleRoomScreen: "⚔️ 대전 대기방",
   battlePlayScreen: "⚔️ 실시간 대전중",
-  fishingScreen: "🎣 낚시터",
+  fishingScreen: "🎣 낚시중",
   shopScreen: "👗 상점",
   bagScreen: "🎒 가방",
   rankingScreen: "🏆 랭킹",
@@ -4719,12 +4744,45 @@ const SCREEN_ACTIVITY_LABELS = {
   dmChatScreen: "💬 1:1 대화"
 };
 
+function isSelfCurrentlyFishingBg() {
+  return Boolean(
+    typeof state !== "undefined" &&
+      state.currentScreen === "fishingScreen" &&
+      (document.hidden ||
+        Boolean(window.__onestorePaused) ||
+        (typeof userState !== "undefined" &&
+          userState.fishingLive &&
+          userState.fishingLive.active &&
+          userState.fishingLive.mode === "bg"))
+  );
+}
+
 function getGlobalOnlineActivityLabel(screenId) {
+  if (screenId === "fishingScreen") {
+    return isSelfCurrentlyFishingBg() ? "💤 낚시 잠수중" : "🎣 낚시중";
+  }
+  const room = typeof plazaState !== "undefined" ? plazaState.currentRoom : null;
+  if (screenId === "battleRoomScreen") {
+    if (room && room.room_type === "1v1") return "⚔️ 1:1 대기중";
+    if (room && room.room_type === "4p") return "⚔️ 4인 대기중";
+    return "⚔️ 대전 대기방";
+  }
+  if (screenId === "battlePlayScreen") {
+    if (room && room.status === "finished") {
+      if (room.room_type === "1v1") return "🏁 1:1 결과";
+      if (room.room_type === "4p") return "🏁 4인 결과";
+      return "🏁 대결 결과";
+    }
+    if (room && room.room_type === "1v1") return "⚔️ 1:1 경기중";
+    if (room && room.room_type === "4p") return "⚔️ 4인 경기중";
+    return "⚔️ 실시간 대전중";
+  }
   return SCREEN_ACTIVITY_LABELS[screenId] || "🎵 접속중";
 }
 
 function buildGlobalPresencePayload(screenIdOverride = null) {
   const scr = screenIdOverride || (typeof state !== "undefined" ? state.currentScreen : "homeScreen");
+  const isFishingBg = scr === "fishingScreen" && isSelfCurrentlyFishingBg();
   return {
     userId: userState.id,
     nickname: userState.nickname || "도전자",
@@ -4735,37 +4793,245 @@ function buildGlobalPresencePayload(screenIdOverride = null) {
     exp: Number(userState.exp) || 0,
     screen: scr,
     activity: getGlobalOnlineActivityLabel(scr),
+    isFishingBg,
     joinedAt: Date.now()
   };
 }
 
-window.isUserOnlineGlobally = function (targetUserId) {
-  if (!targetUserId) return false;
-  if (userState.isLoggedIn && userState.id && String(targetUserId) === String(userState.id)) {
-    return true;
+function buildFishingBgSignature(map) {
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([uid, v]) => `${uid}:${v.nickname || ""}:${Math.floor((Number(v.exp) || 0) / 100)}`)
+    .join("|");
+}
+
+function parseFishingBgEntryFromProfileRow(row, nowTs = Date.now()) {
+  if (!row || !row.id) return null;
+  const uid = String(row.id);
+  const cfg = row.avatar_config || {};
+  const live = cfg._fishingLive;
+  const hbAge = live ? nowTs - (Number(live.heartbeatAt) || 0) : Infinity;
+  const isValidBg =
+    Boolean(live && live.active && live.mode === "bg") && hbAge >= -60000 && hbAge <= FISHING_ONLINE_AFK_MAX_MS;
+  if (!isValidBg) return null;
+  return {
+    userId: uid,
+    nickname: row.nickname || "도전자",
+    avatarConfig:
+      typeof sanitizeAvatarConfigShape === "function"
+        ? sanitizeAvatarConfigShape(cfg)
+        : cfg,
+    exp: Number(cfg._exp) || 0,
+    screen: "fishingScreen",
+    activity: "💤 낚시 잠수중",
+    isFishingBg: true,
+    heartbeatAt: Number(live.heartbeatAt) || nowTs
+  };
+}
+
+window.syncSingleProfileFishingBgEntry = function (row, nowTs = Date.now()) {
+  if (!row || !row.id) return;
+  const uid = String(row.id);
+  const entry = parseFishingBgEntryFromProfileRow(row, nowTs);
+  if (entry) {
+    globalOnlineState.fishingBgMap.set(uid, entry);
+  } else {
+    globalOnlineState.fishingBgMap.delete(uid);
   }
-  return globalOnlineState.usersMap.has(String(targetUserId));
 };
+
+window.refreshFishingBgRosterForPresence = async function (force = false) {
+  if (!sbClient || !userState.isLoggedIn || !userState.id) return;
+  const now = Date.now();
+  if (!force && (globalOnlineState.bgSyncInFlight || now - globalOnlineState.lastBgSyncAt < 3500)) return;
+  if (globalOnlineState.bgSyncInFlight) return;
+
+  globalOnlineState.bgSyncInFlight = true;
+  globalOnlineState.lastBgSyncAt = now;
+  try {
+    const { data: rows, error } = await sbClient
+      .from("profiles")
+      .select("id, nickname, avatar_config")
+      .neq("nickname", "__ADMIN_CONFIG__")
+      .order("updated_at", { ascending: false })
+      .limit(250);
+    if (error || !Array.isArray(rows)) return;
+
+    const myUid = String(userState.id);
+    const nextMap = new Map();
+    const checkNow = Date.now();
+    rows.forEach(r => {
+      if (!r || !r.id || String(r.id) === myUid) return;
+      const entry = parseFishingBgEntryFromProfileRow(r, checkNow);
+      if (entry) nextMap.set(entry.userId, entry);
+    });
+
+    const prevSig = buildFishingBgSignature(globalOnlineState.fishingBgMap);
+    const nextSig = buildFishingBgSignature(nextMap);
+    globalOnlineState.fishingBgMap = nextMap;
+    if (prevSig !== nextSig || force) {
+      syncAllOnlinePresenceUIs();
+    }
+  } catch (e) {
+  } finally {
+    globalOnlineState.bgSyncInFlight = false;
+  }
+};
+
+window.getUserPresenceState = function (targetUserId) {
+  if (!targetUserId) {
+    return { status: "offline", activity: "오프라인", isOnline: false, isFishingAfk: false, user: null };
+  }
+  const uid = String(targetUserId);
+
+  if (userState.isLoggedIn && userState.id && uid === String(userState.id)) {
+    const me = buildGlobalPresencePayload();
+    if (me.isFishingBg) {
+      return { status: "fishing_afk", activity: "💤 낚시 잠수중", isOnline: false, isFishingAfk: true, user: me };
+    }
+    return { status: "online", activity: me.activity, isOnline: true, isFishingAfk: false, user: me };
+  }
+
+  const liveUser = globalOnlineState.usersMap.get(uid);
+  if (liveUser) {
+    if (liveUser.isFishingBg) {
+      return {
+        status: "fishing_afk",
+        activity: "💤 낚시 잠수중",
+        isOnline: false,
+        isFishingAfk: true,
+        user: liveUser
+      };
+    }
+    return {
+      status: "online",
+      activity: liveUser.activity || getGlobalOnlineActivityLabel(liveUser.screen),
+      isOnline: true,
+      isFishingAfk: false,
+      user: liveUser
+    };
+  }
+
+  const bgUser = globalOnlineState.fishingBgMap.get(uid);
+  if (bgUser) {
+    const hbAge = Date.now() - (Number(bgUser.heartbeatAt) || 0);
+    if (hbAge <= FISHING_ONLINE_AFK_MAX_MS) {
+      return {
+        status: "fishing_afk",
+        activity: "💤 낚시 잠수중",
+        isOnline: false,
+        isFishingAfk: true,
+        user: bgUser
+      };
+    }
+    globalOnlineState.fishingBgMap.delete(uid);
+  }
+
+  return { status: "offline", activity: "오프라인", isOnline: false, isFishingAfk: false, user: null };
+};
+
+window.isUserOnlineGlobally = function (targetUserId) {
+  return window.getUserPresenceState(targetUserId).status !== "offline";
+};
+
+function getOnlineUsersSummary() {
+  const merged = new Map();
+  const now = Date.now();
+
+  globalOnlineState.fishingBgMap.forEach((u, uid) => {
+    if (!u || !u.userId || isUserBlocked(u.userId, u.nickname)) return;
+    if (now - (Number(u.heartbeatAt) || 0) > FISHING_ONLINE_AFK_MAX_MS) return;
+    merged.set(String(uid), {
+      ...u,
+      userId: String(uid),
+      _presence: { status: "fishing_afk", activity: "💤 낚시 잠수중", isOnline: false, isFishingAfk: true }
+    });
+  });
+
+  globalOnlineState.usersMap.forEach((u, uid) => {
+    if (!u || !u.userId || isUserBlocked(u.userId, u.nickname)) return;
+    const isAfk = Boolean(u.isFishingBg);
+    const activity = isAfk ? "💤 낚시 잠수중" : u.activity || getGlobalOnlineActivityLabel(u.screen);
+    merged.set(String(uid), {
+      ...u,
+      userId: String(uid),
+      activity,
+      _presence: {
+        status: isAfk ? "fishing_afk" : "online",
+        activity,
+        isOnline: !isAfk,
+        isFishingAfk: isAfk
+      }
+    });
+  });
+
+  if (userState.isLoggedIn && userState.id) {
+    const myUid = String(userState.id);
+    const me = buildGlobalPresencePayload();
+    const isAfk = Boolean(me.isFishingBg);
+    merged.set(myUid, {
+      ...me,
+      userId: myUid,
+      _presence: {
+        status: isAfk ? "fishing_afk" : "online",
+        activity: me.activity,
+        isOnline: !isAfk,
+        isFishingAfk: isAfk
+      }
+    });
+  }
+
+  const list = Array.from(merged.values());
+  let liveCount = 0;
+  let afkCount = 0;
+  list.forEach(u => {
+    if (u._presence.status === "fishing_afk") afkCount += 1;
+    else liveCount += 1;
+  });
+
+  list.sort((a, b) => {
+    const aMe = userState.id && String(a.userId) === String(userState.id) ? 1 : 0;
+    const bMe = userState.id && String(b.userId) === String(userState.id) ? 1 : 0;
+    if (aMe !== bMe) return bMe - aMe;
+    const aAfk = a._presence.status === "fishing_afk" ? 1 : 0;
+    const bAfk = b._presence.status === "fishing_afk" ? 1 : 0;
+    if (aAfk !== bAfk) return aAfk - bAfk;
+    const aFriend = globalOnlineState.friendStatusMap.get(String(a.userId)) === "accepted" ? 1 : 0;
+    const bFriend = globalOnlineState.friendStatusMap.get(String(b.userId)) === "accepted" ? 1 : 0;
+    if (aFriend !== bFriend) return bFriend - aFriend;
+    return (Number(b.exp) || 0) - (Number(a.exp) || 0);
+  });
+
+  return { list, totalCount: list.length, liveCount, afkCount };
+}
 
 window.syncHomeOnlineUsersBtn = function () {
   const btn = document.getElementById("homeOnlineUsersBtn");
   const cntEl = document.getElementById("homeOnlineUsersCount");
   if (!btn && !cntEl) return;
-  const visibleUsers = getSortedOnlineUsersList();
-  if (cntEl) cntEl.textContent = String(visibleUsers.length);
+  const summary = getOnlineUsersSummary();
+  if (cntEl) cntEl.textContent = String(summary.totalCount);
+  if (btn) {
+    btn.title = `실시간 접속 · 낚시 잠수 (총 ${summary.totalCount}명 · 접속 ${summary.liveCount} · 잠수 ${summary.afkCount})`;
+  }
 };
 
 window.syncFriendOnlineIndicators = function () {
   document.querySelectorAll("[data-online-uid]").forEach(dot => {
     const uid = dot.getAttribute("data-online-uid");
-    const online = isUserOnlineGlobally(uid);
-    dot.classList.toggle("is-online", online);
-    dot.title = online ? "현재 접속중" : "오프라인";
+    const pres = window.getUserPresenceState(uid);
+    dot.classList.toggle("is-online", pres.status === "online");
+    dot.classList.toggle("is-fishing-afk", pres.status === "fishing_afk");
+    dot.title = pres.activity;
   });
   document.querySelectorAll("[data-online-pill-uid]").forEach(pill => {
     const uid = pill.getAttribute("data-online-pill-uid");
-    const online = isUserOnlineGlobally(uid);
-    pill.classList.toggle("hidden", !online);
+    const pres = window.getUserPresenceState(uid);
+    pill.classList.toggle("hidden", pres.status === "offline");
+    pill.classList.toggle("is-fishing-afk", pres.status === "fishing_afk");
+    if (pres.status !== "offline") {
+      pill.textContent = pres.activity;
+    }
   });
 };
 
@@ -4778,40 +5044,94 @@ function syncAllOnlinePresenceUIs() {
   }
 }
 
-function getSortedOnlineUsersList() {
-  const list = Array.from(globalOnlineState.usersMap.values()).filter(
-    u => u && u.userId && !isUserBlocked(u.userId, u.nickname)
-  );
-  if (
-    userState.isLoggedIn &&
-    userState.id &&
-    !list.some(u => String(u.userId) === String(userState.id))
-  ) {
-    list.unshift(buildGlobalPresencePayload());
+function startGlobalOnlineRefreshLoop() {
+  if (globalOnlineState.pollTimer) {
+    clearInterval(globalOnlineState.pollTimer);
+    globalOnlineState.pollTimer = null;
   }
-  list.sort((a, b) => {
-    const aMe = userState.id && String(a.userId) === String(userState.id) ? 1 : 0;
-    const bMe = userState.id && String(b.userId) === String(userState.id) ? 1 : 0;
-    if (aMe !== bMe) return bMe - aMe;
-    const aFriend = globalOnlineState.friendStatusMap.get(String(a.userId)) === "accepted" ? 1 : 0;
-    const bFriend = globalOnlineState.friendStatusMap.get(String(b.userId)) === "accepted" ? 1 : 0;
-    if (aFriend !== bFriend) return bFriend - aFriend;
-    return (Number(b.exp) || 0) - (Number(a.exp) || 0);
-  });
-  return list;
+  globalOnlineState.bgTickCounter = 0;
+  globalOnlineState.pollTimer = setInterval(() => {
+    if (!userState.isLoggedIn || !userState.id || document.hidden || window.__onestorePaused) return;
+    globalOnlineState.bgTickCounter += 1;
+    const modal = document.getElementById("onlineUsersModal");
+    const isModalOpen = Boolean(modal && !modal.classList.contains("hidden"));
+    const isSocialOpen = typeof state !== "undefined" && state.currentScreen === "socialScreen";
+    const isHomeOpen = typeof state !== "undefined" && state.currentScreen === "homeScreen";
+    if (isModalOpen || isSocialOpen) {
+      refreshFishingBgRosterForPresence(false);
+    } else if (isHomeOpen && globalOnlineState.bgTickCounter % 5 === 0) {
+      refreshFishingBgRosterForPresence(false);
+    }
+  }, 5000);
 }
+
+function scheduleGlobalOnlineReconnect() {
+  if (!sbClient || !userState.isLoggedIn || !userState.id || document.hidden || window.__onestorePaused) return;
+  if (globalOnlineState.reconnectTimer) return;
+  globalOnlineState.reconnectTimer = setTimeout(() => {
+    globalOnlineState.reconnectTimer = null;
+    if (!sbClient || !userState.isLoggedIn || !userState.id || document.hidden || window.__onestorePaused) return;
+    try {
+      if (sbClient.realtime && !sbClient.realtime.isConnected()) {
+        sbClient.realtime.connect();
+      }
+    } catch (e) {}
+    if (globalOnlineState.channel) {
+      try {
+        sbClient.removeChannel(globalOnlineState.channel);
+      } catch (e) {}
+      globalOnlineState.channel = null;
+    }
+    window.startGlobalOnlinePresence();
+  }, 1500);
+}
+
+window.ensureGlobalOnlinePresenceHealthy = function (refreshBg = false) {
+  if (!sbClient || !userState.isLoggedIn || !userState.id) return;
+  try {
+    if (sbClient.realtime && !sbClient.realtime.isConnected()) {
+      sbClient.realtime.connect();
+    }
+  } catch (e) {}
+
+  const st = globalOnlineState.channel && globalOnlineState.channel.state;
+  if (!globalOnlineState.channel || st !== "joined") {
+    if (globalOnlineState.channel) {
+      try {
+        sbClient.removeChannel(globalOnlineState.channel);
+      } catch (e) {}
+      globalOnlineState.channel = null;
+    }
+    window.startGlobalOnlinePresence();
+  } else {
+    window.syncGlobalOnlineActivity(null, true);
+  }
+
+  if (refreshBg) {
+    window.refreshFishingBgRosterForPresence(true);
+  }
+};
 
 window.startGlobalOnlinePresence = function () {
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
-  if (globalOnlineState.channel) {
-    syncGlobalOnlineActivity();
+  if (globalOnlineState.channel && globalOnlineState.channel.state === "joined") {
+    syncGlobalOnlineActivity(null, true);
     return;
+  }
+  if (globalOnlineState.channel) {
+    try {
+      sbClient.removeChannel(globalOnlineState.channel);
+    } catch (e) {}
+    globalOnlineState.channel = null;
   }
 
   const myUid = String(userState.id);
   const myPayload = buildGlobalPresencePayload();
   globalOnlineState.usersMap.set(myUid, myPayload);
+  globalOnlineState.lastActivitySignature = `${myPayload.screen}|${myPayload.activity}|${myPayload.isFishingBg ? 1 : 0}`;
   syncAllOnlinePresenceUIs();
+  startGlobalOnlineRefreshLoop();
+  refreshFishingBgRosterForPresence(false);
 
   const ch = sbClient.channel("music_king_global_online", {
     config: { presence: { key: myUid } }
@@ -4843,18 +5163,23 @@ window.startGlobalOnlinePresence = function () {
         try {
           await ch.track(buildGlobalPresencePayload());
         } catch (e) {}
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        scheduleGlobalOnlineReconnect();
       }
     });
 };
 
-window.syncGlobalOnlineActivity = async function (screenId = null) {
+window.syncGlobalOnlineActivity = async function (screenId = null, forceTrack = false) {
   if (!userState.isLoggedIn || !userState.id) return;
   const scr = screenId || (typeof state !== "undefined" ? state.currentScreen : "homeScreen");
   if (scr === "loginScreen") return;
   const payload = buildGlobalPresencePayload(scr);
+  const sig = `${payload.screen}|${payload.activity}|${payload.isFishingBg ? 1 : 0}`;
+  const changed = sig !== globalOnlineState.lastActivitySignature;
+  globalOnlineState.lastActivitySignature = sig;
   globalOnlineState.usersMap.set(String(userState.id), payload);
   syncAllOnlinePresenceUIs();
-  if (globalOnlineState.channel) {
+  if (globalOnlineState.channel && (changed || forceTrack)) {
     try {
       await globalOnlineState.channel.track(payload);
     } catch (e) {}
@@ -4862,10 +5187,20 @@ window.syncGlobalOnlineActivity = async function (screenId = null) {
 };
 
 window.stopGlobalOnlinePresence = function () {
+  if (globalOnlineState.reconnectTimer) {
+    clearTimeout(globalOnlineState.reconnectTimer);
+    globalOnlineState.reconnectTimer = null;
+  }
+  if (globalOnlineState.pollTimer) {
+    clearInterval(globalOnlineState.pollTimer);
+    globalOnlineState.pollTimer = null;
+  }
   const ch = globalOnlineState.channel;
   globalOnlineState.channel = null;
   globalOnlineState.usersMap.clear();
+  globalOnlineState.fishingBgMap.clear();
   globalOnlineState.friendStatusMap.clear();
+  globalOnlineState.lastActivitySignature = "";
   if (ch) {
     try { ch.untrack(); } catch (e) {}
     if (sbClient) {
@@ -4895,14 +5230,14 @@ window.openOnlineUsersModal = async function () {
     gameConfirm("접속 중인 유저 목록은 로그인 후 이용할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
     return;
   }
-  if (!globalOnlineState.channel) {
-    startGlobalOnlinePresence();
+  if (!globalOnlineState.channel || globalOnlineState.channel.state !== "joined") {
+    ensureGlobalOnlinePresenceHealthy(false);
   } else {
     syncGlobalOnlineActivity();
   }
   openModal("onlineUsersModal");
   renderOnlineUsersModalList();
-  await refreshOnlineUsersFriendships();
+  await Promise.all([refreshOnlineUsersFriendships(), refreshFishingBgRosterForPresence(true)]);
   const modal = document.getElementById("onlineUsersModal");
   if (modal && !modal.classList.contains("hidden")) {
     renderOnlineUsersModalList();
@@ -4944,11 +5279,14 @@ window.renderOnlineUsersModalList = function () {
   const countBadge = document.getElementById("onlineUsersModalCount");
   if (!listEl) return;
 
-  const users = getSortedOnlineUsersList();
-  if (countBadge) countBadge.textContent = `${users.length}명 접속중`;
+  const summary = getOnlineUsersSummary();
+  const users = summary.list;
+  if (countBadge) {
+    countBadge.textContent = `총 ${summary.totalCount}명 (접속 ${summary.liveCount} · 잠수 ${summary.afkCount})`;
+  }
 
   if (users.length === 0) {
-    listEl.innerHTML = `<div style="text-align:center; padding:26px; color:var(--text-sub); font-size:0.84rem;">현재 접속 중인 유저가 없습니다.</div>`;
+    listEl.innerHTML = `<div style="text-align:center; padding:26px; color:var(--text-sub); font-size:0.84rem;">현재 접속 또는 낚시 잠수 중인 유저가 없습니다.</div>`;
     return;
   }
 
@@ -4960,6 +5298,8 @@ window.renderOnlineUsersModalList = function () {
       const safeNick = escapeJsSingleArg(u.nickname || "도전자");
       const lvNum = typeof getLevelInfo === "function" ? getLevelInfo(Number(u.exp) || 0).level : 1;
       const relStatus = globalOnlineState.friendStatusMap.get(uid) || "";
+      const isAfk = u._presence && u._presence.status === "fishing_afk";
+      const actText = (u._presence && u._presence.activity) || u.activity || getGlobalOnlineActivityLabel(u.screen);
       const friendBtnHtml = isMe
         ? `<span class="badge primary">⭐ 나</span>`
         : relStatus === "accepted"
@@ -4973,14 +5313,14 @@ window.renderOnlineUsersModalList = function () {
           <div style="display:flex; align-items:center; gap:9px; min-width:0; flex:1;">
             <div class="kakao-avatar-wrap">
               <canvas class="online-modal-mini-cv kakao-avatar-sq" width="480" height="480" style="width:40px; height:40px; border-radius:12px;" data-avatar='${JSON.stringify(u.avatarConfig || DEFAULT_AVATAR_CONFIG)}'></canvas>
-              <span class="online-status-dot is-online"></span>
+              <span class="online-status-dot ${isAfk ? "is-fishing-afk" : "is-online"}"></span>
             </div>
             <div style="min-width:0; flex:1;">
               <div style="display:flex; align-items:center; gap:5px;">
                 <strong style="font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${isMe ? "⭐ " : ""}${u.nickname || "도전자"}</strong>
                 <span style="font-size:0.66rem; font-weight:900; color:var(--primary-dark); background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:0 4px; flex-shrink:0;">Lv.${lvNum}</span>
               </div>
-              <div style="font-size:0.72rem; color:#15803d; font-weight:800;">● ${u.activity || getGlobalOnlineActivityLabel(u.screen)}</div>
+              <div style="font-size:0.72rem; color:${isAfk ? "#0284c7" : "#15803d"}; font-weight:800;">● ${actText}</div>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;" onclick="event.stopPropagation()">

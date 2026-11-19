@@ -3678,6 +3678,11 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.85);
 }
 
+.online-status-dot.is-fishing-afk {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.9);
+}
+
 .friend-online-pill {
   font-size: 0.62rem;
   font-weight: 900;
@@ -3688,4 +3693,10 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   border: 1px solid #4ade80;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.friend-online-pill.is-fishing-afk {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #38bdf8;
 }

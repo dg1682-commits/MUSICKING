@@ -1149,6 +1149,19 @@ document.addEventListener(
   { passive: true }
 );
 
+function recoverAppForegroundState() {
+  if (appExited) return;
+  if (typeof handleFishingVisibilityChange === "function") {
+    handleFishingVisibilityChange(false);
+  } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
+    advanceFishingClockTo(Date.now());
+  }
+  if (typeof ensureGlobalOnlinePresenceHealthy === "function") {
+    ensureGlobalOnlinePresenceHealthy(true);
+  }
+  updateBgmForScreen(state.currentScreen);
+}
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     if (typeof handleFishingVisibilityChange === "function") {
@@ -1162,13 +1175,14 @@ document.addEventListener("visibilitychange", () => {
       const st = document.getElementById("audioStatusText");
       if (st) st.textContent = "⏸️ 백그라운드 전환으로 정지됨 · [▶ 1초 듣기]를 눌러주세요!";
     }
-  } else if (!appExited) {
-    if (typeof handleFishingVisibilityChange === "function") {
-      handleFishingVisibilityChange(false);
-    } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
-      advanceFishingClockTo(Date.now());
-    }
-    updateBgmForScreen(state.currentScreen);
+  } else {
+    recoverAppForegroundState();
+  }
+});
+
+window.addEventListener("online", () => {
+  if (!appExited && !document.hidden && !window.__onestorePaused && typeof ensureGlobalOnlinePresenceHealthy === "function") {
+    ensureGlobalOnlinePresenceHealthy(true);
   }
 });
 
@@ -1201,14 +1215,7 @@ window.onOnestoreResume = function (event) {
   if (event && typeof event.ringerSilent === "boolean") {
     window.__onestoreRingerSilent = event.ringerSilent;
   }
-  if (!appExited) {
-    if (typeof handleFishingVisibilityChange === "function") {
-      handleFishingVisibilityChange(false);
-    } else if (state.currentScreen === "fishingScreen" && typeof advanceFishingClockTo === "function") {
-      advanceFishingClockTo(Date.now());
-    }
-    updateBgmForScreen(state.currentScreen);
-  }
+  recoverAppForegroundState();
 };
 
 window.onOnestoreExit = function () {
