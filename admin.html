@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>음악왕 - 관리자 백엔드 대시보드</title>
   <style>
     .hidden, [hidden] { display: none !important; }
@@ -307,9 +308,65 @@
       color: #0f172a;
       word-break: break-all;
     }
+    .admin-gate-backdrop {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .admin-gate-card {
+      width: 100%;
+      max-width: 390px;
+      background: #ffffff;
+      border: 3px solid var(--pixel-border);
+      border-radius: 18px;
+      box-shadow: 0 8px 0 rgba(15, 23, 42, 0.2);
+      padding: 22px 18px;
+      text-align: center;
+    }
+    .admin-gate-error {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #fff1f2;
+      border: 1.5px solid #fda4af;
+      color: #be123c;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
+  <!-- ==================== [2차 진입 인증 게이트] ==================== -->
+  <div id="adminAuthGateOverlay" class="admin-gate-backdrop hidden">
+    <div class="admin-gate-card">
+      <div style="font-size:2.1rem; margin-bottom:6px;">🔐</div>
+      <h2 style="font-size:1.12rem; font-weight:900; color:var(--primary-dark); margin-bottom:6px;">관리자 백엔드 2차 인증</h2>
+      <p style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; margin-bottom:14px; word-break:keep-all;">
+        보안을 위해 <strong>'관리자'</strong> 계정 비밀번호를 한 번 더 확인한 뒤 대시보드를 엽니다.
+      </p>
+      <form onsubmit="event.preventDefault(); submitAdminGatePassword();" style="display:flex; flex-direction:column; gap:10px;">
+        <input
+          type="password"
+          id="adminGatePasswordInput"
+          class="text-input"
+          placeholder="관리자 계정 비밀번호 입력"
+          autocomplete="current-password"
+          style="text-align:center;"
+        />
+        <div id="adminGateErrorMsg" class="admin-gate-error hidden"></div>
+        <button type="submit" id="adminGateSubmitBtn" class="btn btn-primary" style="width:100%; padding:11px; font-size:0.9rem;">
+          🔓 확인 후 백엔드 입장
+        </button>
+        <button type="button" class="btn" onclick="returnToGameFromAdmin()" style="width:100%; padding:9px; font-size:0.82rem;">
+          ⬅ 게임 화면으로 돌아가기
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div id="adminContainer" class="admin-container hidden">
     <!-- 상단 바 -->
     <header class="top-header" style="margin-bottom:14px;">
@@ -880,42 +937,22 @@
   <script src="pixel_avatar.js?v=21.4"></script>
   <script src="online.js?v=21.4"></script>
   <script>
+    const VERIFIED_ADMIN_UID = "8795e0a0-20f2-4134-8b4c-2400f0c27465";
+    const ADMIN_CONFIG_FALLBACK_ID = "0313bd4f-f392-4537-87c1-37483bdc468c";
+
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
-    let adminConfigRowId = null;
+    let adminConfigRowId = ADMIN_CONFIG_FALLBACK_ID;
+    let verifiedAdminEmail = "";
+    let adminGateUnlocked = false;
+    let adminGateVerifying = false;
 
     window.returnToGameFromAdmin = function () {
       location.replace("index.html");
     };
 
-    async function initAdminPage() {
-      // [이중 보안] 아이디(닉네임)가 "관리자"로 로그인된 세션인지 서버 검증!
-      let isAuthorizedAdmin = false;
-      if (sbClient) {
-        try {
-          const { data } = await sbClient.auth.getSession();
-          const uid = data?.session?.user?.id;
-          if (uid) {
-            const { data: prof } = await sbClient
-              .from("profiles")
-              .select("nickname")
-              .eq("id", uid)
-              .maybeSingle();
-            if (prof && prof.nickname === "관리자") {
-              isAuthorizedAdmin = true;
-            }
-          }
-        } catch (e) {}
-      }
-
-      if (!isAuthorizedAdmin) {
-        gameAlert("⛔ [관리자] 계정으로 로그인한 상태에서만 접근할 수 있는 페이지입니다.", "접근 제한");
-        setTimeout(() => { returnToGameFromAdmin(); }, 1400);
-        return;
-      }
-
-      window.__IS_VERIFIED_ADMIN_PAGE__ = true;
-      document.getElementById("adminContainer").classList.remove("hidden");
+    async function loadAdminDashboardData() {
+      if (!adminGateUnlocked || !window.__IS_VERIFIED_ADMIN_PAGE__) return;
       await fetchAdminConfigFromServer();
       renderAdminSongsTable();
       renderAdminItemsTable();
@@ -927,6 +964,111 @@
       loadAdminReports();
       loadAdminEvents();
       loadAdminGiftsHistory();
+    }
+
+    window.submitAdminGatePassword = async function () {
+      if (adminGateVerifying || adminGateUnlocked) return;
+      const pwInput = document.getElementById("adminGatePasswordInput");
+      const errEl = document.getElementById("adminGateErrorMsg");
+      const btn = document.getElementById("adminGateSubmitBtn");
+      const pw = (pwInput?.value || "").trim();
+
+      const showGateErr = msg => {
+        if (!errEl) return;
+        errEl.textContent = msg;
+        errEl.classList.remove("hidden");
+      };
+
+      if (!pw) {
+        showGateErr("관리자 계정 비밀번호를 입력해주세요.");
+        if (pwInput) pwInput.focus();
+        return;
+      }
+      if (!sbClient || !verifiedAdminEmail) {
+        showGateErr("세션 정보를 확인할 수 없습니다. 게임에서 다시 로그인해주세요.");
+        return;
+      }
+
+      adminGateVerifying = true;
+      if (errEl) errEl.classList.add("hidden");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "🔄 관리자 비밀번호 확인 중...";
+      }
+
+      try {
+        const { data, error } = await sbClient.auth.signInWithPassword({
+          email: verifiedAdminEmail,
+          password: pw
+        });
+
+        if (error || !data?.user || data.user.id !== VERIFIED_ADMIN_UID) {
+          showGateErr("❌ 관리자 비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
+          if (pwInput) {
+            pwInput.value = "";
+            pwInput.focus();
+          }
+          return;
+        }
+
+        adminGateUnlocked = true;
+        window.__IS_VERIFIED_ADMIN_PAGE__ = true;
+        if (pwInput) pwInput.value = "";
+        const gateEl = document.getElementById("adminAuthGateOverlay");
+        if (gateEl) gateEl.classList.add("hidden");
+        const containerEl = document.getElementById("adminContainer");
+        if (containerEl) containerEl.classList.remove("hidden");
+        await loadAdminDashboardData();
+      } catch (e) {
+        showGateErr("⚠️ 인증 서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        adminGateVerifying = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "🔓 확인 후 백엔드 입장";
+        }
+      }
+    };
+
+    async function initAdminPage() {
+      // [이중 보안] 실제 관리자 UUID + "관리자" 닉네임 세션인지 1차 서버 검증
+      let isAuthorizedAdmin = false;
+      if (sbClient) {
+        try {
+          const { data } = await sbClient.auth.getSession();
+          const sessionUser = data?.session?.user;
+          const uid = sessionUser?.id;
+          if (uid && uid === VERIFIED_ADMIN_UID) {
+            const { data: prof } = await sbClient
+              .from("profiles")
+              .select("nickname")
+              .eq("id", uid)
+              .maybeSingle();
+            if (prof && prof.nickname === "관리자") {
+              isAuthorizedAdmin = true;
+              verifiedAdminEmail =
+                sessionUser.email ||
+                (typeof nicknameToEmail === "function" ? nicknameToEmail("관리자") : "u_ad00b9acc790@musicking.com");
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!isAuthorizedAdmin) {
+        window.__IS_VERIFIED_ADMIN_PAGE__ = false;
+        adminGateUnlocked = false;
+        gameAlert("⛔ [관리자] 계정으로 로그인한 상태에서만 접근할 수 있는 페이지입니다.", "접근 제한");
+        setTimeout(() => { returnToGameFromAdmin(); }, 1400);
+        return;
+      }
+
+      // 2차 진입 비밀번호 인증 오버레이 표시 (인증 전까지 대시보드 숨김 유지)
+      const gateEl = document.getElementById("adminAuthGateOverlay");
+      if (gateEl) gateEl.classList.remove("hidden");
+      setTimeout(() => {
+        const pwInput = document.getElementById("adminGatePasswordInput");
+        if (pwInput) pwInput.focus();
+      }, 80);
     }
 
     let adminBannedWordsCache =
@@ -941,7 +1083,7 @@
         .maybeSingle();
 
       if (data) {
-        adminConfigRowId = data.id;
+        adminConfigRowId = data.id || ADMIN_CONFIG_FALLBACK_ID;
         if (data.avatar_config && data.avatar_config.shopCatalog) {
           applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
         }
@@ -962,41 +1104,34 @@
     }
 
     async function persistAdminConfigToServer() {
-      if (!sbClient) return;
+      if (!sbClient || !adminGateUnlocked || !window.__IS_VERIFIED_ADMIN_PAGE__) return false;
       try {
-        if (!adminConfigRowId) {
-          // 관리자 설정 저장용 계정 생성 또는 조회
-          const email = "admin_system_config@musicking.com";
-          let uid = null;
-          const signInRes = await sbClient.auth.signInWithPassword({ email, password: "AdminConfigPassword123!" });
-          if (signInRes.data?.user) {
-            uid = signInRes.data.user.id;
-          } else {
-            const signUpRes = await sbClient.auth.signUp({ email, password: "AdminConfigPassword123!" });
-            uid = signUpRes.data?.user?.id;
-          }
-          adminConfigRowId = uid;
-        }
-
-        if (adminConfigRowId) {
-          await sbClient.from("profiles").upsert({
-            id: adminConfigRowId,
-            nickname: "__ADMIN_CONFIG__",
-            bio: "시스템 글로벌 설정 데이터",
-            cd_coins: 0,
-            avatar_config: {
-              shopCatalog: {
-                ...AVATAR_SHOP_ITEMS,
-                game_item: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
-              },
-              catalogVersion: SHOP_CATALOG_VERSION,
-              bannedWords: adminBannedWordsCache
+        const targetConfigId = adminConfigRowId || ADMIN_CONFIG_FALLBACK_ID;
+        const { error } = await sbClient.from("profiles").upsert({
+          id: targetConfigId,
+          nickname: "__ADMIN_CONFIG__",
+          bio: "시스템 글로벌 설정 데이터",
+          cd_coins: 0,
+          avatar_config: {
+            shopCatalog: {
+              ...AVATAR_SHOP_ITEMS,
+              game_item: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
             },
-            owned_items: adminOverridesList,
-            updated_at: new Date().toISOString()
-          });
+            catalogVersion: SHOP_CATALOG_VERSION,
+            bannedWords: adminBannedWordsCache
+          },
+          owned_items: adminOverridesList,
+          updated_at: new Date().toISOString()
+        });
+        if (error) {
+          gameAlert(`⚠️ 서버 설정 저장 실패: ${error.message}\n(Supabase Stage 2 RLS 정책 적용 여부를 확인해주세요.)`);
+          return false;
         }
-      } catch (e) {}
+        return true;
+      } catch (e) {
+        gameAlert("⚠️ 서버 설정 저장 중 네트워크 오류가 발생했습니다.");
+        return false;
+      }
     }
 
     window.renderAdminBannedWordsGrid = function () {
@@ -1582,33 +1717,33 @@ CREATE POLICY "admin_gifts_select_policy"
   ON public.admin_gifts FOR SELECT TO authenticated
   USING (
     target_user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.nickname = '관리자')
+    OR auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
   );
 
 DROP POLICY IF EXISTS "admin_gifts_insert_admin_only" ON public.admin_gifts;
 CREATE POLICY "admin_gifts_insert_admin_only"
   ON public.admin_gifts FOR INSERT TO authenticated
   WITH CHECK (
-    EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.nickname = '관리자')
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
   );
 
 DROP POLICY IF EXISTS "admin_gifts_update_claim_policy" ON public.admin_gifts;
 CREATE POLICY "admin_gifts_update_claim_policy"
   ON public.admin_gifts FOR UPDATE TO authenticated
   USING (
-    target_user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.nickname = '관리자')
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+    OR (target_user_id = auth.uid() AND claimed_at IS NULL)
   )
   WITH CHECK (
-    target_user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.nickname = '관리자')
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+    OR (target_user_id = auth.uid() AND claimed_at IS NOT NULL)
   );
 
 DROP POLICY IF EXISTS "admin_gifts_delete_admin_only" ON public.admin_gifts;
 CREATE POLICY "admin_gifts_delete_admin_only"
   ON public.admin_gifts FOR DELETE TO authenticated
   USING (
-    EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.nickname = '관리자')
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
   );
 
 DO $$
