@@ -6554,7 +6554,8 @@ const HARD_MODE_ARTISTS = new Set([
   "데이식스", "뉴진스", "에스파", "비스트", "인피니트", "에이핑크", "여자친구"
 ]);
 
-QUESTIONS_DB.forEach(q => {
+function enrichQuizQuestionItem(q) {
+  if (!q || typeof q !== "object") return q;
   if (HARD_MODE_ARTISTS.has(q.artist)) {
     q.hardMode = true;
   }
@@ -6579,7 +6580,10 @@ QUESTIONS_DB.forEach(q => {
       q.titleAliases
     );
   }
-});
+  return q;
+}
+
+QUESTIONS_DB.forEach(q => enrichQuizQuestionItem(q));
 
 // ============================================================================
 // [공용 유틸] 정답 정규화 · 빈칸/글자수 계산 · MD 문제 파서 & 정답 마스킹
@@ -6956,31 +6960,40 @@ async function fetchItunesSongMeta(qOrQuery) {
 // [V2.0 하이브리드 방식 3] 원격 문제 DB 로드 (questions.json + 폴백 내장 DB)
 // ============================================================================
 window.__remoteQuestionsLoaded = false;
-window.loadRemoteQuestionsDb = async function () {
-  if (window.__remoteQuestionsLoaded) return QUESTIONS_DB;
-  const candidates = [
-    "./questions.json?t=" + Date.now(),
-    "https://dg1682-commits.github.io/MUSICKING/questions.json?t=" + Date.now()
-  ];
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const byId = new Map(QUESTIONS_DB.map(q => [q.id, q]));
-        data.forEach(q => {
-          if (q && q.id && q.artist && q.title) {
-            byId.set(q.id, q);
+window.__remoteQuestionsPromise = null;
+window.loadRemoteQuestionsDb = function () {
+  if (window.__remoteQuestionsLoaded) return Promise.resolve(QUESTIONS_DB);
+  if (window.__remoteQuestionsPromise) return window.__remoteQuestionsPromise;
+  window.__remoteQuestionsPromise = (async () => {
+    const candidates = [
+      "./questions.json?t=" + Date.now(),
+      "https://dg1682-commits.github.io/MUSICKING/questions.json?t=" + Date.now()
+    ];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const byId = new Map(QUESTIONS_DB.map(q => [q.id, q]));
+          data.forEach(q => {
+            if (q && q.id && q.artist && q.title) {
+              byId.set(q.id, enrichQuizQuestionItem({ ...q }));
+            }
+          });
+          QUESTIONS_DB = Array.from(byId.values());
+          window.__remoteQuestionsLoaded = true;
+          // 원격 JSON 로드 후에도 Supabase 관리자 수정/삭제 내역이 항상 최우선 적용되도록 재적용
+          if (typeof window.__reapplyServerSongsOverride === "function") {
+            window.__reapplyServerSongsOverride();
           }
-        });
-        QUESTIONS_DB = Array.from(byId.values());
-        window.__remoteQuestionsLoaded = true;
-        break;
-      }
-    } catch (e) {}
-  }
-  return QUESTIONS_DB;
+          break;
+        }
+      } catch (e) {}
+    }
+    return QUESTIONS_DB;
+  })();
+  return window.__remoteQuestionsPromise;
 };
 
 

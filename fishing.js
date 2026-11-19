@@ -40,6 +40,9 @@ const fishingState = {
   lastTickAt: 0,
   lastServerSyncAt: 0,
   msCarry: 0,
+  expCarry: 0,
+  cdCarry: 0,
+  baitSecCarry: 0,
   daily: {
     date: "",
     seconds: 0,
@@ -72,6 +75,7 @@ function getPublicFishingAvatarConfig(rawCfg = null) {
       face: clean.face,
       outfit: clean.outfit,
       acc: clean.acc,
+      wing: clean.wing || "none",
       fishingRod: clean.fishingRod || "none",
       fishingBait: clean.fishingBait || "none"
     };
@@ -131,11 +135,11 @@ function isFishing2xBuffActive(nowTs = Date.now()) {
   return ds.fishing2xKstDate === curCycle && Number(ds.fishing2xExpiresAt || 0) > nowTs;
 }
 
-function getFishingBuffMultipliers() {
+function getFishingBuffMultipliers(nowTs = Date.now()) {
   // [V2.0] 낚싯대(영구 EXP 버프) + 소모품 미끼(보유 > 0일 때만 CD 버프) + 광고 2배 버프
   let expMultiplier = 1.0;
   let cdMultiplier = 1.0;
-  const is2xActive = isFishing2xBuffActive();
+  const is2xActive = isFishing2xBuffActive(nowTs);
 
   if (typeof AVATAR_SHOP_ITEMS !== "undefined" && typeof userState !== "undefined" && userState.avatarConfig) {
     const rodItem = (AVATAR_SHOP_ITEMS.fishing_rod || []).find(r => r.id === userState.avatarConfig.fishingRod);
@@ -175,6 +179,8 @@ function computeCumulativeFishingRewards(secondsInCycle, multipliers = getFishin
 function loadFishingDailyFromUserState(nowTs = Date.now()) {
   const curKey = getFishingCycleKey(nowTs);
   const saved = (typeof userState !== "undefined" && userState.fishingDaily) || null;
+  fishingState.expCarry = 0;
+  fishingState.cdCarry = 0;
   if (saved && saved.date === curKey) {
     fishingState.daily = {
       date: curKey,
@@ -283,73 +289,110 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
     return;
   }
 
-  const mults = getFishingBuffMultipliers();
   let changedRewards = false;
   let crossedReset = false;
 
   while (cursor < nowTs) {
     const nextReset = getNextFishingResetTimestampMs(cursor);
-    const segmentEnd = Math.min(nowTs, nextReset);
+    const dayEnd = Math.min(nowTs, nextReset);
     const segKey = getFishingCycleKey(cursor);
 
     if (fishingState.daily.date !== segKey) {
       fishingState.daily = { date: segKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
       fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
       crossedReset = true;
     }
 
-    fishingState.msCarry += segmentEnd - cursor;
-    const deltaSec = Math.floor(fishingState.msCarry / 1000);
-    if (deltaSec > 0) {
-      fishingState.msCarry -= deltaSec * 1000;
-      const nextSec = Math.min(FISHING_MAX_SECONDS_PER_DAY, fishingState.daily.seconds + deltaSec);
-      fishingState.daily.seconds = nextSec;
+    while (cursor < dayEnd) {
+      const is2xAtCursor = isFishing2xBuffActive(cursor);
+      const ad2xExpiresAt =
+        is2xAtCursor && typeof userState !== "undefined" && userState.dailyState
+          ? Number(userState.dailyState.fishing2xExpiresAt || 0)
+          : 0;
+      const chunkEnd = ad2xExpiresAt > cursor && ad2xExpiresAt < dayEnd ? ad2xExpiresAt : dayEnd;
 
-      const calc = computeCumulativeFishingRewards(nextSec, mults);
-      const gainExp = Math.max(0, calc.totalExp - fishingState.daily.earnedExp);
-      const gainCd = Math.max(0, calc.totalCd - fishingState.daily.earnedCd);
+      fishingState.msCarry += chunkEnd - cursor;
+      let chunkSec = Math.floor(fishingState.msCarry / 1000);
+      fishingState.msCarry -= chunkSec * 1000;
 
-      if (gainExp > 0 || gainCd > 0) {
-        fishingState.daily.earnedExp += gainExp;
-        fishingState.daily.earnedCd += gainCd;
-        if (typeof userState !== "undefined") {
-          userState.exp = (Number(userState.exp) || 0) + gainExp;
-          userState.cdCoins = (Number(userState.cdCoins) || 0) + gainCd;
+      while (chunkSec > 0) {
+        const hasAvatarCfg = typeof userState !== "undefined" && userState.avatarConfig;
+        const curBaitId = hasAvatarCfg ? userState.avatarConfig.fishingBait : "none";
+        const curBaitCnt =
+          hasAvatarCfg && curBaitId && curBaitId !== "none" && typeof getConsumableCount === "function"
+            ? getConsumableCount(curBaitId)
+            : 0;
+
+        const remDailySec = Math.max(0, FISHING_MAX_SECONDS_PER_DAY - (fishingState.daily.seconds || 0));
+        let takeSec = chunkSec;
+        if (curBaitCnt > 0 && remDailySec > 0) {
+          const secToBaitStep = Math.max(1, 1800 - (fishingState.baitSecCarry || 0));
+          takeSec = Math.min(chunkSec, remDailySec, secToBaitStep);
+        } else if (remDailySec > 0 && chunkSec > remDailySec) {
+          takeSec = remDailySec;
         }
-        changedRewards = true;
-      }
 
-      // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모
-      if (typeof userState !== "undefined" && userState.avatarConfig) {
-        const curBaitId = userState.avatarConfig.fishingBait;
-        const curBaitCnt = typeof getConsumableCount === "function" ? getConsumableCount(curBaitId) : 0;
-        if (curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
-          fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + deltaSec;
-          while (fishingState.baitSecCarry >= 1800 && getConsumableCount(curBaitId) > 0) {
-            fishingState.baitSecCarry -= 1800;
-            const nextCnt = Math.max(0, getConsumableCount(curBaitId) - 1);
-            userState.inventory[curBaitId] = nextCnt;
-            changedRewards = true;
-            if (nextCnt <= 0) {
-              userState.avatarConfig.fishingBait = "none";
-              if (typeof appendFishingChatLine === "function") {
-                appendFishingChatLine("시스템", "🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
-              }
-              break;
+        const earnableSec = Math.min(takeSec, remDailySec);
+        if (earnableSec > 0) {
+          const stepMult = getFishingBuffMultipliers(cursor);
+          fishingState.daily.seconds += earnableSec;
+
+          fishingState.expCarry =
+            (fishingState.expCarry || 0) +
+            (earnableSec / FISHING_MAX_SECONDS_PER_DAY) * (FISHING_BASE_MAX_EXP * stepMult.expMultiplier);
+          fishingState.cdCarry =
+            (fishingState.cdCarry || 0) +
+            (earnableSec / FISHING_MAX_SECONDS_PER_DAY) * (FISHING_BASE_MAX_CD * stepMult.cdMultiplier);
+
+          const gainExp = Math.floor(fishingState.expCarry);
+          fishingState.expCarry -= gainExp;
+          const gainCd = Math.floor(fishingState.cdCarry);
+          fishingState.cdCarry -= gainCd;
+
+          if (gainExp > 0 || gainCd > 0) {
+            fishingState.daily.earnedExp += gainExp;
+            fishingState.daily.earnedCd += gainCd;
+            if (typeof userState !== "undefined") {
+              userState.exp = (Number(userState.exp) || 0) + gainExp;
+              userState.cdCoins = (Number(userState.cdCoins) || 0) + gainCd;
             }
+            changedRewards = true;
           }
-        } else {
-          fishingState.baitSecCarry = 0;
+
+          // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모 (일일 6시간 내 적립 시간만 소모)
+          if (hasAvatarCfg && curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
+            fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + earnableSec;
+            if (fishingState.baitSecCarry >= 1800) {
+              fishingState.baitSecCarry -= 1800;
+              const nextCnt = Math.max(0, curBaitCnt - 1);
+              userState.inventory[curBaitId] = nextCnt;
+              changedRewards = true;
+              if (nextCnt <= 0) {
+                userState.avatarConfig.fishingBait = "none";
+                fishingState.baitSecCarry = 0;
+                appendFishingSystemMessage("🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
+              }
+            }
+          } else {
+            fishingState.baitSecCarry = 0;
+          }
         }
+
+        chunkSec -= takeSec;
       }
+
+      cursor = chunkEnd;
     }
 
-    cursor = segmentEnd;
     if (cursor >= nextReset) {
       // 오전 06:00 정각 돌파 시 미사용 잔여 시간 즉시 폐기하고 00:00:00으로 새 주기 시작!
       const newKey = getFishingCycleKey(nextReset);
       fishingState.daily = { date: newKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
       fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
       crossedReset = true;
     }
   }
@@ -1588,8 +1631,6 @@ window.activateFishing2xBuffAd = function () {
     }
     if (typeof syncProfileToServer === "function") await syncProfileToServer();
     renderFishingHud();
-    if (typeof appendFishingChatLine === "function") {
-      appendFishingChatLine("시스템", "⚡ [황금 떡밥 2배 버프] 30분간 낚시터 CD 획득량이 2배가 됩니다!");
-    }
+    appendFishingSystemMessage("⚡ [황금 떡밥 2배 버프] 30분간 낚시터 CD 획득량이 2배가 됩니다!");
   });
 };

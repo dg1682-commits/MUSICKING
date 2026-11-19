@@ -26,6 +26,8 @@ const state = {
   usedHintAudio: false,
   questionEnded: false,
   usedItemsInRun: new Set(),
+  item3SecActivatedQIdx: null,
+  isUsing3Sec: false,
   doubleAttackActive: false,
   revivedInRun: false,
 
@@ -375,6 +377,9 @@ function safeOn(id, event, handler) {
 }
 
 window.closeAllModals = function () {
+  if (typeof window.stopSelfAdCountdownTimer === "function") {
+    window.stopSelfAdCountdownTimer();
+  }
   document.querySelectorAll(".modal-backdrop:not(#customDialogModal)").forEach(m => m.classList.add("hidden"));
   const confettiCv = document.getElementById("confettiCanvas");
   if (confettiCv) confettiCv.classList.add("hidden");
@@ -505,6 +510,7 @@ function performCleanAppExit() {
   if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(true);
   stopAllAppAudio(true);
   try {
+    if (typeof stopGlobalOnlinePresence === "function") stopGlobalOnlinePresence();
     if (typeof stopGlobalDmNotiListener === "function") stopGlobalDmNotiListener();
     if (typeof stopDmRealtime === "function") stopDmRealtime();
   } catch (e) {}
@@ -1206,6 +1212,9 @@ window.onOnestoreResume = function (event) {
 };
 
 window.onOnestoreExit = function () {
+  if (typeof stopGlobalOnlinePresence === "function") {
+    stopGlobalOnlinePresence();
+  }
   if (typeof handleFishingForcedExit === "function") {
     handleFishingForcedExit();
   }
@@ -1292,6 +1301,10 @@ window.switchScreen = function (targetId, opts = {}) {
     relocateCoupangAdBanner();
     if (typeof updateHomeAdBannerPlatform === "function") updateHomeAdBannerPlatform();
     if (typeof syncHomeV2BadgesUI === "function") syncHomeV2BadgesUI();
+    if (typeof syncHomeOnlineUsersBtn === "function") syncHomeOnlineUsersBtn();
+  }
+  if (typeof syncGlobalOnlineActivity === "function") {
+    syncGlobalOnlineActivity(targetId);
   }
 
   if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
@@ -1548,6 +1561,8 @@ window.startGame = function () {
   state.hearts = 5;
   state.history = [];
   state.usedItemsInRun = new Set();
+  state.item3SecActivatedQIdx = null;
+  state.isUsing3Sec = false;
   state.doubleAttackActive = false;
   state.revivedInRun = false;
 
@@ -1691,14 +1706,20 @@ window.renderSingleItemSlotsBar = function () {
       const meta = typeof getGameItemById === "function" ? getGameItemById(id) : null;
       if (!meta) return "";
       const cnt = typeof getConsumableCount === "function" ? getConsumableCount(id) : 0;
-      const used = state.usedItemsInRun && state.usedItemsInRun.has(id);
+      const isSameQ3Sec = id === "item_3sec" && state.item3SecActivatedQIdx === state.currentIndex;
+      const used = state.usedItemsInRun && state.usedItemsInRun.has(id) && !isSameQ3Sec;
       let scopeDisabled = false;
       if (id === "item_hourglass" && !state.timeAttack) scopeDisabled = true;
       if ((id === "item_heart" || id === "item_revive") && state.questionLimit !== "infinite") scopeDisabled = true;
       const isPassiveRevive = id === "item_revive";
-      const disabled = used || cnt <= 0 || scopeDisabled || isPassiveRevive;
-      const title = isPassiveRevive ? "하트 0 시 자동 발동" : meta.desc;
-      return `<button type="button" class="quick-item-btn ${used ? "is-used" : ""}" ${disabled ? "disabled" : ""} title="${title}" onclick="useSingleGameItem('${id}')">${meta.name} (${cnt})</button>`;
+      const disabled = used || (!isSameQ3Sec && cnt <= 0) || scopeDisabled || isPassiveRevive;
+      const title = isPassiveRevive
+        ? "하트 0 시 자동 발동"
+        : isSameQ3Sec
+        ? "이 문제에서 추가 차감 없이 다시 듣기"
+        : meta.desc;
+      const labelText = isSameQ3Sec ? "🎧 3초 다시듣기 (무료)" : `${meta.name} (${cnt})`;
+      return `<button type="button" class="quick-item-btn ${used ? "is-used" : ""}" ${disabled ? "disabled" : ""} title="${title}" onclick="useSingleGameItem('${id}')">${labelText}</button>`;
     })
     .join("");
 };
@@ -1706,6 +1727,19 @@ window.renderSingleItemSlotsBar = function () {
 window.useSingleGameItem = async function (itemId) {
   if (state.questionEnded) return;
   if (!state.usedItemsInRun) state.usedItemsInRun = new Set();
+
+  const q = state.currentQ;
+  if (itemId === "item_3sec" && state.item3SecActivatedQIdx === state.currentIndex) {
+    if (state.isUsing3Sec) return;
+    state.isUsing3Sec = true;
+    try {
+      await playAudioSnippet(3.0, 6, q, null, null, { isAutoPlay: false });
+    } finally {
+      state.isUsing3Sec = false;
+    }
+    return;
+  }
+
   if (state.usedItemsInRun.has(itemId)) {
     gameAlert("이 아이템은 판당 1회만 사용할 수 있습니다!");
     return;
@@ -1729,16 +1763,24 @@ window.useSingleGameItem = async function (itemId) {
     return;
   }
 
-  const q = state.currentQ;
   if (itemId === "item_3sec") {
-    const playedOk = await playAudioSnippet(3.0, 6, q, null, null, { isAutoPlay: false });
-    if (!playedOk) {
+    if (state.isUsing3Sec) return;
+    state.isUsing3Sec = true;
+    let playedOk = false;
+    try {
+      playedOk = await playAudioSnippet(3.0, 6, q, null, null, { isAutoPlay: false });
+    } finally {
+      state.isUsing3Sec = false;
+    }
+    if (!playedOk || state.questionEnded) {
       return;
     }
-    userState.inventory[itemId] = cnt - 1;
+    const latestCnt = typeof getConsumableCount === "function" ? getConsumableCount(itemId) : cnt;
+    userState.inventory[itemId] = Math.max(0, latestCnt - 1);
     state.usedItemsInRun.add(itemId);
+    state.item3SecActivatedQIdx = state.currentIndex;
     if (typeof syncProfileToServer === "function") syncProfileToServer();
-    appendHintBox("🎧 3초 듣기", "하이라이트 3초 재생!");
+    appendHintBox("🎧 3초 듣기", "하이라이트 3초 재생! (이 문제에서는 재재생 무료)");
     renderSingleItemSlotsBar();
     return;
   }
@@ -1766,7 +1808,7 @@ window.useSingleGameItem = async function (itemId) {
     appendHintBox("💖 하트요정", `하트 +1 추가 (현재 ❤️${state.hearts})`);
   } else if (itemId === "item_double") {
     state.doubleAttackActive = true;
-    appendHintBox("⚡ 더블어택", "이번 판 획득 점수·CD 2배 적용!");
+    appendHintBox("⚡ 더블어택", "이번 판 최종 점수(랭킹)·EXP·CD 2배 적용!");
   }
   renderSingleItemSlotsBar();
 };
@@ -2025,6 +2067,36 @@ async function showFinalResult() {
 
   const effectiveScore = state.doubleAttackActive ? state.score * 2 : state.score;
   const isNoItemClear = !state.usedItemsInRun || state.usedItemsInRun.size === 0;
+  const isPerfectClear =
+    state.questionLimit !== "infinite" &&
+    totalTried > 0 &&
+    totalTried === state.pool.length &&
+    state.history.every(h => h.correct);
+
+  let infiniteTierRate = 0;
+  let infiniteTierLabel = "";
+  if (state.questionLimit === "infinite") {
+    if (solvedCount >= 100) {
+      infiniteTierRate = 0.50;
+      infiniteTierLabel = "🔥 100+정답 +50%";
+    } else if (solvedCount >= 70) {
+      infiniteTierRate = 0.30;
+      infiniteTierLabel = "🔥 70+정답 +30%";
+    } else if (solvedCount >= 50) {
+      infiniteTierRate = 0.20;
+      infiniteTierLabel = "🔥 50+정답 +20%";
+    } else if (solvedCount >= 30) {
+      infiniteTierRate = 0.10;
+      infiniteTierLabel = "🔥 30+정답 +10%";
+    }
+  }
+
+  const totalBonusRate = (isNoItemClear ? 0.10 : 0) + (isPerfectClear ? 0.10 : 0) + infiniteTierRate;
+  const totalBonusPct = Math.round(totalBonusRate * 100);
+  const bonusTags = [];
+  if (isNoItemClear) bonusTags.push("🌿 노템 +10%");
+  if (isPerfectClear) bonusTags.push("✨ 퍼펙트 +10%");
+  if (infiniteTierLabel) bonusTags.push(infiniteTierLabel);
 
   document.getElementById("finalPlayerBadge").textContent = `🎤 도전자: ${userState?.nickname || "도전자"}`;
   document.getElementById("finalRankTitle").textContent = rankTitle;
@@ -2053,13 +2125,19 @@ async function showFinalResult() {
     ${state.hardMode ? `<span class="badge" style="background:#fff1f2; color:#be123c; border-color:#f43f5e;">🔥하드모드</span>` : ""}
     ${state.doubleAttackActive ? `<span class="badge gold">⚡더블어택×2</span>` : ""}
     ${isNoItemClear ? `<span class="badge" style="background:#ecfdf5; color:#047857; border-color:#6ee7b7;">🌿노템 +10%</span>` : ""}
+    ${isPerfectClear ? `<span class="badge" style="background:#fef3c7; color:#b45309; border-color:#f59e0b;">✨퍼펙트 +10%</span>` : ""}
+    ${infiniteTierLabel ? `<span class="badge" style="background:#ffe4e6; color:#be123c; border-color:#fb7185;">${infiniteTierLabel}</span>` : ""}
   `;
 
-  let baseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(effectiveScore / 10));
-  if (isNoItemClear && baseCd > 0) baseCd = Math.round(baseCd * 1.1);
+  const rawBaseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(effectiveScore / 10));
+  const rawBaseExp = Math.max(0, Math.round(effectiveScore * 0.1));
+  const bonusMult = 1 + totalBonusRate;
+  const baseCd = rawBaseCd > 0 ? Math.round(rawBaseCd * bonusMult) : 0;
+  const baseExpVal = rawBaseExp > 0 ? Math.round(rawBaseExp * bonusMult) : 0;
 
+  let insertedRankRowId = null;
   if (effectiveScore > 0 && typeof submitScoreToRanking === "function") {
-    await submitScoreToRanking({
+    insertedRankRowId = await submitScoreToRanking({
       decadeFilter: decadeStr,
       mode: state.mode,
       stage: state.stage,
@@ -2070,9 +2148,6 @@ async function showFinalResult() {
     });
   }
 
-  let baseExpVal = Math.round(effectiveScore * 0.1);
-  if (isNoItemClear && baseExpVal > 0) baseExpVal = Math.round(baseExpVal * 1.1);
-
   let rewardResult = {
     baseCd,
     earnedCd: baseCd,
@@ -2081,28 +2156,29 @@ async function showFinalResult() {
     finalExp: baseExpVal,
     multiplier: 1,
     achievedTopRank: null,
+    totalBonusPct,
+    bonusTags,
     expBefore: userState.exp || 0,
     expAfter: (userState.exp || 0) + baseExpVal
   };
   if (typeof checkAndProcessGameRewards === "function") {
-    const res = await checkAndProcessGameRewards(effectiveScore, state.mode, state.stage, baseCd);
-    if (isNoItemClear && res && res.baseExp > 0) {
-      const bonusExp = Math.round(res.baseExp * 0.1);
-      userState.exp = (Number(userState.exp) || 0) + bonusExp;
-      res.finalExp = (Number(res.finalExp) || 0) + bonusExp;
-      res.expAfter = userState.exp;
-      if (typeof syncProfileToServer === "function") await syncProfileToServer();
-    }
-    rewardResult = { ...rewardResult, ...res };
+    const res = await checkAndProcessGameRewards(effectiveScore, state.mode, state.stage, baseCd, {
+      baseExpOverride: baseExpVal,
+      insertedRankRowId
+    });
+    rewardResult = { ...rewardResult, ...res, totalBonusPct, bonusTags };
   } else {
     if (baseCd > 0) userState.cdCoins = (Number(userState.cdCoins) || 0) + baseCd;
+    if (baseExpVal > 0) userState.exp = (Number(userState.exp) || 0) + baseExpVal;
   }
 
   const finalCdGain = Number(rewardResult.earnedCd) || 0;
+  const bonusNoteStr =
+    totalBonusPct > 0 ? ` [${bonusTags.join(" + ")} = 총 +${totalBonusPct}%]` : "";
   document.getElementById("finalCdEarnedText").textContent =
     rewardResult.multiplier > 1
-      ? `💿 획득 보상: +${finalCdGain.toLocaleString()} CD (🏆 랭킹 ${rewardResult.achievedTopRank}위 ×${rewardResult.multiplier}배!) 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`
-      : `💿 획득 보상: +${finalCdGain.toLocaleString()} CD 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`;
+      ? `💿 획득 보상: +${finalCdGain.toLocaleString()} CD${bonusNoteStr} (🏆 랭킹 ${rewardResult.achievedTopRank}위 ×${rewardResult.multiplier}배!) 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`
+      : `💿 획득 보상: +${finalCdGain.toLocaleString()} CD${bonusNoteStr} 지급 완료! (보유: ${(userState.cdCoins || 0).toLocaleString()} CD)`;
 
   state.resultPlayingIndex = null;
   const listEl = document.getElementById("historyList");
@@ -2199,6 +2275,18 @@ window.showRewardSummaryModal = function (res) {
   }
 
   const cdGainVal = Number(res.earnedCd) || 0;
+  const bonusTags = Array.isArray(res.bonusTags) ? res.bonusTags : [];
+  const totalBonusPct = Number(res.totalBonusPct) || 0;
+  const bonusBanner = document.getElementById("rewardBonusBanner");
+  if (bonusBanner) {
+    if (totalBonusPct > 0 && bonusTags.length > 0) {
+      bonusBanner.innerHTML = `${bonusTags.join(" · ")} <strong>(총 +${totalBonusPct}% 적용${res.multiplier > 1 ? ` × 랭킹 ${res.multiplier}배 중첩!` : ""})</strong>`;
+      bonusBanner.classList.remove("hidden");
+    } else {
+      bonusBanner.classList.add("hidden");
+    }
+  }
+
   document.getElementById("rewardCdGain").textContent =
     res.multiplier > 1
       ? `+${cdGainVal.toLocaleString()} CD (×${res.multiplier}배!)`

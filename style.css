@@ -120,6 +120,10 @@ body.on-home-screen .app-shell {
   padding-bottom: max(14px, calc(var(--os-safe-bottom, 0px) + 8px), calc(env(safe-area-inset-bottom) + 8px));
 }
 
+html.is-onestore-h5 .app-shell {
+  padding-top: min(26px, max(20px, calc(var(--os-safe-top, 0px) + 8px), calc(env(safe-area-inset-top) + 8px)));
+}
+
 /* ==================== 상단 액션퍼즐패밀리 스타일 헤더 ==================== */
 .top-header {
   display: flex;
@@ -252,6 +256,7 @@ body.keyboard-open #loginScreen .home-hero {
 .home-title-block {
   flex-shrink: 0;
   width: 100%;
+  padding: 0 58px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -881,6 +886,12 @@ body.keyboard-open #loginScreen .home-hero {
 .grade-B { background: #ea580c; }
 .grade-A { background: #ec4899; }
 .grade-S { background: #7c3aed; }
+.grade-S-plus {
+  background: linear-gradient(135deg, #f43f5e, #a855f7, #facc15);
+  border-color: #fde047;
+  width: 24px;
+  font-size: 0.62rem;
+}
 
 /* 하단 중앙: 아이템 이름 한 줄 깔끔 표기 */
 .apf-tile-name {
@@ -3572,10 +3583,10 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
 }
 
 .home-quick-btn .hq-lbl {
-  font-size: 0.64rem;
+  font-size: clamp(0.55rem, 2.45vw, 0.63rem);
   font-weight: 900;
   line-height: 1.1;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
   white-space: nowrap;
 }
 
@@ -3600,4 +3611,81 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
 .home-quick-btn .v2-red-dot {
   top: 4px;
   right: 4px;
+}
+
+/* [V2.1] 홈 좌측 상단 실시간 접속 유저 버튼 · 친구목록 초록불 · 유저목록 팝업 */
+.home-online-top-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 42;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 2.2px solid var(--game-border);
+  background: #ffffff;
+  color: #1e1b18;
+  font-size: 0.74rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--game-border);
+  transition: transform 0.1s ease;
+}
+
+.home-online-top-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 var(--game-border);
+}
+
+.online-dot-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+  animation: onlineDotPulse 1.8s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes onlineDotPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15); }
+}
+
+.kakao-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.online-status-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #94a3b8;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.online-status-dot.is-online {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.85);
+}
+
+.friend-online-pill {
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #4ade80;
+  white-space: nowrap;
+  flex-shrink: 0;
 }

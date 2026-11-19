@@ -7,7 +7,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20.8" />
+  <link rel="stylesheet" href="style.css?v=20.9" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
@@ -51,7 +51,7 @@
     }
     .admin-tabs-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 6px;
       margin-bottom: 14px;
     }
@@ -202,9 +202,11 @@
         <div class="option-chip" data-admin-cat="outfit" onclick="selectAdminItemCat('outfit')"><span class="chip-title">👕 의상</span></div>
         <div class="option-chip" data-admin-cat="acc" onclick="selectAdminItemCat('acc')"><span class="chip-title">🎸 악기</span></div>
         <div class="option-chip" data-admin-cat="bg" onclick="selectAdminItemCat('bg')"><span class="chip-title">🏞️ 배경</span></div>
+        <div class="option-chip" data-admin-cat="wing" onclick="selectAdminItemCat('wing')"><span class="chip-title">🪽 날개</span></div>
         <div class="option-chip" data-admin-cat="fishing_rod" onclick="selectAdminItemCat('fishing_rod')"><span class="chip-title">🎣 낚싯대</span></div>
         <div class="option-chip" data-admin-cat="fishing_bait" onclick="selectAdminItemCat('fishing_bait')"><span class="chip-title">🪱 미끼</span></div>
-        <div class="option-chip" data-admin-cat="special" onclick="selectAdminItemCat('special')" style="grid-column:span 4;"><span class="chip-title">🎫 스페셜(닉변권/성별변경)</span></div>
+        <div class="option-chip" data-admin-cat="game_item" onclick="selectAdminItemCat('game_item')"><span class="chip-title">🎒 게임아이템</span></div>
+        <div class="option-chip" data-admin-cat="special" onclick="selectAdminItemCat('special')" style="grid-column:span 2;"><span class="chip-title">🎫 스페셜(닉변권/성별변경)</span></div>
       </div>
 
       <div class="table-scroll">
@@ -214,7 +216,7 @@
               <th>아이템 ID</th>
               <th>아이템 이름</th>
               <th style="width:130px;">가격 (CD)</th>
-              <th style="width:120px;">메인 색상</th>
+              <th id="adminItemAttrColHead" style="width:140px;">메인 색상</th>
               <th style="width:140px;">저장 / 삭제</th>
             </tr>
           </thead>
@@ -381,7 +383,7 @@
           <div class="store-copy-row">
             <div class="store-copy-meta">
               <div class="store-copy-label">📱 앱 이름 / 매니페스트 표기 (`manifest.json`)</div>
-              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v10.16)</div>
+              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v20.9)</div>
             </div>
             <button type="button" class="btn" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeAppName', '앱 이름')">📋 복사</button>
           </div>
@@ -530,9 +532,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=20.8"></script>
-  <script src="pixel_avatar.js?v=20.8"></script>
-  <script src="online.js?v=20.8"></script>
+  <script src="data.js?v=20.9"></script>
+  <script src="pixel_avatar.js?v=20.9"></script>
+  <script src="online.js?v=20.9"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -617,7 +619,13 @@
             nickname: "__ADMIN_CONFIG__",
             bio: "시스템 글로벌 설정 데이터",
             cd_coins: 0,
-            avatar_config: { shopCatalog: AVATAR_SHOP_ITEMS, catalogVersion: SHOP_CATALOG_VERSION },
+            avatar_config: {
+              shopCatalog: {
+                ...AVATAR_SHOP_ITEMS,
+                game_item: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
+              },
+              catalogVersion: SHOP_CATALOG_VERSION
+            },
             owned_items: adminOverridesList,
             updated_at: new Date().toISOString()
           });
@@ -662,7 +670,7 @@
       if (!tbody || !sbClient) return;
       const { data, error } = await sbClient.from("events").select("*").order("sort_order", { ascending: true }).order("id", { ascending: true });
       if (error) {
-        tbody.innerHTML = `<tr><td colspan="5">이벤트 조회 오류 (테섭 events 테이블 확인)</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">이벤트 조회 오류 (본섭 events 테이블 및 RLS 정책 확인: ${escapeMdHtml(error.message || "")})</td></tr>`;
         return;
       }
       adminEventsCache = data || [];
@@ -737,10 +745,15 @@
         return;
       }
       const payload = { title, banner_url, content, is_published, updated_at: new Date().toISOString() };
+      let saveRes = null;
       if (editId) {
-        await sbClient.from("events").update(payload).eq("id", Number(editId));
+        saveRes = await sbClient.from("events").update(payload).eq("id", Number(editId));
       } else {
-        await sbClient.from("events").insert({ ...payload, sort_order: adminEventsCache.length + 1 });
+        saveRes = await sbClient.from("events").insert({ ...payload, sort_order: adminEventsCache.length + 1 });
+      }
+      if (saveRes && saveRes.error) {
+        gameAlert("이벤트 저장 실패: " + saveRes.error.message);
+        return;
       }
       resetAdminEventForm();
       await loadAdminEvents();
@@ -749,13 +762,21 @@
 
     window.toggleAdminEventPublish = async function (id, nextState) {
       if (!sbClient) return;
-      await sbClient.from("events").update({ is_published: nextState, updated_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await sbClient.from("events").update({ is_published: nextState, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) {
+        gameAlert("게시 상태 변경 실패: " + error.message);
+        return;
+      }
       await loadAdminEvents();
     };
 
     window.deleteAdminEvent = function (id) {
       gameConfirm("이 이벤트를 삭제할까요?", async () => {
-        await sbClient.from("events").delete().eq("id", id);
+        const { error } = await sbClient.from("events").delete().eq("id", id);
+        if (error) {
+          gameAlert("이벤트 삭제 실패: " + error.message);
+          return;
+        }
         await loadAdminEvents();
       });
     };
@@ -918,6 +939,13 @@
     };
 
     // ==================== 2. 상점 아이템 관리 ====================
+    function getAdminItemList(cat) {
+      if (cat === "game_item") {
+        return typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [];
+      }
+      return AVATAR_SHOP_ITEMS[cat] || [];
+    }
+
     window.selectAdminItemCat = function (cat) {
       currentAdminItemCat = cat;
       document.querySelectorAll("[data-admin-cat]").forEach(b => {
@@ -927,19 +955,32 @@
     };
 
     function renderAdminItemsTable() {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat] || [];
+      const list = getAdminItemList(currentAdminItemCat);
+      const isGameItem = currentAdminItemCat === "game_item";
+      const attrHead = document.getElementById("adminItemAttrColHead");
+      if (attrHead) attrHead.textContent = isGameItem ? "아이템 설명" : "메인 색상";
       const tbody = document.getElementById("adminItemsTbody");
       tbody.innerHTML = list
         .map(
           (item, idx) => `
         <tr>
-          <td><code>${item.id}</code></td>
-          <td><input type="text" class="text-input" id="itemName_${idx}" value="${item.name}" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td><code>${item.id}</code>${item.purchasable === false ? `<div style="font-size:0.68rem; color:#be123c; font-weight:900;">(출석한정)</div>` : ""}</td>
+          <td><input type="text" class="text-input" id="itemName_${idx}" value="${escapeMdHtml(item.name)}" style="padding:5px 8px; font-size:0.8rem;" /></td>
           <td><input type="number" class="text-input" id="itemPrice_${idx}" value="${item.price}" style="padding:5px 8px; font-size:0.8rem;" /></td>
-          <td><input type="text" class="text-input" id="itemColor_${idx}" value="${item.color || item.main || ""}" placeholder="#hex" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td>
+            ${
+              isGameItem
+                ? `<input type="text" class="text-input" id="itemColor_${idx}" value="${escapeMdHtml(String(item.desc || "").replace(/\n/g, " "))}" placeholder="아이템 설명" style="padding:5px 8px; font-size:0.75rem;" />`
+                : `<input type="text" class="text-input" id="itemColor_${idx}" value="${escapeMdHtml(item.color || item.main || "")}" placeholder="#hex" style="padding:5px 8px; font-size:0.8rem;" />`
+            }
+          </td>
           <td>
             <button class="btn btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="saveAdminItemRow(${idx})">☁️ 저장</button>
-            <button class="btn" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="deleteAdminItemRow(${idx})">삭제</button>
+            ${
+              isGameItem
+                ? ""
+                : `<button class="btn" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="deleteAdminItemRow(${idx})">삭제</button>`
+            }
           </td>
         </tr>
       `
@@ -948,21 +989,27 @@
     }
 
     window.saveAdminItemRow = async function (idx) {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      const list = getAdminItemList(currentAdminItemCat);
       if (!list || !list[idx]) return;
       list[idx].name = document.getElementById(`itemName_${idx}`).value.trim();
       list[idx].price = Number(document.getElementById(`itemPrice_${idx}`).value) || 0;
-      const col = document.getElementById(`itemColor_${idx}`).value.trim();
-      if (col) {
-        if (list[idx].main !== undefined) list[idx].main = col;
-        else list[idx].color = col;
+      const colOrDesc = document.getElementById(`itemColor_${idx}`).value.trim();
+      if (currentAdminItemCat === "game_item") {
+        if (colOrDesc) list[idx].desc = colOrDesc;
+      } else if (colOrDesc) {
+        if (list[idx].main !== undefined) list[idx].main = colOrDesc;
+        else list[idx].color = colOrDesc;
       }
       await persistAdminConfigToServer();
       gameAlert(`✅ [${list[idx].name}] 아이템 가격/설정이 수파베이스에 저장되었습니다!`);
     };
 
     window.deleteAdminItemRow = function (idx) {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      if (currentAdminItemCat === "game_item") {
+        gameAlert("게임 아이템 6종은 인게임 시스템과 연동되어 있어 삭제할 수 없습니다. (가격·이름·설명 수정만 지원)");
+        return;
+      }
+      const list = getAdminItemList(currentAdminItemCat);
       if (!list || !list[idx]) return;
       gameConfirm(`[${list[idx].name}] 아이템을 상점에서 삭제할까요?`, async () => {
         list.splice(idx, 1);
@@ -972,6 +1019,10 @@
     };
 
     window.openAddItemModal = function () {
+      if (currentAdminItemCat === "game_item") {
+        gameAlert("게임 아이템 신규 추가는 전용 인게임 효과가 필요하여 현재 기존 6종 가격/설명 수정만 지원됩니다.");
+        return;
+      }
       gamePrompt(`[${currentAdminItemCat}] 카테고리에 추가할 새 아이템 이름을 입력하세요:`, "신규 한정판 파츠", name => {
         if (!name) return;
         gamePrompt("아이템 가격(CD)을 입력하세요:", "80", async priceStr => {

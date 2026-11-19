@@ -20,9 +20,13 @@
 
     function applyOnestoreSafeArea(safeArea) {
       if (!safeArea || typeof safeArea !== "object") return;
+      document.documentElement.classList.add("is-onestore-h5");
       const rootStyle = document.documentElement.style;
       const toPx = v => (Number.isFinite(Number(v)) ? `${Math.max(0, Number(v))}px` : "0px");
-      rootStyle.setProperty("--os-safe-top", toPx(safeArea.top));
+      const rawTop = Number(safeArea.top);
+      // 원스토어 상단 플로팅 버튼 영역으로 과도하게 밀리지 않도록 상단 여백 상한(18px + 8px = 최대 26px) 적용
+      const clampedTop = Number.isFinite(rawTop) ? Math.min(18, Math.max(0, rawTop)) : 0;
+      rootStyle.setProperty("--os-safe-top", `${clampedTop}px`);
       rootStyle.setProperty("--os-safe-bottom", toPx(safeArea.bottom));
       rootStyle.setProperty("--os-safe-left", toPx(safeArea.left));
       rootStyle.setProperty("--os-safe-right", toPx(safeArea.right));
@@ -92,6 +96,7 @@
           }
 
           window.onestoreCtx = info || {};
+          document.documentElement.classList.add("is-onestore-h5");
           if (typeof info?.ringerSilent === "boolean") {
             window.__onestoreRingerSilent = info.ringerSilent;
           }
@@ -158,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20.8" />
+  <link rel="stylesheet" href="style.css?v=20.9" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -232,6 +237,11 @@
     <!-- ==================== 1. 메인 홈 화면 (타이틀 · 캐릭터 · 경험치 · 4×2 퀵그리드 · 2×3 도크) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
+        <button type="button" id="homeOnlineUsersBtn" class="home-online-top-btn" onclick="openOnlineUsersModal()" title="실시간 접속 중인 유저 목록">
+          <span class="online-dot-pulse"></span>
+          <span>👥</span>
+          <strong id="homeOnlineUsersCount">0</strong>
+        </button>
         <div class="home-title-block">
           <button type="button" id="homeCharTitlePill" class="home-main-title-btn" onclick="openTitlesModal()" title="타이틀 · 레벨 도감 보기">
             Lv.1 🐣 방구석 리스너
@@ -280,9 +290,9 @@
             <span class="hq-ico">🎉</span>
             <span class="hq-lbl">이벤트</span>
           </button>
-          <button type="button" class="home-quick-btn" onclick="claimDailyCd()" title="매일 무료 +100 CD">
+          <button type="button" class="home-quick-btn" onclick="claimDailyCd()" title="매일 일일 무료CD +100 CD">
             <span class="hq-ico">💿</span>
-            <span class="hq-lbl">일일CD</span>
+            <span class="hq-lbl">일일 무료CD</span>
             <span id="dailyCdNotiDot" class="v2-red-dot hidden"></span>
           </button>
           <button type="button" class="home-quick-btn" onclick="openRandomBoxModal()" title="오늘의 랜덤 선물상자">
@@ -420,7 +430,7 @@
           <div class="apf-shop-topbar">
             <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기">⬅</button>
             <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" id="shopFreeCdAdBtn" class="btn btn-gold" onclick="claimShopFreeCdAd()" style="padding:5px 9px; font-size:0.72rem; border-radius:999px;">📺 무료 +200 CD (0/3)</button>
+              <button type="button" id="shopFreeCdAdBtn" class="btn btn-gold" onclick="claimShopFreeCdAd()" style="padding:5px 9px; font-size:0.72rem; border-radius:999px;">📺 무료CD +200 (0/3)</button>
               <div class="cd-pill">
                 <span>💿</span>
                 <strong id="shopCdBalance">100</strong>
@@ -470,7 +480,7 @@
         <div class="shop-group-bar">
           <button type="button" class="shop-group-btn active" data-shop-group="fashion" onclick="switchShopMainGroup('fashion')">👗 패션</button>
           <button type="button" class="shop-group-btn" data-shop-group="item" onclick="switchShopMainGroup('item')">🎒 아이템</button>
-          <button type="button" class="shop-group-btn" data-shop-group="feature" onclick="switchShopMainGroup('feature')">🎣 기능</button>
+          <button type="button" class="shop-group-btn" data-shop-group="feature" onclick="switchShopMainGroup('feature')">🎣 낚시</button>
           <button type="button" class="shop-group-btn" data-shop-group="special" onclick="switchShopMainGroup('special')">🎫 변경권</button>
         </div>
         <div id="shopSubTabsFashion" class="apf-tab-bar" style="grid-template-columns: repeat(7, 1fr);">
@@ -914,7 +924,7 @@
         <div id="rankingMyCurrentRankBanner" class="ranking-my-rank-banner">현재 기준 내 순위를 계산하는 중...</div>
         <div id="rankingTop3Podium" class="ranking-top3-podium"></div>
 
-        <!-- 랭킹 리스트 스크롤 박스 (4위 ~ 20위) -->
+        <!-- 랭킹 리스트 스크롤 박스 (4위 ~ 10위) -->
         <div id="rankingListContainer" class="history-scroll-box" style="flex:1; min-height:0;"></div>
 
         <button class="btn" onclick="showHome()" style="width:100%; flex-shrink:0;">⬅ 메인 화면으로 돌아가기</button>
@@ -1086,7 +1096,7 @@
       </div>
       <p style="font-size:0.82rem; color:var(--text-sub); margin-bottom:10px;">
         시작할 캐릭터 성별을 선택해주세요!<br />
-        <span style="font-size:0.74rem; color:#b45309; font-weight:800;">※ 가입 후 성별 변경 시 상점 [성별 변경권 10,000 CD] 필요</span>
+        <span style="font-size:0.74rem; color:#b45309; font-weight:800;">※ 가입 후 성별 변경 시 상점 [성별 변경권 20,000 CD] 필요</span>
       </p>
       <div class="home-wide-stage" style="max-width:320px; margin:0 auto 12px;">
         <canvas id="signupCharPreview" width="640" height="320" style="width:100%; height:155px; display:block;"></canvas>
@@ -1264,27 +1274,27 @@
 
         <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🏠 메인 화면 &amp; UI 전면 개편</p>
         <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>4×2 퀵메뉴 &amp; 2×3 메인 버튼</strong>: 가이드, 음소거, 업데이트, 알림, 이벤트, 일일 CD, 랜덤 선물상자, 출석체크를 한눈에 보기 쉽게 배치했습니다.</li>
+          <li><strong>4×2 퀵메뉴 &amp; 2×3 메인 버튼</strong>: 가이드, 음소거, 업데이트, 알림, 이벤트, 일일 무료CD, 랜덤 선물상자, 출석체크를 한눈에 보기 쉽게 배치했습니다.</li>
           <li><strong>상단 종료 버튼 추가</strong>: 우측 상단 전원 아이콘을 눌러 언제든 깔끔하게 앱을 종료할 수 있습니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#ea580c; margin-bottom:4px;">🎮 플레이 허브 &amp; 무한도전 모드 신설</p>
         <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
           <li><strong>플레이 허브</strong>: 싱글 플레이, 멀티 플레이, 무한도전을 한곳에서 선택할 수 있습니다.</li>
-          <li><strong>무한도전 서바이벌</strong>: 하트 3개로 최대한 많은 곡을 이어 맞히는 신규 도전 모드가 추가되었습니다.</li>
-          <li><strong>노템 추가 보너스</strong>: 아이템을 사용하지 않고 플레이하면 최종 EXP와 CD를 <strong>+10% 추가</strong>로 획득합니다.</li>
+          <li><strong>무한도전 서바이벌</strong>: 하트 5개로 최대한 많은 곡을 이어 맞히는 신규 도전 모드입니다. (30·50·70·100개 이상 정답 시 EXP·CD +10%~+50% 구간 보너스)</li>
+          <li><strong>노템 · 퍼펙트 보너스</strong>: 아이템 미사용(+10%), 10·20·50문제 100% 퍼펙트 클리어(+10%) 보너스가 최종 EXP와 CD에 합산·중첩 지급됩니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎒 가방 &amp; 신규 게임 아이템 6종 출시</p>
         <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
           <li><strong>전용 가방 화면</strong>: 3×2 장착 슬롯과 3×3 인벤토리에서 보유한 아이템을 확인하고 미리 장착할 수 있습니다.</li>
-          <li><strong>신규 아이템 6종</strong>: 🎧 3초 듣기, 🔤 초성힌트, ⏳ 모래시계(+10초), 💖 하트요정, 🪽 부활날개, ⚡ 더블어택(점수·CD 2배)이 추가되었습니다.</li>
+          <li><strong>신규 아이템 6종</strong>: 🎧 3초 듣기(해당 문제 재재생 무료), 🔤 초성힌트, ⏳ 모래시계(+10초), 💖 하트요정, 🪽 부활날개, ⚡ 더블어택(싱글 점수·보상 2배 / 멀티 최종 보상 2배)이 추가되었습니다.</li>
           <li><strong>멀티 아이템전 지원</strong>: 방 만들기에서 노템전 / 아이템전을 선택할 수 있으며, 방장은 대기실에서 방 설정을 바로 변경할 수 있습니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">👗 상점 리뉴얼 &amp; 날개 · 소모성 미끼</p>
         <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>4단 카테고리 개편</strong>: 패션 / 아이템 / 기능 / 변경권으로 깔끔하게 나누고, 상점에서 광고 시청 무료 CD(1일 3회)를 받을 수 있습니다.</li>
+          <li><strong>4단 카테고리 개편</strong>: 패션 / 아이템 / 낚시 / 변경권으로 깔끔하게 나누고, 상점에서 광고 시청 무료CD(1일 3회 +200 CD)를 받을 수 있습니다.</li>
           <li><strong>신규 날개 4종 &amp; 30분 미끼</strong>: 캐릭터 뒤에 달리는 날개 코스튬 4종과 30분간 CD 보상을 높여주는 소모성 미끼 4종이 추가되었습니다.</li>
         </ul>
 
@@ -1453,6 +1463,9 @@
       <!-- 랭킹 3위 내 최초 진입 시에만 표시되는 TOP 3 배너 -->
       <div id="rewardTop3Banner" class="hidden" style="background:linear-gradient(135deg, #fef08a, #f59e0b); border:2.5px solid #1e1b18; border-radius:14px; padding:10px; margin-bottom:10px; color:#1e1b18; font-weight:900;"></div>
 
+      <!-- 노템 / 퍼펙트 / 무한도전 구간 보너스 달성 내역 -->
+      <div id="rewardBonusBanner" class="hidden" style="background:#ecfdf5; border:2px solid #10b981; border-radius:11px; padding:7px 10px; margin-bottom:10px; color:#065f46; font-size:0.8rem; font-weight:800;"></div>
+
       <div class="score-rule-grid" style="margin-bottom:12px;">
         <div class="score-rule-item"><span>💿 획득 CD</span><strong id="rewardCdGain" style="color:#b45309;">+0 CD</strong></div>
         <div class="score-rule-item"><span>✨ 획득 EXP</span><strong id="rewardExpGain" class="score-plus">+0 EXP</strong></div>
@@ -1504,7 +1517,7 @@
           <li><strong>문제 모드</strong>: <strong>📖 비하인드</strong>(사연), <strong>📝 가사</strong>(하이라이트), <strong>⚡ 1초 듣기</strong>(음원 1초)!</li>
           <li><strong>난이도 단계</strong>: 1단계(노래) / 2단계(가수) / 3단계(가수+노래 모두, +20점 보너스)</li>
           <li><strong>특수 옵션</strong>: ⏱️ 타임어택(15초 제한, 점수 ×2배) / 🔥 찐팬 하드모드</li>
-          <li><strong>무한도전</strong>: 하트 3개로 최대한 많은 곡을 이어 맞히는 서바이벌 모드입니다.</li>
+          <li><strong>무한도전</strong>: 하트 5개로 최대한 많은 곡을 이어 맞히는 서바이벌 모드입니다. (정답 30+·50+·70+·100+개 달성 시 EXP·CD +10%~+50% 구간 보너스!)</li>
         </ul>
 
         <p style="font-weight:900; color:#b45309; margin-bottom:4px;">⚔️ 2. 멀티 플레이 (실시간 1:1 · 4인 대전)</p>
@@ -1516,20 +1529,20 @@
         <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎒 3. 가방 · 상점 · 게임 아이템</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
           <li><strong>가방</strong>에서 보유한 아이템을 <strong>최대 6개까지 사전 장착</strong>하고, 게임 화면 상단 바에서 즉시 사용할 수 있습니다.</li>
-          <li><strong>아이템 안내</strong>: 🎧 3초 듣기 · 🔤 초성힌트 · ⏳ 모래시계(+10초) · 💖 하트요정 · 🪽 부활날개(무한도전 전용) · ⚡ 더블어택(점수·CD 2배)</li>
-          <li>아이템을 <strong>하나도 쓰지 않고(노템)</strong> 클리어하면 최종 EXP·CD <strong>+10% 보너스</strong>가 지급됩니다!</li>
+          <li><strong>아이템 안내</strong>: 🎧 3초 듣기 · 🔤 초성힌트 · ⏳ 모래시계(+10초) · 💖 하트요정 · 🪽 부활날개(무한도전 전용) · ⚡ 더블어택(싱글 점수·보상 2배 / 멀티 최종 보상 2배)</li>
+          <li>아이템 미사용(<strong>노템 +10%</strong>)과 일반 모드 <strong>100% 퍼펙트(+10%)</strong>·무한도전 구간 보너스는 합산되어 랭킹 TOP 3 배율과도 중첩됩니다!</li>
         </ul>
 
         <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 4. 소셜 낚시터 &amp; 매일 혜택</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
-          <li><strong>낚시터</strong>: 통합 서버에서 실시간 채팅을 나누며 방치 보상(매일 오전 06:00 초기화)을 받습니다. 상점 낚싯대(EXP)·30분 미끼(CD)·광고 2배 버프로 보상을 크게 올릴 수 있어요.</li>
-          <li><strong>홈 퀵메뉴</strong>: 매일 <strong>일일 +100 CD</strong>, <strong>랜덤 선물상자</strong>, <strong>28일 출석체크</strong>, <strong>진행 중 이벤트</strong> 혜택을 꼭 챙기세요!</li>
+          <li><strong>낚시터</strong>: 통합 서버에서 실시간 채팅을 나누며 방치 보상(매일 오전 06:00 초기화)을 받습니다. 상점 [낚시] 탭의 낚싯대(EXP)·30분 미끼(CD)·광고 2배 버프로 보상을 크게 올릴 수 있어요.</li>
+          <li><strong>홈 퀵메뉴</strong>: 매일 <strong>일일 무료CD (+100 CD)</strong>, <strong>랜덤 선물상자</strong>, <strong>28일 출석체크</strong>, <strong>진행 중 이벤트</strong> 혜택을 꼭 챙기세요!</li>
         </ul>
 
         <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">🏆 5. 레벨 · 타이틀 · 랭킹 TOP 3 보너스</p>
         <ul style="padding-left:18px; margin-bottom:4px;">
           <li>플레이와 낚시터에서 <strong>💿 CD 코인</strong>과 <strong>✨ EXP</strong>를 모아 Lv.1~Lv.20 타이틀을 달성하세요.</li>
-          <li>각 모드 랭킹 <strong>TOP 3 진입/순위 갱신 시 경험치·CD ×5배(1위) / ×3배(2위) / ×2배(3위)</strong> 보너스가 지급됩니다!</li>
+          <li>각 모드 점수제 랭킹에서 <strong>본인 최고 기록을 갱신(+1점↑)하며 TOP 3 진입 시 경험치·CD ×5배(1위) / ×3배(2위) / ×2배(3위)</strong> 보너스가 지급됩니다!</li>
         </ul>
       </div>
       <button class="btn btn-primary btn-lg" onclick="closeModal('howToPlayModal')" style="padding:11px;">확인 (닫기)</button>
@@ -1663,6 +1676,26 @@
     </div>
   </div>
 
+  <!-- ==================== [V2.1 모달 E] 실시간 접속 중인 유저 목록 팝업 ==================== -->
+  <div id="onlineUsersModal" class="modal-backdrop hidden" style="z-index:2260;">
+    <div class="modal-content" style="max-width:430px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; gap:7px;">
+          <h3 style="font-size:1rem;">🟢 실시간 접속 유저</h3>
+          <span id="onlineUsersModalCount" class="badge accent" style="font-size:0.72rem;">0명 접속중</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:5px;">
+          <button type="button" class="header-btn" onclick="openOnlineUsersModal()" title="새로고침">🔄</button>
+          <button type="button" class="header-btn" onclick="closeModal('onlineUsersModal')">닫기 ✕</button>
+        </div>
+      </div>
+      <p style="font-size:0.76rem; color:var(--text-sub); margin-bottom:8px;">
+        현재 음악왕에 접속 중인 유저에게 바로 ➕ 친구추가, 💬 1:1 DM, 🪪 프로필 보기를 할 수 있어요!
+      </p>
+      <div id="onlineUsersModalList" class="history-scroll-box" style="max-height:360px;"></div>
+    </div>
+  </div>
+
   <!-- ==================== [커스텀 시스템 팝업 모달] ==================== -->
   <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
     <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
@@ -1709,11 +1742,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=20.8"></script>
-  <script defer src="pixel_avatar.js?v=20.8"></script>
-  <script defer src="online.js?v=20.8"></script>
-  <script defer src="fishing.js?v=20.8"></script>
-  <script defer src="app.js?v=20.8"></script>
+  <script defer src="data.js?v=20.9"></script>
+  <script defer src="pixel_avatar.js?v=20.9"></script>
+  <script defer src="online.js?v=20.9"></script>
+  <script defer src="fishing.js?v=20.9"></script>
+  <script defer src="app.js?v=20.9"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

@@ -136,7 +136,7 @@ const GAME_ITEMS_CATALOG = [
     scopeLabel: "공용 · 희귀 S",
     maxAdPerDay: 0,
     adRechargeable: false,
-    desc: "사용 시 해당 판에서 획득하는\n최종 점수와 CD 보상을 2배로 만듭니다. (광고 충전 불가)"
+    desc: "사용 시 싱글에서는 최종 점수·EXP·CD가 2배,\n멀티 아이템전에서는 최종 EXP·CD 보상이 2배가 됩니다. (광고 충전 불가)"
   }
 ];
 
@@ -430,6 +430,13 @@ function applyServerShopCatalog(customCatalog, catalogVersion = 0) {
     });
     AVATAR_SHOP_ITEMS[cat] = Array.from(mergedMap.values());
   });
+  if (Array.isArray(customCatalog.game_item)) {
+    const srvMap = new Map(customCatalog.game_item.filter(x => x && x.id).map(x => [x.id, x]));
+    GAME_ITEMS_CATALOG.forEach(item => {
+      const ov = srvMap.get(item.id);
+      if (ov) Object.assign(item, ov);
+    });
+  }
 }
 
 function getItemById(category, id) {
