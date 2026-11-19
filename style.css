@@ -1981,11 +1981,179 @@ body.on-home-screen .floating-sound-btn {
 .kakao-chat-inputbar {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding: 9px 10px;
   background: #ffffff;
   border-top: 2px solid #cbd5e1;
   flex-shrink: 0;
+}
+
+.kakao-emoji-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 2px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.kakao-emoji-toggle-btn.is-active {
+  background: #fef9c3;
+  border-color: #f59e0b;
+}
+
+.kakao-stamp-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 2.2px solid #93c5fd;
+  box-shadow: 0 3px 0 rgba(15, 23, 42, 0.14);
+  min-width: 96px;
+}
+
+.kakao-stamp-ico {
+  font-size: 2.55rem;
+  line-height: 1.05;
+}
+
+.kakao-stamp-lbl {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #1e1b18;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dm-emoji-drawer {
+  background: #f8fafc;
+  border-top: 2px solid #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.dm-emoji-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dm-emoji-tab-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.8px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #475569;
+  cursor: pointer;
+}
+
+.dm-emoji-tab-btn.active {
+  background: #fef08a;
+  border-color: #1e1b18;
+  color: #1e1b18;
+}
+
+.dm-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 10px 10px;
+  max-height: 185px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dm-emoji-grid.is-inline-mode {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.dm-stamp-pick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 11px;
+  border: 1.8px solid #cbd5e1;
+  cursor: pointer;
+}
+
+.dm-stamp-pick-ico {
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.dm-stamp-pick-lbl {
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #1e1b18;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.dm-inline-emoji-btn {
+  height: 36px;
+  border-radius: 9px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+/* [V2.2] 소모품 수량 선택 구매 모달 UI */
+.shop-qty-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.shop-qty-step-btn {
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 2px solid var(--game-border);
+  background: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #1e1b18;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(30, 27, 24, 0.25);
+}
+
+.shop-qty-step-btn.is-max {
+  background: #fef08a;
+  color: #b45309;
+}
+
+.shop-qty-num-input {
+  width: 64px;
+  text-align: center;
+  padding: 7px 4px;
+  border-radius: 9px;
+  border: 2.2px solid var(--game-border);
+  font-size: 0.96rem;
+  font-weight: 900;
+  color: #1e1b18;
+  background: #fffbeb;
 }
 
 .kakao-send-btn {

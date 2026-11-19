@@ -7,13 +7,16 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=21.1" />
+  <link rel="stylesheet" href="style.css?v=21.2" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
-      overflow-y: auto;
-      height: auto;
+      position: static !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      height: auto !important;
       min-height: 100dvh;
+      max-height: none !important;
     }
     .admin-container {
       max-width: 980px;
@@ -44,20 +47,123 @@
     }
     .table-scroll {
       max-height: 62dvh;
-      overflow-y: auto;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
       border: 2px solid var(--pixel-border);
       border-radius: 12px;
       background: #ffffff;
     }
     .admin-tabs-grid {
       display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
       margin-bottom: 14px;
     }
-    @media (max-width: 820px) {
+    .banned-words-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px;
+      min-height: 64px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 2px solid var(--game-border);
+      border-radius: 12px;
+    }
+    .banned-word-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #fff1f2;
+      border: 1.5px solid #fb7185;
+      color: #9f1239;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .banned-word-chip button {
+      border: none;
+      background: none;
+      color: #e11d48;
+      font-weight: 900;
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 0.82rem;
+    }
+    @media (max-width: 768px) {
+      .admin-container {
+        padding: 10px 8px 28px;
+      }
+      .top-header {
+        height: auto !important;
+        padding: 10px 12px !important;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .top-header .brand {
+        flex: 1 1 100%;
+      }
+      .top-header .brand-title {
+        font-size: 0.92rem;
+        line-height: 1.3;
+        white-space: normal;
+      }
+      .top-header .header-right {
+        width: 100%;
+      }
+      .top-header .header-right .btn {
+        width: 100%;
+      }
+      .card {
+        padding: 12px 10px !important;
+        border-radius: 16px !important;
+      }
       .admin-tabs-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+      }
+      .admin-tabs-grid .option-chip {
+        padding: 8px 6px;
+      }
+      .admin-tabs-grid .chip-title {
+        font-size: 0.76rem;
+      }
+      .input-row {
+        grid-template-columns: 1fr !important;
+        gap: 7px;
+      }
+      .option-grid.cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+      #adminDecadeFilter {
+        max-width: none !important;
+        width: 100%;
+      }
+      .table-scroll {
+        max-height: 58dvh;
+      }
+      .admin-table {
+        min-width: 580px;
+        font-size: 0.78rem;
+      }
+      .admin-table th,
+      .admin-table td {
+        padding: 7px 8px;
+      }
+      .gift-user-checklist {
+        grid-template-columns: 1fr;
+        max-height: 200px;
+      }
+      .modal-content {
+        width: calc(100vw - 16px) !important;
+        max-height: 88dvh;
+        overflow-y: auto;
+        padding: 14px 12px !important;
+      }
+      .store-copy-meta {
+        min-width: 0;
       }
     }
     .gift-user-checklist {
@@ -190,6 +296,9 @@
       </div>
       <div class="option-chip" id="tabBtnEvents" onclick="switchAdminTab('events')">
         <span class="chip-title">🎉 이벤트 관리</span>
+      </div>
+      <div class="option-chip" id="tabBtnBanned" onclick="switchAdminTab('banned')">
+        <span class="chip-title">🚫 금칙어 관리</span>
       </div>
       <div class="option-chip" id="tabBtnStore" onclick="switchAdminTab('store')">
         <span class="chip-title">📦 스토어 출시 정보</span>
@@ -487,6 +596,30 @@
       </div>
     </section>
 
+    <!-- ==================== 탭 4-C: 금칙어 관리 (V2.2) ==================== -->
+    <section id="adminBannedSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:1rem;">🚫 채팅 · 닉네임 · 소개글 금칙어 관리 (<span id="adminBannedCount">0</span>개)</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">낚시터 채팅, 대전 대기방, 1:1 DM, 회원가입/닉네임 변경, 한줄 소개에 모두 자동 적용됩니다. (추가/삭제 시 서버에 즉시 저장)</p>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="restoreDefaultBannedWords()">🔄 기본 금칙어 합치기</button>
+      </div>
+
+      <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div class="action-row" style="margin-bottom:8px; flex-wrap:wrap;">
+          <input type="text" id="adminBannedWordInput" class="text-input" placeholder="금칙어 입력 (쉼표 , 로 여러 개 동시 추가 가능)" style="flex:1; min-width:200px;" onkeydown="if(event.key==='Enter') addAdminBannedWords()" />
+          <button type="button" class="btn btn-gold" style="padding:8px 14px;" onclick="addAdminBannedWords()">➕ 금칙어 추가</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <span style="font-size:0.73rem; color:var(--text-sub);">💡 공백/특수문자 우회(`ㅅ ㅂ`, `시.발`)도 자동 감지합니다. 정상 단어 오차단을 막기 위해 2글자 이상 등록을 권장합니다.</span>
+          <input type="text" id="adminBannedSearchInput" class="text-input" placeholder="등록된 금칙어 검색..." style="width:170px; padding:5px 8px; font-size:0.78rem;" oninput="renderAdminBannedWordsGrid()" />
+        </div>
+      </div>
+
+      <div id="adminBannedWordsGrid" class="banned-words-grid"></div>
+    </section>
+
     <!-- ==================== 탭 5: 스토어 심사·출시 필수 제출 정보 ==================== -->
     <section id="adminStoreSection" class="card hidden">
       <div style="margin-bottom:12px;">
@@ -544,7 +677,7 @@
           <div class="store-copy-row">
             <div class="store-copy-meta">
               <div class="store-copy-label">📱 앱 이름 / 매니페스트 표기 (`manifest.json`)</div>
-              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v21.1)</div>
+              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v21.2)</div>
             </div>
             <button type="button" class="btn" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeAppName', '앱 이름')">📋 복사</button>
           </div>
@@ -693,9 +826,9 @@
     </div>
   </div>
 
-  <script src="data.js?v=21.1"></script>
-  <script src="pixel_avatar.js?v=21.1"></script>
-  <script src="online.js?v=21.1"></script>
+  <script src="data.js?v=21.2"></script>
+  <script src="pixel_avatar.js?v=21.2"></script>
+  <script src="online.js?v=21.2"></script>
   <script>
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
@@ -732,6 +865,7 @@
       await fetchAdminConfigFromServer();
       renderAdminSongsTable();
       renderAdminItemsTable();
+      renderAdminBannedWordsGrid();
       populateAdminGiftItemSelect();
       const sqlEl = document.getElementById("adminGiftsSqlCode");
       if (sqlEl) sqlEl.textContent = ADMIN_GIFTS_SETUP_SQL;
@@ -740,6 +874,9 @@
       loadAdminEvents();
       loadAdminGiftsHistory();
     }
+
+    let adminBannedWordsCache =
+      typeof DEFAULT_BANNED_WORDS !== "undefined" ? [...DEFAULT_BANNED_WORDS] : [];
 
     async function fetchAdminConfigFromServer() {
       if (!sbClient) return;
@@ -753,6 +890,15 @@
         adminConfigRowId = data.id;
         if (data.avatar_config && data.avatar_config.shopCatalog) {
           applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
+        }
+        if (data.avatar_config && Array.isArray(data.avatar_config.bannedWords)) {
+          if (typeof applyServerBannedWords === "function") {
+            applyServerBannedWords(data.avatar_config.bannedWords);
+          }
+          adminBannedWordsCache =
+            typeof getActiveBannedWordsList === "function"
+              ? getActiveBannedWordsList()
+              : [...data.avatar_config.bannedWords];
         }
         if (Array.isArray(data.owned_items)) {
           adminOverridesList = data.owned_items;
@@ -789,7 +935,8 @@
                 ...AVATAR_SHOP_ITEMS,
                 game_item: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
               },
-              catalogVersion: SHOP_CATALOG_VERSION
+              catalogVersion: SHOP_CATALOG_VERSION,
+              bannedWords: adminBannedWordsCache
             },
             owned_items: adminOverridesList,
             updated_at: new Date().toISOString()
@@ -798,6 +945,87 @@
       } catch (e) {}
     }
 
+    window.renderAdminBannedWordsGrid = function () {
+      const grid = document.getElementById("adminBannedWordsGrid");
+      const countEl = document.getElementById("adminBannedCount");
+      const kw = (document.getElementById("adminBannedSearchInput")?.value || "").trim().toLowerCase();
+      if (countEl) countEl.textContent = String(adminBannedWordsCache.length);
+      if (!grid) return;
+
+      const filtered = adminBannedWordsCache
+        .map((w, idx) => ({ w, idx }))
+        .filter(item => !kw || item.w.toLowerCase().includes(kw));
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="width:100%; text-align:center; padding:14px; font-size:0.8rem; color:var(--text-sub);">${kw ? "검색된 금칙어가 없습니다." : "등록된 금칙어가 없습니다."}</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered
+        .map(
+          item => `
+        <span class="banned-word-chip">
+          <span>${escapeMdHtml(item.w)}</span>
+          <button type="button" title="삭제" onclick="removeAdminBannedWord(${item.idx})">✕</button>
+        </span>
+      `
+        )
+        .join("");
+    };
+
+    window.addAdminBannedWords = async function () {
+      const inp = document.getElementById("adminBannedWordInput");
+      const raw = inp ? inp.value.trim() : "";
+      if (!raw) {
+        gameAlert("추가할 금칙어를 입력해주세요!");
+        return;
+      }
+      const tokens = raw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      const seen = new Set(adminBannedWordsCache.map(w => w.toLowerCase()));
+      let addedCount = 0;
+      tokens.forEach(t => {
+        if (!seen.has(t.toLowerCase())) {
+          seen.add(t.toLowerCase());
+          adminBannedWordsCache.push(t);
+          addedCount += 1;
+        }
+      });
+      if (inp) inp.value = "";
+      if (addedCount === 0) {
+        gameAlert("이미 등록된 금칙어입니다.");
+        return;
+      }
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+      gameAlert(`🚫 금칙어 ${addedCount}개가 추가되어 서버에 저장되었습니다!`);
+    };
+
+    window.removeAdminBannedWord = async function (idx) {
+      if (idx < 0 || idx >= adminBannedWordsCache.length) return;
+      adminBannedWordsCache.splice(idx, 1);
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+    };
+
+    window.restoreDefaultBannedWords = async function () {
+      const seeds = typeof DEFAULT_BANNED_WORDS !== "undefined" ? DEFAULT_BANNED_WORDS : [];
+      const seen = new Set(adminBannedWordsCache.map(w => w.toLowerCase()));
+      let added = 0;
+      seeds.forEach(w => {
+        if (!seen.has(w.toLowerCase())) {
+          seen.add(w.toLowerCase());
+          adminBannedWordsCache.push(w);
+          added += 1;
+        }
+      });
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+      gameAlert(added > 0 ? `✅ 기본 금칙어 ${added}개를 합쳐 서버에 저장했습니다!` : "기본 금칙어가 이미 모두 포함되어 있습니다.");
+    };
+
     function switchAdminTab(tab) {
       document.getElementById("tabBtnSongs").classList.toggle("active", tab === "songs");
       document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
@@ -805,6 +1033,7 @@
       document.getElementById("tabBtnGifts").classList.toggle("active", tab === "gifts");
       document.getElementById("tabBtnReports").classList.toggle("active", tab === "reports");
       document.getElementById("tabBtnEvents").classList.toggle("active", tab === "events");
+      document.getElementById("tabBtnBanned").classList.toggle("active", tab === "banned");
       document.getElementById("tabBtnStore").classList.toggle("active", tab === "store");
 
       document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
@@ -813,9 +1042,11 @@
       document.getElementById("adminGiftsSection").classList.toggle("hidden", tab !== "gifts");
       document.getElementById("adminReportsSection").classList.toggle("hidden", tab !== "reports");
       document.getElementById("adminEventsSection").classList.toggle("hidden", tab !== "events");
+      document.getElementById("adminBannedSection").classList.toggle("hidden", tab !== "banned");
       document.getElementById("adminStoreSection").classList.toggle("hidden", tab !== "store");
       if (tab === "reports") loadAdminReports();
       if (tab === "events") loadAdminEvents();
+      if (tab === "banned") renderAdminBannedWordsGrid();
       if (tab === "gifts") {
         renderAdminGiftUserChecklist();
         loadAdminGiftsHistory();

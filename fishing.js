@@ -1395,6 +1395,17 @@ window.sendFishingChat = function () {
   if (!input) return;
   const msg = input.value.trim();
   if (!msg) return;
+
+  if (typeof validateCleanUserText === "function") {
+    const check = validateCleanUserText(msg, { fieldLabel: "낚시터 채팅", spamChannel: "fishing" });
+    if (!check.ok) {
+      if (check.reason === "banned") input.value = "";
+      input.blur();
+      if (typeof gameAlert === "function") gameAlert(check.message, "🚫 채팅 안내");
+      return;
+    }
+  }
+
   input.value = "";
 
   const myKey = getMyFishingKey();

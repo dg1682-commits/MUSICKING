@@ -501,6 +501,147 @@ function nicknameToEmail(nick) {
 // ============================================================================
 // Supabase 글로벌 설정 & 세션 복원
 // ============================================================================
+// ============================================================================
+// [V2.2] 글로벌 금칙어 필터 & 채팅 도배 방지 시스템
+// ============================================================================
+const DEFAULT_BANNED_WORDS = [
+  "씨발", "시발", "ㅆㅂ", "ㅅㅂ", "병신", "ㅂㅅ", "개새끼", "새끼", "존나", "ㅈㄴ",
+  "지랄", "ㅈㄹ", "좆", "창녀", "보지", "자지", "느금마", "애미", "미친놈", "미친년",
+  "호로", "개년", "개놈", "쌍놈", "쌍년", "fuck", "shit", "bitch"
+];
+let globalBannedWordsList = [...DEFAULT_BANNED_WORDS];
+let serverHasCustomBannedWords = false;
+
+window.applyServerBannedWords = function (words) {
+  if (!Array.isArray(words)) return;
+  serverHasCustomBannedWords = true;
+  const cleaned = [];
+  const seen = new Set();
+  words.forEach(w => {
+    const t = String(w || "").trim();
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      cleaned.push(t);
+    }
+  });
+  globalBannedWordsList = cleaned;
+};
+
+window.getActiveBannedWordsList = function () {
+  return [...globalBannedWordsList];
+};
+
+function _normalizeModerationText(str) {
+  return String(str || "")
+    .toLowerCase()
+    .replace(/[\s\.\,\-\_\!\?\~\*·•\/\\\|\^\+`'"]+/g, "");
+}
+
+function findMatchedBannedWord(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  const compact = _normalizeModerationText(raw);
+  for (const w of globalBannedWordsList) {
+    const cleanRaw = String(w || "").trim().toLowerCase();
+    if (!cleanRaw) continue;
+    if (lower.includes(cleanRaw)) return w;
+    const cleanCompact = _normalizeModerationText(cleanRaw);
+    if (cleanCompact.length >= 2 && compact.includes(cleanCompact)) {
+      return w;
+    }
+  }
+  return "";
+}
+
+const chatAntiSpamState = {
+  channels: {}
+};
+
+window.validateCleanUserText = function (text, opts = {}) {
+  const {
+    fieldLabel = "채팅",
+    spamChannel = null,
+    ignoreBannedCheck = false
+  } = opts;
+  const trimmed = String(text || "").trim();
+  if (!trimmed) {
+    return { ok: false, reason: "empty", message: "" };
+  }
+
+  if (!ignoreBannedCheck) {
+    const bad = findMatchedBannedWord(trimmed);
+    if (bad) {
+      return {
+        ok: false,
+        reason: "banned",
+        matched: bad,
+        message: `🚫 [${fieldLabel}]에 부적절한 표현(금칙어)이 포함되어 사용할 수 없습니다.\n바른 고운 말을 사용해 주세요!`
+      };
+    }
+  }
+
+  if (spamChannel) {
+    const now = Date.now();
+    if (!chatAntiSpamState.channels[spamChannel]) {
+      chatAntiSpamState.channels[spamChannel] = {
+        lastSentAt: 0,
+        lastNorm: "",
+        sameCount: 0,
+        lastSameAt: 0,
+        recentTimes: []
+      };
+    }
+    const st = chatAntiSpamState.channels[spamChannel];
+    const minCooldownMs = spamChannel === "dm" ? 650 : 1200;
+    if (now - st.lastSentAt < minCooldownMs) {
+      return {
+        ok: false,
+        reason: "spam_cooldown",
+        message: "⏳ 도배 방지를 위해 너무 빠르게 연속 전송할 수 없습니다. 잠시 후 다시 보내주세요!"
+      };
+    }
+
+    const burstWindowMs = 4000;
+    const repeatWindowMs = 8000;
+
+    st.recentTimes = st.recentTimes.filter(ts => now - ts <= burstWindowMs);
+    const maxBurst = spamChannel === "dm" ? 6 : 4;
+    if (st.recentTimes.length >= maxBurst) {
+      return {
+        ok: false,
+        reason: "spam_burst",
+        message: "⏳ 짧은 시간에 너무 많은 메시지를 보냈습니다. 잠시 후 다시 시도해 주세요!"
+      };
+    }
+
+    const normMsg = trimmed.toLowerCase().replace(/\s+/g, "");
+    const isSameRecent = normMsg === st.lastNorm && now - st.lastSameAt <= repeatWindowMs;
+    if (isSameRecent && st.sameCount >= 2) {
+      return {
+        ok: false,
+        reason: "spam_repeat",
+        message: "🚫 동일한 내용 반복 도배는 제한됩니다. 잠시 후 다른 메시지를 입력해 주세요!"
+      };
+    }
+
+    st.lastSentAt = now;
+    st.recentTimes.push(now);
+    if (isSameRecent) {
+      st.sameCount += 1;
+      st.lastSameAt = now;
+    } else {
+      st.lastNorm = normMsg;
+      st.sameCount = 1;
+      st.lastSameAt = now;
+    }
+  }
+
+  return { ok: true, reason: "", message: "" };
+};
+
 let cachedServerSongsOverride = null;
 
 async function loadServerGlobalConfigs() {
@@ -515,6 +656,9 @@ async function loadServerGlobalConfigs() {
     if (data) {
       if (data.avatar_config && data.avatar_config.shopCatalog) {
         applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
+      }
+      if (data.avatar_config && Array.isArray(data.avatar_config.bannedWords)) {
+        applyServerBannedWords(data.avatar_config.bannedWords);
       }
       if (Array.isArray(data.owned_items) && data.owned_items.length > 0) {
         cachedServerSongsOverride = data.owned_items;
@@ -791,6 +935,14 @@ window.handleAuthSubmit = async function (mode) {
   if (!sbClient) {
     gameAlert("서버 연결을 초기화할 수 없습니다.");
     return;
+  }
+
+  if (mode === "signup") {
+    const nickCheck = validateCleanUserText(nickInput, { fieldLabel: "닉네임" });
+    if (!nickCheck.ok) {
+      gameAlert(nickCheck.message, "🚫 닉네임 제한");
+      return;
+    }
   }
 
   const email = nicknameToEmail(nickInput);
@@ -1608,8 +1760,8 @@ function updateShopPreviewCanvas() {
 
   if (sel.cat === "game_item") {
     const cnt = getConsumableCount(sel.id);
-    if (priceBadgeEl) priceBadgeEl.textContent = `보유 ${cnt}개`;
-    confirmBtn.textContent = "🛍️ 1개 구매하기";
+    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD · 보유 ${cnt}개`;
+    confirmBtn.textContent = "🛍️ 수량 선택 구매";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = () => purchaseConsumableShopItem("game_item", sel);
     return;
@@ -1619,17 +1771,17 @@ function updateShopPreviewCanvas() {
     const cnt = getConsumableCount(sel.id);
     const isEquipped = userState.avatarConfig && userState.avatarConfig.fishingBait === sel.id && cnt > 0;
     if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD · 보유 ${cnt}개`;
-    confirmBtn.textContent = cnt > 0 && !isEquipped ? "✅ 장착하기 (또는 추가구매)" : "🛍️ 1개 구매하기";
+    confirmBtn.textContent = cnt > 0 && !isEquipped ? "✅ 장착 · 추가 구매" : "🛍️ 수량 선택 구매";
     confirmBtn.className = "btn btn-gold";
     confirmBtn.onclick = () => {
       if (cnt > 0 && !isEquipped) {
-        gameConfirm(`[${sel.name}] (보유 ${cnt}개)\n장착하시겠습니까, 아니면 1개 더 구매하시겠습니까?`, async () => {
+        gameConfirm(`[${sel.name}] (보유 ${cnt}개)\n장착하시겠습니까, 아니면 더 구매하시겠습니까?`, async () => {
           await equipOwnedFishingGear(sel);
         }, "🪱 미끼 선택", () => purchaseConsumableShopItem("fishing_bait", sel));
         const okBtn = document.getElementById("dialogConfirmBtn");
         const cancelBtn = document.getElementById("dialogCancelBtn");
         if (okBtn) okBtn.textContent = "✅ 장착하기";
-        if (cancelBtn) cancelBtn.textContent = "🛍️ 1개 더 구매";
+        if (cancelBtn) cancelBtn.textContent = "🛍️ 수량 구매";
       } else {
         purchaseConsumableShopItem("fishing_bait", sel);
       }
@@ -1925,6 +2077,11 @@ function purchaseNicknameTicket() {
       gameAlert("닉네임은 2글자 이상이어야 합니다.");
       return;
     }
+    const nickCheck = validateCleanUserText(newNick, { fieldLabel: "닉네임" });
+    if (!nickCheck.ok) {
+      gameAlert(nickCheck.message, "🚫 닉네임 제한");
+      return;
+    }
     if (newNick === userState.nickname) {
       gameAlert("현재 닉네임과 동일합니다.");
       return;
@@ -1971,26 +2128,122 @@ function purchaseGenderTicket() {
   }, "⚧️ 성별 변경권 사용");
 }
 
-async function purchaseConsumableShopItem(cat, item) {
-  if (!item || !item.id) return;
-  const price = Number(item.price) || 0;
-  if (userState.cdCoins < price) {
-    gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${price.toLocaleString()} CD)`);
+const MAX_CONSUMABLE_BUY_QTY = 99;
+let pendingQtyBuyTarget = null;
+
+window.updateShopQtyBuySummary = function () {
+  if (!pendingQtyBuyTarget) return;
+  const { item } = pendingQtyBuyTarget;
+  const unitPrice = Math.max(0, Number(item.price) || 0);
+  const inputEl = document.getElementById("shopQtyBuyInput");
+  let qty = Math.floor(Number(inputEl ? inputEl.value : 1) || 1);
+  if (qty < 1) qty = 1;
+  if (qty > MAX_CONSUMABLE_BUY_QTY) {
+    qty = MAX_CONSUMABLE_BUY_QTY;
+    if (inputEl) inputEl.value = String(qty);
+  }
+
+  const curCd = Math.max(0, Math.floor(Number(userState.cdCoins) || 0));
+  const curCnt = getConsumableCount(item.id);
+  const totalCost = unitPrice * qty;
+  const canAfford = curCd >= totalCost;
+
+  const totalEl = document.getElementById("shopQtyBuyTotal");
+  const balEl = document.getElementById("shopQtyBuyBalance");
+  const afterCntEl = document.getElementById("shopQtyBuyAfterCount");
+  const warnEl = document.getElementById("shopQtyBuyWarn");
+  const confirmBtn = document.getElementById("shopQtyBuyConfirmBtn");
+
+  if (totalEl) totalEl.textContent = `💿 ${totalCost.toLocaleString()} CD`;
+  if (balEl) balEl.textContent = `${curCd.toLocaleString()} CD`;
+  if (afterCntEl) afterCntEl.textContent = `${curCnt}개 → ${(curCnt + qty).toLocaleString()}개`;
+  if (warnEl) {
+    warnEl.classList.toggle("hidden", canAfford);
+    warnEl.textContent = canAfford
+      ? ""
+      : `💿 CD가 ${(totalCost - curCd).toLocaleString()} CD 부족합니다!`;
+  }
+  if (confirmBtn) {
+    confirmBtn.disabled = !canAfford;
+    confirmBtn.textContent = canAfford
+      ? `🛍️ ${qty}개 구매하기 (💿 ${totalCost.toLocaleString()} CD)`
+      : "💿 CD 부족";
+  }
+};
+
+window.adjustShopQtyBuy = function (delta) {
+  const inputEl = document.getElementById("shopQtyBuyInput");
+  if (!inputEl) return;
+  const cur = Math.max(1, Math.floor(Number(inputEl.value) || 1));
+  const next = Math.max(1, Math.min(MAX_CONSUMABLE_BUY_QTY, cur + Number(delta || 0)));
+  inputEl.value = String(next);
+  updateShopQtyBuySummary();
+};
+
+window.setShopQtyBuyMax = function () {
+  if (!pendingQtyBuyTarget) return;
+  const unitPrice = Math.max(1, Number(pendingQtyBuyTarget.item.price) || 1);
+  const curCd = Math.max(0, Math.floor(Number(userState.cdCoins) || 0));
+  const maxByCd = Math.floor(curCd / unitPrice);
+  const next = Math.max(1, Math.min(MAX_CONSUMABLE_BUY_QTY, maxByCd));
+  const inputEl = document.getElementById("shopQtyBuyInput");
+  if (inputEl) inputEl.value = String(next);
+  updateShopQtyBuySummary();
+};
+
+window.confirmShopQtyBuy = async function () {
+  if (!pendingQtyBuyTarget) return;
+  const { cat, item } = pendingQtyBuyTarget;
+  const inputEl = document.getElementById("shopQtyBuyInput");
+  const qty = Math.max(1, Math.min(MAX_CONSUMABLE_BUY_QTY, Math.floor(Number(inputEl ? inputEl.value : 1) || 1)));
+  const unitPrice = Math.max(0, Number(item.price) || 0);
+  const totalCost = unitPrice * qty;
+
+  if ((Number(userState.cdCoins) || 0) < totalCost) {
+    gameAlert(`💿 CD가 부족합니다!\n(보유: ${(userState.cdCoins || 0).toLocaleString()} CD / 필요: ${totalCost.toLocaleString()} CD)`);
     return;
   }
-  gameConfirm(`[${item.name}] 1개를 💿 ${price.toLocaleString()} CD에 구매할까요?`, async () => {
-    userState.cdCoins -= price;
-    if (!userState.inventory || typeof userState.inventory !== "object") userState.inventory = {};
-    userState.inventory[item.id] = getConsumableCount(item.id) + 1;
-    if (cat === "fishing_bait") {
-      userState.avatarConfig.fishingBait = item.id;
-      shopPreviewState.config.fishingBait = item.id;
+
+  userState.cdCoins -= totalCost;
+  if (!userState.inventory || typeof userState.inventory !== "object") userState.inventory = {};
+  userState.inventory[item.id] = getConsumableCount(item.id) + qty;
+  if (cat === "fishing_bait") {
+    userState.avatarConfig.fishingBait = item.id;
+    shopPreviewState.config.fishingBait = item.id;
+  }
+  closeModal("shopQtyBuyModal");
+  await syncProfileToServer();
+  renderShopCategory(shopPreviewState.selectedCat);
+  updateShopPreviewCanvas();
+  gameAlert(
+    `🎉 [${item.name}] ×${qty}개를 구매했습니다!\n(사용: 💿 ${totalCost.toLocaleString()} CD · 현재 보유: ${userState.inventory[item.id]}개)`,
+    "🛍️ 구매 완료"
+  );
+};
+
+async function purchaseConsumableShopItem(cat, item) {
+  if (!item || !item.id) return;
+  pendingQtyBuyTarget = { cat, item };
+
+  const modal = document.getElementById("shopQtyBuyModal");
+  if (!modal) {
+    const price = Number(item.price) || 0;
+    if (userState.cdCoins < price) {
+      gameAlert(`💿 CD가 부족합니다!\n(보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${price.toLocaleString()} CD)`);
+      return;
     }
-    await syncProfileToServer();
-    renderShopCategory(shopPreviewState.selectedCat);
-    updateShopPreviewCanvas();
-    gameAlert(`🎉 [${item.name}] 1개를 구매했습니다! (현재 보유: ${userState.inventory[item.id]}개)`, "🛍️ 구매 완료");
-  }, "🛍️ 소모품 구매");
+    return;
+  }
+
+  const titleEl = document.getElementById("shopQtyBuyTitle");
+  const unitEl = document.getElementById("shopQtyBuyUnitPrice");
+  const inputEl = document.getElementById("shopQtyBuyInput");
+  if (titleEl) titleEl.textContent = item.name;
+  if (unitEl) unitEl.textContent = `개당 💿 ${(Number(item.price) || 0).toLocaleString()} CD (최대 ${MAX_CONSUMABLE_BUY_QTY}개)`;
+  if (inputEl) inputEl.value = "1";
+
+  updateShopQtyBuySummary();
+  openModal("shopQtyBuyModal");
 }
 
 window.renderShopCategory = function (cat) {
@@ -2161,6 +2414,13 @@ window.openMyProfileModal = async function () {
 
 window.saveMyBio = async function () {
   const newBio = document.getElementById("profileBioInput").value.trim();
+  if (newBio) {
+    const bioCheck = validateCleanUserText(newBio, { fieldLabel: "프로필 소개글" });
+    if (!bioCheck.ok) {
+      gameAlert(bioCheck.message, "🚫 소개글 제한");
+      return;
+    }
+  }
   userState.bio = newBio || "안녕하세요! 음악왕 도전자입니다.";
   await syncProfileToServer();
   gameAlert("프로필 소개글이 저장되었습니다!");
@@ -2797,6 +3057,49 @@ window.stopGlobalDmNotiListener = function () {
   syncDmNotiBadgeUI();
 };
 
+const DM_STAMP_EMOTICONS = [
+  { id: "music_cut", ico: "⚡", label: "1초 컷!", bg: "#eff6ff", border: "#60a5fa" },
+  { id: "king", ico: "👑", label: "역시 음악왕!", bg: "#fefce8", border: "#facc15" },
+  { id: "clap", ico: "👏", label: "짝짝짝 최고!", bg: "#f0fdf4", border: "#4ade80" },
+  { id: "fishing", ico: "🎣", label: "낚시 잠수중~", bg: "#e0f2fe", border: "#38bdf8" },
+  { id: "love", ico: "❤️", label: "고마워요!", bg: "#fff1f2", border: "#fb7185" },
+  { id: "laugh", ico: "🤣", label: "빵 터졌다ㅋㅋ", bg: "#fffbeb", border: "#fbbf24" },
+  { id: "cry", ico: "😭", label: "아쉽다ㅠㅠ", bg: "#f1f5f9", border: "#94a3b8" },
+  { id: "cheer", ico: "🔥", label: "가보자고!!", bg: "#fff7ed", border: "#fb923c" },
+  { id: "question", ico: "🤔", label: "어라? 이거 뭐지?", bg: "#faf5ff", border: "#c084fc" },
+  { id: "ok", ico: "🙆‍♂️", label: "오케이 콜!", bg: "#ecfdf5", border: "#34d399" },
+  { id: "sorry", ico: "🙏", label: "죄송해요!", bg: "#fef2f2", border: "#f87171" },
+  { id: "party", ico: "🎉", label: "축하축하!!", bg: "#fdf2f8", border: "#f472b6" },
+  { id: "sleep", ico: "💤", label: "졸려요...", bg: "#eff6ff", border: "#93c5fd" },
+  { id: "singer", ico: "🎤", label: "열창 중!", bg: "#f5f3ff", border: "#a78bfa" },
+  { id: "headset", ico: "🎧", label: "노래 듣는 중", bg: "#ecfeff", border: "#22d3ee" },
+  { id: "gift", ico: "🎁", label: "선물 고마워!", bg: "#fef3c7", border: "#f59e0b" }
+];
+
+const DM_INLINE_EMOJIS = [
+  "😀", "😁", "😂", "🤣", "🥰", "😍", "🥳", "😎", "🤩", "😭",
+  "😡", "😱", "🤔", "🙏", "👍", "👎", "👏", "🙌", "❤️", "💖",
+  "🔥", "✨", "🎵", "🎶", "🎤", "🎧", "🎸", "👑", "🎣", "🎉"
+];
+
+const dmEmojiUiState = {
+  isOpen: false,
+  tab: "stamps"
+};
+
+function parseDmStampMessage(content) {
+  const m = String(content || "").trim().match(/^\[EMOJI:([a-z0-9_]+)\]$/i);
+  if (!m) return null;
+  const id = m[1].toLowerCase();
+  return DM_STAMP_EMOTICONS.find(s => s.id === id) || null;
+}
+
+function formatDmNotiPreviewText(content) {
+  const stamp = parseDmStampMessage(content);
+  if (stamp) return `[이모티콘] ${stamp.ico} ${stamp.label}`;
+  return String(content || "");
+}
+
 window.openDmNotiModal = async function () {
   await Promise.all([refreshUnreadDmNotis(), refreshAdminGifts(false)]);
   renderAdminGiftsInNotiModal();
@@ -2812,6 +3115,7 @@ window.openDmNotiModal = async function () {
         const safeNick = String(prof.nickname || "친구").replace(/'/g, "\\'");
         const d = new Date(m.created_at);
         const timeStr = `${d.getHours() >= 12 ? "오후" : "오전"} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}`;
+        const previewTxt = formatDmNotiPreviewText(m.content);
         return `
           <div class="pixel-list-item" onclick="closeModal('dmNotiModal'); prepareDmTo('${m.sender_id}', '${safeNick}')">
             <div style="display:flex; align-items:center; gap:9px; min-width:0; flex:1;">
@@ -2821,7 +3125,7 @@ window.openDmNotiModal = async function () {
                   <strong style="font-size:0.88rem;">${escapeOnlineHtml(prof.nickname)}</strong>
                   <span style="font-size:0.68rem; color:var(--text-sub);">${timeStr}</span>
                 </div>
-                <div style="font-size:0.78rem; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeOnlineHtml(m.content || "")}</div>
+                <div style="font-size:0.78rem; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeOnlineHtml(previewTxt)}</div>
               </div>
             </div>
             <span class="badge primary">답장 ➔</span>
@@ -3093,6 +3397,7 @@ window.prepareDmTo = async function (receiverId, receiverNick) {
     return;
   }
   closeModal("userInspectModal");
+  if (typeof closeDmEmojiDrawer === "function") closeDmEmojiDrawer();
   dmState.peerId = receiverId;
   dmState.peerNick = receiverNick || "친구";
   dmState.peerAvatar = { ...DEFAULT_AVATAR_CONFIG };
@@ -3185,15 +3490,29 @@ window.loadCurrentDmConversation = async function () {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
+  const renderDmBubbleBody = rawContent => {
+    const stamp = parseDmStampMessage(rawContent);
+    if (stamp) {
+      return `
+        <div class="kakao-stamp-card" style="background:${stamp.bg}; border-color:${stamp.border};">
+          <div class="kakao-stamp-ico">${stamp.ico}</div>
+          <div class="kakao-stamp-lbl">${escapeHtml(stamp.label)}</div>
+        </div>
+      `;
+    }
+    return null;
+  };
+
   box.innerHTML = msgs
     .map(m => {
       const isMine = m.sender_id === userState.id;
       const t = fmtTime(m.created_at);
+      const stampHtml = renderDmBubbleBody(m.content);
       if (isMine) {
         return `
           <div class="kakao-msg-row mine">
             <span class="kakao-msg-time">${t}</span>
-            <div class="kakao-bubble mine">${escapeHtml(m.content)}</div>
+            ${stampHtml || `<div class="kakao-bubble mine">${escapeHtml(m.content)}</div>`}
           </div>
         `;
       }
@@ -3203,7 +3522,7 @@ window.loadCurrentDmConversation = async function () {
           <div class="kakao-bubble-wrap">
             <div style="font-size:0.72rem; font-weight:800; color:#334155; margin-bottom:3px;">${escapeHtml(dmState.peerNick)}</div>
             <div style="display:flex; align-items:flex-end; gap:5px;">
-              <div class="kakao-bubble theirs">${escapeHtml(m.content)}</div>
+              ${stampHtml || `<div class="kakao-bubble theirs">${escapeHtml(m.content)}</div>`}
               <span class="kakao-msg-time">${t}</span>
             </div>
           </div>
@@ -3219,13 +3538,117 @@ window.loadCurrentDmConversation = async function () {
   markPeerDmRead(dmState.peerId);
 };
 
+function renderDmEmojiDrawerGrid() {
+  const grid = document.getElementById("dmEmojiGrid");
+  const tabStamps = document.getElementById("dmEmojiTabStamps");
+  const tabInline = document.getElementById("dmEmojiTabInline");
+  if (!grid) return;
+
+  if (tabStamps) tabStamps.classList.toggle("active", dmEmojiUiState.tab === "stamps");
+  if (tabInline) tabInline.classList.toggle("active", dmEmojiUiState.tab === "inline");
+
+  if (dmEmojiUiState.tab === "stamps") {
+    grid.classList.remove("is-inline-mode");
+    grid.innerHTML = DM_STAMP_EMOTICONS.map(
+      s => `
+      <button type="button" class="dm-stamp-pick-btn" style="background:${s.bg}; border-color:${s.border};" onclick="sendDmStampEmoticon('${s.id}')">
+        <span class="dm-stamp-pick-ico">${s.ico}</span>
+        <span class="dm-stamp-pick-lbl">${s.label}</span>
+      </button>
+    `
+    ).join("");
+  } else {
+    grid.classList.add("is-inline-mode");
+    grid.innerHTML = DM_INLINE_EMOJIS.map(
+      em => `<button type="button" class="dm-inline-emoji-btn" onclick="insertInlineDmEmoji('${em}')">${em}</button>`
+    ).join("");
+  }
+}
+
+window.closeDmEmojiDrawer = function () {
+  dmEmojiUiState.isOpen = false;
+  const drawer = document.getElementById("dmEmojiDrawer");
+  const btn = document.getElementById("dmEmojiToggleBtn");
+  if (drawer) drawer.classList.add("hidden");
+  if (btn) btn.classList.remove("is-active");
+};
+
+window.toggleDmEmojiDrawer = function () {
+  const drawer = document.getElementById("dmEmojiDrawer");
+  const btn = document.getElementById("dmEmojiToggleBtn");
+  const input = document.getElementById("dmContentInput");
+  if (!drawer) return;
+
+  dmEmojiUiState.isOpen = !dmEmojiUiState.isOpen;
+  if (dmEmojiUiState.isOpen) {
+    if (input) input.blur();
+    renderDmEmojiDrawerGrid();
+    drawer.classList.remove("hidden");
+    if (btn) btn.classList.add("is-active");
+    const msgBox = document.getElementById("dmChatMessages");
+    if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+  } else {
+    drawer.classList.add("hidden");
+    if (btn) btn.classList.remove("is-active");
+  }
+};
+
+window.switchDmEmojiTab = function (tab) {
+  dmEmojiUiState.tab = tab === "inline" ? "inline" : "stamps";
+  renderDmEmojiDrawerGrid();
+};
+
+window.insertInlineDmEmoji = function (emojiStr) {
+  const input = document.getElementById("dmContentInput");
+  if (!input) return;
+  const start = typeof input.selectionStart === "number" ? input.selectionStart : input.value.length;
+  const end = typeof input.selectionEnd === "number" ? input.selectionEnd : input.value.length;
+  const before = input.value.slice(0, start);
+  const after = input.value.slice(end);
+  input.value = `${before}${emojiStr}${after}`;
+};
+
+window.sendDmStampEmoticon = async function (stampId) {
+  const stamp = DM_STAMP_EMOTICONS.find(s => s.id === stampId);
+  const targetId = document.getElementById("dmTargetId")?.value || dmState.peerId;
+  if (!stamp || !targetId) return;
+
+  const token = `[EMOJI:${stamp.id}]`;
+  const spamCheck = validateCleanUserText(token, {
+    fieldLabel: "이모티콘",
+    spamChannel: "dm",
+    ignoreBannedCheck: true
+  });
+  if (!spamCheck.ok) {
+    gameAlert(spamCheck.message, "⏳ 전송 제한");
+    return;
+  }
+
+  closeDmEmojiDrawer();
+  await sbClient.from("direct_messages").insert({
+    sender_id: userState.id,
+    receiver_id: targetId,
+    content: token
+  });
+  await loadCurrentDmConversation();
+};
+
 window.sendDirectMessage = async function () {
   const input = document.getElementById("dmContentInput");
   const content = input ? input.value.trim() : "";
   const targetId = document.getElementById("dmTargetId")?.value || dmState.peerId;
 
   if (!content || !targetId) return;
+  const check = validateCleanUserText(content, { fieldLabel: "1:1 메시지", spamChannel: "dm" });
+  if (!check.ok) {
+    if (check.reason === "banned" && input) input.value = "";
+    if (input) input.blur();
+    gameAlert(check.message, "🚫 채팅 안내");
+    return;
+  }
+
   input.value = "";
+  closeDmEmojiDrawer();
 
   await sbClient.from("direct_messages").insert({
     sender_id: userState.id,
@@ -3658,6 +4081,16 @@ window.sendRoomChat = function () {
   const input = document.getElementById("roomChatInput");
   const msg = input.value.trim();
   if (!msg) return;
+
+  if (typeof validateCleanUserText === "function") {
+    const check = validateCleanUserText(msg, { fieldLabel: "대기방 채팅", spamChannel: "room" });
+    if (!check.ok) {
+      if (check.reason === "banned") input.value = "";
+      gameAlert(check.message, "🚫 채팅 안내");
+      return;
+    }
+  }
+
   input.value = "";
   plazaState.myRoomChat = msg;
   plazaState.myRoomChatExpire = Date.now() + 5000;
@@ -3670,7 +4103,7 @@ function appendRoomChatLine(nick, msg) {
   if (!log) return;
   const div = document.createElement("div");
   div.style.fontSize = "0.78rem";
-  div.innerHTML = `<strong style="color:var(--primary);">${nick}:</strong> ${msg}`;
+  div.innerHTML = `<strong style="color:var(--primary);">${escapeOnlineHtml(nick)}:</strong> ${escapeOnlineHtml(msg)}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }

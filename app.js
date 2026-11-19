@@ -56,7 +56,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, .dm-emoji-grid, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -1319,8 +1319,9 @@ window.switchScreen = function (targetId, opts = {}) {
     syncGlobalOnlineActivity(targetId);
   }
 
-  if (targetId !== "dmChatScreen" && typeof stopDmRealtime === "function") {
-    stopDmRealtime();
+  if (targetId !== "dmChatScreen") {
+    if (typeof stopDmRealtime === "function") stopDmRealtime();
+    if (typeof closeDmEmojiDrawer === "function") closeDmEmojiDrawer();
   }
 
   const headerEl = document.getElementById("topHeader");
