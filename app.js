@@ -397,6 +397,9 @@ window.openModal = function (id) {
 window.closeModal = function (id) {
   const el = document.getElementById(id);
   if (el) el.classList.add("hidden");
+  if (id !== "adminGiftPopupModal" && typeof tryShowPendingAdminGiftPopup === "function") {
+    setTimeout(() => tryShowPendingAdminGiftPopup(), 240);
+  }
 };
 
 window.openMultiModeSelect = function () {
@@ -1159,6 +1162,8 @@ function recoverAppForegroundState() {
   if (typeof ensureGlobalOnlinePresenceHealthy === "function") {
     ensureGlobalOnlinePresenceHealthy(true);
   }
+  if (typeof refreshUnreadDmNotis === "function") refreshUnreadDmNotis();
+  if (typeof refreshAdminGifts === "function") refreshAdminGifts(true);
   updateBgmForScreen(state.currentScreen);
 }
 
@@ -1366,6 +1371,10 @@ window.switchScreen = function (targetId, opts = {}) {
     if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
     syncHomeCornerFloatingButtons();
   });
+
+  if (typeof tryShowPendingAdminGiftPopup === "function") {
+    setTimeout(() => tryShowPendingAdminGiftPopup(), 240);
+  }
 };
 
 window.showLoginScreen = function (opts = {}) {

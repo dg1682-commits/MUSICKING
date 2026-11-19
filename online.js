@@ -2377,6 +2377,21 @@ const dmNotiState = {
   pollTimer: null
 };
 
+const adminGiftState = {
+  unclaimedList: [],
+  shownPopupIds: new Set(),
+  channel: null,
+  isClaiming: false
+};
+
+function escapeOnlineHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function getSeenDmMap() {
   if (!userState.id) return {};
   try {
@@ -2411,7 +2426,7 @@ window.syncDmNotiBadgeUI = function () {
   const btn = document.getElementById("floatingDmNotiBtn");
   const badge = document.getElementById("dmNotiBadgeCount");
   const homeBadge = document.getElementById("homeDmNotiBadgeCount");
-  const count = dmNotiState.unreadList.length;
+  const count = dmNotiState.unreadList.length + adminGiftState.unclaimedList.length;
   const countText = count > 99 ? "99+" : String(count);
   if (homeBadge) {
     homeBadge.classList.toggle("hidden", count <= 0);
@@ -2424,6 +2439,268 @@ window.syncDmNotiBadgeUI = function () {
   btn.classList.toggle("hidden", !shouldShowBtn);
   badge.classList.toggle("hidden", count <= 0);
   badge.textContent = countText;
+};
+
+function buildAdminGiftRewardChipsHtml(gift) {
+  const chips = [];
+  const cd = Math.max(0, Math.floor(Number(gift?.reward_cd) || 0));
+  const exp = Math.max(0, Math.floor(Number(gift?.reward_exp) || 0));
+  const items = Array.isArray(gift?.reward_items) ? gift.reward_items : [];
+  if (cd > 0) {
+    chips.push(`<span class="admin-gift-chip is-cd">💿 +${cd.toLocaleString()} CD</span>`);
+  }
+  if (exp > 0) {
+    chips.push(`<span class="admin-gift-chip is-exp">✨ +${exp.toLocaleString()} EXP</span>`);
+  }
+  items.forEach(it => {
+    if (!it || !it.id) return;
+    const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
+    const nm = escapeOnlineHtml(it.name || it.id);
+    chips.push(`<span class="admin-gift-chip">${nm}${qty > 1 ? ` ×${qty}` : ""}</span>`);
+  });
+  return chips.join("");
+}
+
+function renderAdminGiftsInNotiModal() {
+  const sec = document.getElementById("adminGiftsNotiSection");
+  const listEl = document.getElementById("adminGiftsNotiList");
+  const claimAllBtn = document.getElementById("adminGiftsClaimAllBtn");
+  if (!sec || !listEl) return;
+
+  const list = adminGiftState.unclaimedList || [];
+  sec.classList.toggle("hidden", list.length === 0);
+  if (claimAllBtn) {
+    claimAllBtn.classList.toggle("hidden", list.length <= 1);
+    claimAllBtn.textContent = `🎁 ${list.length}개 모두 받기`;
+  }
+  if (list.length === 0) {
+    listEl.innerHTML = "";
+    return;
+  }
+
+  listEl.innerHTML = list
+    .map(g => {
+      const dStr = g.created_at ? new Date(g.created_at).toLocaleDateString() : "";
+      return `
+        <div class="admin-gift-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:0.86rem; font-weight:900; color:#b45309;">🎁 ${escapeOnlineHtml(g.title || "운영자 선물")}</div>
+              ${dStr ? `<div style="font-size:0.68rem; color:var(--text-sub);">보낸이: ${escapeOnlineHtml(g.sender_nickname || "관리자")} · ${dStr}</div>` : ""}
+            </div>
+            <button type="button" class="btn btn-gold" style="padding:5px 10px; font-size:0.74rem; flex-shrink:0;" onclick="claimAdminGiftById(${Number(g.id)})">받기</button>
+          </div>
+          ${g.message ? `<div style="font-size:0.78rem; color:var(--text-main); margin-top:5px; line-height:1.4; word-break:keep-all;">${escapeOnlineHtml(g.message)}</div>` : ""}
+          <div class="admin-gift-rewards-row">${buildAdminGiftRewardChipsHtml(g)}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function canPopAdminGiftArrivalNow() {
+  if (typeof userState === "undefined" || !userState.isLoggedIn || !userState.id) return false;
+  const curScreen = typeof state !== "undefined" ? state.currentScreen : "loginScreen";
+  if (["loginScreen", "gameScreen", "judgeScreen", "battlePlayScreen"].includes(curScreen)) return false;
+  if (document.hidden || window.__onestorePaused) return false;
+  const openModalEl = document.querySelector(".modal-backdrop:not(.hidden)");
+  if (openModalEl) return false;
+  return true;
+}
+
+window.tryShowPendingAdminGiftPopup = function () {
+  if (!canPopAdminGiftArrivalNow()) return;
+  const unshown = (adminGiftState.unclaimedList || []).filter(g => !adminGiftState.shownPopupIds.has(g.id));
+  if (unshown.length === 0) return;
+
+  const targetGift = unshown[0];
+  adminGiftState.unclaimedList.forEach(g => adminGiftState.shownPopupIds.add(g.id));
+
+  const totalCount = adminGiftState.unclaimedList.length;
+  const titleEl = document.getElementById("adminGiftPopupTitle");
+  const msgEl = document.getElementById("adminGiftPopupMsg");
+  const rewardsEl = document.getElementById("adminGiftPopupRewards");
+  const claimBtn = document.getElementById("adminGiftPopupClaimBtn");
+
+  if (titleEl) {
+    titleEl.textContent =
+      totalCount > 1
+        ? `👑 ${targetGift.title || "운영자 선물"} 외 ${totalCount - 1}건 도착!`
+        : `👑 ${targetGift.title || "운영자 선물이 도착했습니다!"}`;
+  }
+  if (msgEl) {
+    msgEl.textContent = targetGift.message || `${targetGift.sender_nickname || "관리자"}님이 특별한 선물을 보냈습니다.`;
+  }
+  if (rewardsEl) {
+    if (totalCount === 1) {
+      rewardsEl.innerHTML = buildAdminGiftRewardChipsHtml(targetGift);
+    } else {
+      rewardsEl.innerHTML = `${buildAdminGiftRewardChipsHtml(targetGift)}<span class="admin-gift-chip">+ 외 ${totalCount - 1}건</span>`;
+    }
+  }
+  if (claimBtn) {
+    claimBtn.disabled = false;
+    claimBtn.textContent = totalCount > 1 ? `🎁 선물 ${totalCount}건 모두 받기!` : "🎁 지금 선물 받기!";
+    claimBtn.onclick = () => {
+      if (totalCount > 1) claimAllAdminGifts();
+      else claimAdminGiftById(Number(targetGift.id));
+    };
+  }
+
+  if (typeof playRandomBoxFanfare === "function") {
+    playRandomBoxFanfare("burst");
+  }
+  openModal("adminGiftPopupModal");
+};
+
+window.refreshAdminGifts = async function (allowPopup = false) {
+  if (!sbClient || !userState.isLoggedIn || !userState.id) {
+    adminGiftState.unclaimedList = [];
+    syncDmNotiBadgeUI();
+    return;
+  }
+
+  try {
+    const { data, error } = await sbClient
+      .from("admin_gifts")
+      .select("*")
+      .eq("target_user_id", userState.id)
+      .is("claimed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) return;
+    adminGiftState.unclaimedList = Array.isArray(data) ? data : [];
+    syncDmNotiBadgeUI();
+
+    const notiModal = document.getElementById("dmNotiModal");
+    if (notiModal && !notiModal.classList.contains("hidden")) {
+      renderAdminGiftsInNotiModal();
+    }
+
+    if (allowPopup && adminGiftState.unclaimedList.some(g => !adminGiftState.shownPopupIds.has(g.id))) {
+      tryShowPendingAdminGiftPopup();
+    }
+  } catch (e) {}
+};
+
+async function processClaimedAdminGiftRows(claimedRows) {
+  if (!Array.isArray(claimedRows) || claimedRows.length === 0) return;
+
+  let totalCd = 0;
+  let totalExp = 0;
+  const itemSummaryMap = new Map();
+  const expBefore = Number(userState.exp) || 0;
+
+  claimedRows.forEach(g => {
+    totalCd += Math.max(0, Math.floor(Number(g.reward_cd) || 0));
+    totalExp += Math.max(0, Math.floor(Number(g.reward_exp) || 0));
+    const items = Array.isArray(g.reward_items) ? g.reward_items : [];
+    items.forEach(it => {
+      if (!it || !it.id) return;
+      const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
+      const isConsumable = it.kind === "consumable";
+      if (isConsumable) {
+        userState.inventory[it.id] = getConsumableCount(it.id) + qty;
+      } else {
+        if (!Array.isArray(userState.ownedItems)) userState.ownedItems = [];
+        if (!userState.ownedItems.includes(it.id)) {
+          userState.ownedItems.push(it.id);
+        }
+      }
+      const key = `${it.id}`;
+      const prev = itemSummaryMap.get(key) || { name: it.name || it.id, qty: 0, isConsumable };
+      prev.qty += isConsumable ? qty : 1;
+      itemSummaryMap.set(key, prev);
+    });
+  });
+
+  if (totalCd > 0) userState.cdCoins = (Number(userState.cdCoins) || 0) + totalCd;
+  if (totalExp > 0) userState.exp = expBefore + totalExp;
+
+  const claimedIds = new Set(claimedRows.map(r => r.id));
+  adminGiftState.unclaimedList = adminGiftState.unclaimedList.filter(g => !claimedIds.has(g.id));
+  claimedIds.forEach(id => adminGiftState.shownPopupIds.add(id));
+  syncDmNotiBadgeUI();
+
+  await syncProfileToServer();
+  if (typeof renderBagScreen === "function" && typeof state !== "undefined" && state.currentScreen === "bagScreen") {
+    renderBagScreen();
+  }
+  if (typeof updateShopPreviewCanvas === "function" && typeof state !== "undefined" && state.currentScreen === "shopScreen") {
+    updateShopPreviewCanvas();
+  }
+  if (typeof renderFishingHud === "function" && typeof state !== "undefined" && state.currentScreen === "fishingScreen") {
+    renderFishingHud();
+  }
+
+  const notiModal = document.getElementById("dmNotiModal");
+  if (notiModal && !notiModal.classList.contains("hidden")) {
+    renderAdminGiftsInNotiModal();
+  }
+
+  if (typeof playRandomBoxFanfare === "function") {
+    playRandomBoxFanfare("burst");
+  }
+
+  const lines = [];
+  if (totalCd > 0) lines.push(`💿 +${totalCd.toLocaleString()} CD`);
+  if (totalExp > 0) lines.push(`✨ +${totalExp.toLocaleString()} EXP`);
+  itemSummaryMap.forEach(v => {
+    lines.push(`🎁 ${v.name}${v.isConsumable && v.qty > 1 ? ` ×${v.qty}` : ""}`);
+  });
+  const beforeLv = typeof getLevelInfo === "function" ? getLevelInfo(expBefore).level : 1;
+  const afterLv = typeof getLevelInfo === "function" ? getLevelInfo(userState.exp).level : beforeLv;
+  if (afterLv > beforeLv) {
+    lines.push(`🎉 LEVEL UP! (Lv.${beforeLv} → Lv.${afterLv})`);
+  }
+
+  const reasons = [...new Set(claimedRows.map(r => r.title || "운영자 선물"))].join(", ");
+  gameAlert(`[${reasons}]\n${lines.join("\n")}`, "🎁 운영자 선물 수령 완료!");
+}
+
+async function claimAdminGiftIds(ids) {
+  if (!sbClient || !userState.isLoggedIn || !userState.id) return;
+  if (adminGiftState.isClaiming) return;
+  const cleanIds = (ids || []).map(Number).filter(n => Number.isFinite(n) && n > 0);
+  if (cleanIds.length === 0) return;
+
+  adminGiftState.isClaiming = true;
+  try {
+    const { data: claimedRows, error } = await sbClient
+      .from("admin_gifts")
+      .update({ claimed_at: new Date().toISOString() })
+      .in("id", cleanIds)
+      .eq("target_user_id", userState.id)
+      .is("claimed_at", null)
+      .select("*");
+
+    if (error) {
+      gameAlert("선물 수령 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    const popupEl = document.getElementById("adminGiftPopupModal");
+    if (popupEl && !popupEl.classList.contains("hidden")) {
+      popupEl.classList.add("hidden");
+    }
+    if (!claimedRows || claimedRows.length === 0) {
+      await refreshAdminGifts(false);
+      gameAlert("이미 수령 완료된 선물입니다.");
+      return;
+    }
+    await processClaimedAdminGiftRows(claimedRows);
+  } finally {
+    adminGiftState.isClaiming = false;
+  }
+}
+
+window.claimAdminGiftById = function (giftId) {
+  claimAdminGiftIds([giftId]);
+};
+
+window.claimAllAdminGifts = function () {
+  const ids = (adminGiftState.unclaimedList || []).map(g => g.id);
+  claimAdminGiftIds(ids);
 };
 
 window.refreshUnreadDmNotis = async function () {
@@ -2473,6 +2750,7 @@ window.startGlobalDmNotiListener = function () {
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
 
   refreshUnreadDmNotis();
+  refreshAdminGifts(true);
 
   dmNotiState.channel = sbClient
     .channel(`global_dm_noti_${userState.id}`)
@@ -2484,8 +2762,19 @@ window.startGlobalDmNotiListener = function () {
     })
     .subscribe();
 
+  adminGiftState.channel = sbClient
+    .channel(`global_admin_gift_${userState.id}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_gifts" }, payload => {
+      const row = payload.new;
+      if (row && row.target_user_id === userState.id && !row.claimed_at) {
+        refreshAdminGifts(true);
+      }
+    })
+    .subscribe();
+
   dmNotiState.pollTimer = setInterval(() => {
     refreshUnreadDmNotis();
+    refreshAdminGifts(true);
   }, 8000);
 };
 
@@ -2494,21 +2783,28 @@ window.stopGlobalDmNotiListener = function () {
     try { sbClient.removeChannel(dmNotiState.channel); } catch (e) {}
     dmNotiState.channel = null;
   }
+  if (adminGiftState.channel && sbClient) {
+    try { sbClient.removeChannel(adminGiftState.channel); } catch (e) {}
+    adminGiftState.channel = null;
+  }
   if (dmNotiState.pollTimer) {
     clearInterval(dmNotiState.pollTimer);
     dmNotiState.pollTimer = null;
   }
   dmNotiState.unreadList = [];
+  adminGiftState.unclaimedList = [];
+  adminGiftState.shownPopupIds.clear();
   syncDmNotiBadgeUI();
 };
 
 window.openDmNotiModal = async function () {
-  await refreshUnreadDmNotis();
+  await Promise.all([refreshUnreadDmNotis(), refreshAdminGifts(false)]);
+  renderAdminGiftsInNotiModal();
   const listEl = document.getElementById("dmNotiPreviewList");
   if (!listEl) return;
 
   if (dmNotiState.unreadList.length === 0) {
-    listEl.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-sub);">새로 도착한 메시지가 없습니다.</div>`;
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-sub); font-size:0.82rem;">새로 도착한 1:1 메시지가 없습니다.</div>`;
   } else {
     listEl.innerHTML = dmNotiState.unreadList
       .map(m => {
@@ -2522,10 +2818,10 @@ window.openDmNotiModal = async function () {
               <canvas class="noti-mini-cv kakao-avatar-sq" width="480" height="480" style="width:40px; height:40px;" data-avatar='${JSON.stringify(prof.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
               <div style="min-width:0; flex:1;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <strong style="font-size:0.88rem;">${prof.nickname}</strong>
+                  <strong style="font-size:0.88rem;">${escapeOnlineHtml(prof.nickname)}</strong>
                   <span style="font-size:0.68rem; color:var(--text-sub);">${timeStr}</span>
                 </div>
-                <div style="font-size:0.78rem; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${String(m.content || "").replace(/</g, "&lt;")}</div>
+                <div style="font-size:0.78rem; color:var(--primary-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeOnlineHtml(m.content || "")}</div>
               </div>
             </div>
             <span class="badge primary">답장 ➔</span>
@@ -4494,29 +4790,96 @@ window.claimDailyCd = async function () {
   gameAlert("🎉 오늘의 일일 무료CD 보너스 💿 +100 CD가 지급되었습니다!", "💿 일일 무료CD 수령");
 };
 
+const randomBoxState = { isOpening: false };
+
+function playRandomBoxFanfare(phase = "burst") {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const notes =
+      phase === "charge"
+        ? [
+            { f: 440, t: 0, d: 0.08, type: "triangle" },
+            { f: 523.25, t: 0.16, d: 0.08, type: "triangle" },
+            { f: 659.25, t: 0.32, d: 0.09, type: "triangle" },
+            { f: 783.99, t: 0.48, d: 0.1, type: "triangle" }
+          ]
+        : [
+            { f: 523.25, t: 0, d: 0.14, type: "sine" },
+            { f: 659.25, t: 0.07, d: 0.14, type: "sine" },
+            { f: 783.99, t: 0.14, d: 0.18, type: "sine" },
+            { f: 1046.5, t: 0.22, d: 0.48, type: "sine" }
+          ];
+    notes.forEach(n => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = n.type;
+      osc.frequency.setValueAtTime(n.f, now + n.t);
+      gain.gain.setValueAtTime(0.16, now + n.t);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + n.t);
+      osc.stop(now + n.t + n.d + 0.02);
+    });
+  } catch (e) {}
+}
+
+function spawnRandomBoxParticles(layerEl) {
+  if (!layerEl) return;
+  const glyphs = ["✨", "🎉", "⭐", "💿", "🌟", "🎊", "💫", "✨", "🎵", "⚡", "✨", "🎉"];
+  layerEl.innerHTML = glyphs
+    .map((g, idx) => {
+      const angle = (idx / glyphs.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+      const dist = 54 + Math.round(Math.random() * 44);
+      const tx = Math.round(Math.cos(angle) * dist);
+      const ty = Math.round(Math.sin(angle) * dist - 14);
+      const rot = Math.round((Math.random() - 0.5) * 320);
+      const dur = 760 + Math.round(Math.random() * 340);
+      return `<span class="rb-particle" style="--tx:${tx}px; --ty:${ty}px; --rot:${rot}deg; --dur:${dur}ms;">${g}</span>`;
+    })
+    .join("");
+}
+
 window.openRandomBoxModal = function () {
   if (!userState.isLoggedIn) {
     gameConfirm("로그인 후 오늘의 랜덤상자를 열 수 있습니다.", () => showLoginScreen());
     return;
   }
+  randomBoxState.isOpening = false;
   const ds = ensureV2DailyState();
   const btn = document.getElementById("openRandomBoxBtn");
   const resEl = document.getElementById("randomBoxResultText");
   const boxVisual = document.getElementById("randomBoxVisual");
-  if (boxVisual) boxVisual.classList.remove("is-opened");
+  const burstLayer = document.getElementById("randomBoxBurstLayer");
+  const prizePop = document.getElementById("randomBoxPrizePop");
+
+  if (burstLayer) burstLayer.innerHTML = "";
+  if (prizePop) {
+    prizePop.classList.add("hidden");
+    prizePop.textContent = "";
+  }
+  if (boxVisual) {
+    boxVisual.classList.remove("is-opening", "is-opened");
+    if (ds.randomBoxClaimed) boxVisual.classList.add("is-opened");
+  }
   if (ds.randomBoxClaimed) {
     if (btn) { btn.disabled = true; btn.textContent = "✅ 오늘 수령 완료 (06시 초기화)"; }
     if (resEl) resEl.textContent = "오늘의 선물상자를 이미 열어보셨습니다!";
   } else {
     if (btn) { btn.disabled = false; btn.textContent = "🎁 상자 열어보기!"; }
-    if (resEl) resEl.textContent = "노란·빨간 리본 선물상자를 터치해 오늘의 행운을 확인하세요!";
+    if (resEl) resEl.textContent = "반짝이는 선물상자를 터치해 오늘의 행운을 확인하세요!";
   }
   openModal("randomBoxModal");
 };
 
-window.claimDailyRandomBox = async function () {
+window.claimDailyRandomBox = function () {
   const ds = ensureV2DailyState();
-  if (ds.randomBoxClaimed) return;
+  if (ds.randomBoxClaimed || randomBoxState.isOpening) return;
+  randomBoxState.isOpening = true;
+
   const pool = [
     { label: "💿 +100 CD", type: "cd", amount: 100 },
     { label: "💿 +200 CD", type: "cd", amount: 200 },
@@ -4533,33 +4896,66 @@ window.claimDailyRandomBox = async function () {
   } else {
     userState.inventory[pick.id] = getConsumableCount(pick.id) + pick.amount;
   }
-  playDingSound();
+  syncProfileToServer();
+  syncHomeV2BadgesUI();
+
   const boxVisual = document.getElementById("randomBoxVisual");
+  const burstLayer = document.getElementById("randomBoxBurstLayer");
+  const prizePop = document.getElementById("randomBoxPrizePop");
   const btn = document.getElementById("openRandomBoxBtn");
   const resEl = document.getElementById("randomBoxResultText");
-  if (boxVisual) boxVisual.classList.add("is-opened");
-  if (btn) { btn.disabled = true; btn.textContent = "✅ 수령 완료!"; }
-  if (resEl) resEl.innerHTML = `<strong style="color:#d97706; font-size:1.05rem;">✨ 축하합니다! [${pick.label}] 획득!</strong>`;
-  await syncProfileToServer();
-  syncHomeV2BadgesUI();
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "🎲 두근두근 개봉 중...";
+  }
+  if (resEl) {
+    resEl.innerHTML = `<strong style="color:#b45309;">✨ 선물상자가 열리고 있어요...!</strong>`;
+  }
+  if (boxVisual) {
+    boxVisual.classList.remove("is-opened");
+    boxVisual.classList.add("is-opening");
+  }
+  playRandomBoxFanfare("charge");
+
+  setTimeout(() => {
+    randomBoxState.isOpening = false;
+    if (boxVisual) {
+      boxVisual.classList.remove("is-opening");
+      boxVisual.classList.add("is-opened");
+    }
+    spawnRandomBoxParticles(burstLayer);
+    if (prizePop) {
+      prizePop.textContent = `✨ ${pick.label}`;
+      prizePop.classList.remove("hidden");
+    }
+    playRandomBoxFanfare("burst");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "✅ 오늘 수령 완료!";
+    }
+    if (resEl) {
+      resEl.innerHTML = `<strong style="color:#d97706; font-size:1.04rem;">🎉 축하합니다! [${pick.label}] 획득!</strong>`;
+    }
+  }, 760);
 };
 
 const ATTENDANCE_REWARDS_28 = (() => {
   const arr = [];
   for (let day = 1; day <= 28; day++) {
     if (day === 28) {
-      arr.push({ day, label: "🧚 요정날개(S+)", type: "wing", id: "wing_fairy" });
+      arr.push({ day, ico: "🧚", short: "요정날개 (S+ 한정)", label: "🧚 요정날개(S+)", type: "wing", id: "wing_fairy" });
     } else if (day === 14) {
-      arr.push({ day, label: "⚡ 더블어택 +1", type: "inv", id: "item_double", amount: 1 });
+      arr.push({ day, ico: "⚡", short: "더블어택 +1", label: "⚡ 더블어택 +1", type: "inv", id: "item_double", amount: 1 });
     } else {
       const mod = ((day - 1) % 14) + 1;
-      if (mod === 2 || mod === 9) arr.push({ day, label: "🪱 지렁이미끼+2", type: "inv", id: "bait_c", amount: 2 });
-      else if (mod === 4) arr.push({ day, label: "🎧 3초듣기+2", type: "inv", id: "item_3sec", amount: 2 });
-      else if (mod === 6) arr.push({ day, label: "🔤 초성힌트+2", type: "inv", id: "item_chosung", amount: 2 });
-      else if (mod === 11) arr.push({ day, label: "⏳ 모래시계+2", type: "inv", id: "item_hourglass", amount: 2 });
-      else if (mod === 13) arr.push({ day, label: "💖 하트요정+2", type: "inv", id: "item_heart", amount: 2 });
-      else if (mod === 7 || mod === 14) arr.push({ day, label: "💿 +500 CD", type: "cd", amount: 500 });
-      else arr.push({ day, label: "💿 +200 CD", type: "cd", amount: 200 });
+      if (mod === 2 || mod === 9) arr.push({ day, ico: "🪱", short: "지렁이미끼+2", label: "🪱 지렁이미끼+2", type: "inv", id: "bait_c", amount: 2 });
+      else if (mod === 4) arr.push({ day, ico: "🎧", short: "3초듣기+2", label: "🎧 3초듣기+2", type: "inv", id: "item_3sec", amount: 2 });
+      else if (mod === 6) arr.push({ day, ico: "🔤", short: "초성힌트+2", label: "🔤 초성힌트+2", type: "inv", id: "item_chosung", amount: 2 });
+      else if (mod === 11) arr.push({ day, ico: "⏳", short: "모래시계+2", label: "⏳ 모래시계+2", type: "inv", id: "item_hourglass", amount: 2 });
+      else if (mod === 13) arr.push({ day, ico: "💖", short: "하트요정+2", label: "💖 하트요정+2", type: "inv", id: "item_heart", amount: 2 });
+      else if (mod === 7 || mod === 14) arr.push({ day, ico: "💿", short: "+500 CD", label: "💿 +500 CD", type: "cd", amount: 500 });
+      else arr.push({ day, ico: "💿", short: "+200 CD", label: "💿 +200 CD", type: "cd", amount: 200 });
     }
   }
   return arr;
@@ -4580,15 +4976,58 @@ function renderAttendanceBoard() {
   const claimedToday = Boolean(ds.attendanceClaimedToday);
   const nextDay = claimedToday ? streak : streak + 1;
 
+  const summaryEl = document.getElementById("attendanceStreakSummary");
+  const fillEl = document.getElementById("attendanceProgressFill");
+  if (summaryEl) {
+    summaryEl.textContent = `✨ 연속 출석: ${streak} / 28일 (${Math.round((streak / 28) * 100)}%)`;
+  }
+  if (fillEl) {
+    fillEl.style.width = `${Math.min(100, Math.max(0, (streak / 28) * 100)).toFixed(1)}%`;
+  }
+
   const grid = document.getElementById("attendanceBoardGrid");
   if (grid) {
     grid.innerHTML = ATTENDANCE_REWARDS_28.map(r => {
       const isDone = r.day <= streak;
       const isTodayTarget = !claimedToday && r.day === nextDay;
+      const is14 = r.day === 14;
+      const is28 = r.day === 28;
+      const isWeekly = r.day === 7 || r.day === 21;
+      const spanCls = is28 ? "span-12" : is14 || isWeekly ? "span-6" : r.day >= 22 ? "span-4" : "span-3";
+      const tierCls = is28 ? "is-special-28" : is14 ? "is-special-14" : isWeekly ? "is-weekly" : "";
+
+      if (is28) {
+        return `
+          <div class="att-day-cell ${spanCls} ${tierCls} ${isDone ? "is-done" : ""} ${isTodayTarget ? "is-today" : ""}">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+              <div class="att-day-ico">${r.ico}</div>
+              <div>
+                <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+                  <span class="att-day-tag is-28-tag">👑 28일 완주 전설 한정</span>
+                  ${isTodayTarget ? `<span class="att-day-tag is-today-tag">오늘!</span>` : ""}
+                </div>
+                <div class="att-day-reward">Day 28 · ${r.short}</div>
+              </div>
+            </div>
+            ${isDone ? `<span class="att-done-mark">완료 ✔</span>` : `<span style="font-size:0.72rem; font-weight:900; color:#9d174d;">FINAL</span>`}
+          </div>
+        `;
+      }
+
+      const tagHtml = isTodayTarget
+        ? `<span class="att-day-tag is-today-tag">오늘!</span>`
+        : is14
+        ? `<span class="att-day-tag is-14-tag">⚡ 14일 특전</span>`
+        : isWeekly
+        ? `<span class="att-day-tag" style="background:#f59e0b; color:#fff;">보너스</span>`
+        : "";
+
       return `
-        <div class="att-day-cell ${isDone ? "is-done" : ""} ${isTodayTarget ? "is-today" : ""} ${r.day === 14 || r.day === 28 ? "is-special" : ""}">
+        <div class="att-day-cell ${spanCls} ${tierCls} ${isDone ? "is-done" : ""} ${isTodayTarget ? "is-today" : ""}">
+          ${tagHtml}
           <div class="att-day-num">Day ${r.day}</div>
-          <div class="att-day-reward">${r.label}</div>
+          <div class="att-day-ico">${r.ico}</div>
+          <div class="att-day-reward">${r.short}</div>
           ${isDone ? `<span class="att-done-mark">✔</span>` : ""}
         </div>
       `;
@@ -4621,7 +5060,11 @@ window.claimAttendanceDay = async function () {
     userState.avatarConfig.wing = reward.id;
   }
 
-  playDingSound();
+  if (nextDay === 14 || nextDay === 28) {
+    playRandomBoxFanfare("burst");
+  } else {
+    playDingSound();
+  }
   await syncProfileToServer();
   renderAttendanceBoard();
   syncHomeV2BadgesUI();

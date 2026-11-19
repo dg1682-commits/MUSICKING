@@ -862,7 +862,8 @@ function renderFishingOnlineUsersList(playersList = null) {
       const safeId = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.userId || "") : "";
       const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.nickname || "") : "";
       const isMe = userState.id && p.userId === userState.id;
-      return `<div class="fishing-user-item${isMe ? " is-me" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}">${escapeFishingHtml(p.nickname || "도전자")}${p.mode === "bg" ? " 💤" : ""}</div>`;
+      const isBg = p.mode === "bg";
+      return `<div class="fishing-user-item${isMe ? " is-me" : ""}${isBg ? " is-afk" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}"><span class="fishing-user-nick">${escapeFishingHtml(p.nickname || "도전자")}</span>${isBg ? `<span class="fishing-user-afk">(잠수중)</span>` : ""}</div>`;
     })
     .join("");
 }

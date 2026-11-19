@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=21.0" />
+  <link rel="stylesheet" href="style.css?v=21.1" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -1266,11 +1266,27 @@
   <div id="patchNotesModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem;">📢 음악왕 V2.0 업데이트 내역</h3>
+        <h3 style="font-size:1rem;">📢 음악왕 업데이트 내역</h3>
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
-      <div class="judge-note-box" style="max-height:380px;">
-        <p style="font-weight:900; color:#2563eb; margin-bottom:6px; font-size:0.92rem;">🎉 음악왕 V2.0 대규모 리뉴얼 오픈!</p>
+      <div class="judge-note-box" style="max-height:390px;">
+        <p style="font-weight:900; color:#be123c; margin-bottom:5px; font-size:0.92rem;">✨ V2.2 최신 업데이트 (2026.11)</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
+          <li><strong>🎁 운영자 선물 · 보상 우편함</strong>: 관리자가 지급한 점검·이벤트 보상(CD·EXP·아이템·코스튬)을 실시간 도착 팝업과 <strong>🔔 알림함</strong>에서 사유와 함께 바로 수령할 수 있습니다.</li>
+          <li><strong>📅 28일 출석체크 보드판 리뉴얼</strong>: 일일 출석 진행 바와 스페셜 카드를 추가하고, <strong>14일차(⚡ 더블어택)</strong>와 <strong>28일차(🧚 요정날개 S+)</strong> 보상을 화려한 대형 배너로 강조했습니다.</li>
+          <li><strong>🎉 오늘의 랜덤 선물상자 연출 강화</strong>: 개봉 전 두근거리는 흔들림·빛줄기·폭발 파티클과 함께 보상이 튀어나오는 오픈 효과를 추가했습니다.</li>
+          <li><strong>🎣 낚시터 잠수중 표시</strong>: 낚시터 우측 접속자 목록에서 잠수 중인 유저 닉네임 옆에 하늘색 <strong>(잠수중)</strong> 표시를 추가했습니다.</li>
+        </ul>
+
+        <p style="font-weight:900; color:#0284c7; margin-bottom:5px; font-size:0.9rem;">🌐 V2.1 실시간 소셜 &amp; 낚시터 안정화</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
+          <li><strong>👥 실시간 접속 · 낚시 잠수 목록</strong>: 홈 좌측 상단에서 전체 유저 수(접속/잠수 구분)와 활동 상태(1:1·4인 대전, 퀴즈 도전중, 낚시중, 낚시 잠수중)를 확인하고 친구 추가·DM·프로필 보기를 바로 실행할 수 있습니다.</li>
+          <li><strong>🩵 친구 상태 실시간 색깔 구분</strong>: 친구 목록에서 실시간 접속(🟢 초록불)과 낚시 잠수(🩵 하늘색불)를 한눈에 구별하고 현재 활동 배지를 표시합니다.</li>
+          <li><strong>🔄 백그라운드 잠수 자동 정산</strong>: 폰 홈 버튼 전환 중 OS가 페이지를 재로딩해도 잠수 경과 시간(최대 6시간)과 EXP·CD가 누락 없이 자동 정산되며 복귀 안내가 표시됩니다.</li>
+          <li><strong>📱 모바일 키보드 &amp; 원스토어 최적화</strong>: 낚시터/채팅 입력 시 화면 밀림 방지, 원스토어 H5 상단 여백 정리, 포그라운드 복귀 실시간 연결 자동 복구를 적용했습니다.</li>
+        </ul>
+
+        <p style="font-weight:900; color:#2563eb; margin-bottom:6px; font-size:0.9rem;">🎉 V2.0 대규모 리뉴얼</p>
 
         <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🏠 메인 화면 &amp; UI 전면 개편</p>
         <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
@@ -1302,7 +1318,7 @@
         <ul style="padding-left:18px; margin-bottom:6px; font-size:0.82rem; line-height:1.55;">
           <li><strong>낚시터 HUD &amp; 2배 버프</strong>: 보유 CD·EXP 확인, 접속자 목록 스크롤, 광고 시청 <strong>30분 CD 2배 버프</strong>가 추가되었습니다.</li>
           <li><strong>매일 혜택 4종</strong>: 일일 무료 +100 CD, 오늘의 랜덤 선물상자, 28일 출석체크 보드, 실시간 이벤트 팝업을 즐겨보세요.</li>
-          <li><strong>랭킹 보상 &amp; 음원 안정화</strong>: 각 모드 TOP 3 진입/갱신 시 배율 보상이 지급되며, 448곡 음원 미리듣기 인식률을 대폭 개선했습니다.</li>
+          <li><strong>랭킹 보상 &amp; 음원 안정화</strong>: 점수 기준 TOP 3 최초 진입/순위 갱신 시 배율 보상(3위×2 · 2위×3 · 1위×5)이 지급되며, 448곡 음원 미리듣기 인식률을 대폭 개선했습니다.</li>
         </ul>
       </div>
     </div>
@@ -1490,16 +1506,23 @@
     </div>
   </div>
 
-  <!-- ==================== [모달 12] 도착한 1:1 DM 미리보기 알림 모달 ==================== -->
+  <!-- ==================== [모달 12] 알림함 (운영자 선물 · 1:1 DM 미리보기) ==================== -->
   <div id="dmNotiModal" class="modal-backdrop hidden">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem;">🔔 새로 도착한 1:1 메시지</h3>
+        <h3 style="font-size:1rem;">🔔 알림함 (선물 · 메시지)</h3>
         <button class="header-btn" onclick="closeModal('dmNotiModal')">닫기 ✕</button>
       </div>
-      <p style="font-size:0.78rem; color:var(--text-sub); margin-bottom:8px;">메시지를 누르면 해당 친구와의 카톡 1:1 대화방으로 바로 이동합니다!</p>
-      <div id="dmNotiPreviewList" class="history-scroll-box" style="max-height:300px; margin-bottom:10px;"></div>
-      <button class="btn" onclick="markAllDmNotiRead(); closeModal('dmNotiModal');" style="width:100%; font-size:0.82rem;">✓ 모두 읽음 처리</button>
+      <div id="adminGiftsNotiSection" class="admin-gift-section hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px;">
+          <strong style="font-size:0.88rem; color:#b45309;">👑 운영자 선물 / 보상함</strong>
+          <button type="button" id="adminGiftsClaimAllBtn" class="btn btn-gold" style="padding:4px 9px; font-size:0.72rem;" onclick="claimAllAdminGifts()">🎁 모두 받기</button>
+        </div>
+        <div id="adminGiftsNotiList" class="history-scroll-box" style="max-height:185px; margin-bottom:0;"></div>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-sub); margin-bottom:6px; font-weight:700;">💬 1:1 메시지를 누르면 해당 친구와의 대화방으로 바로 이동합니다.</p>
+      <div id="dmNotiPreviewList" class="history-scroll-box" style="max-height:240px; margin-bottom:10px;"></div>
+      <button class="btn" onclick="markAllDmNotiRead(); closeModal('dmNotiModal');" style="width:100%; font-size:0.82rem;">✓ 메시지 모두 읽음 처리</button>
     </div>
   </div>
 
@@ -1626,13 +1649,17 @@
 
   <!-- ==================== [V2.0 모달 B] 오늘의 랜덤 선물상자 ==================== -->
   <div id="randomBoxModal" class="modal-backdrop hidden" style="z-index:2250;">
-    <div class="modal-content" style="max-width:350px; text-align:center;">
+    <div class="modal-content" style="max-width:360px; text-align:center;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="font-size:1rem;">🎁 오늘의 랜덤 선물상자</h3>
         <button class="header-btn" onclick="closeModal('randomBoxModal')">닫기 ✕</button>
       </div>
       <div id="randomBoxVisual" class="random-box-stage" onclick="claimDailyRandomBox()">
+        <div class="random-box-rays"></div>
         <div class="random-box-glow"></div>
+        <div class="random-box-flash"></div>
+        <div id="randomBoxBurstLayer" class="random-box-burst"></div>
+        <div id="randomBoxPrizePop" class="random-box-prize-pop hidden"></div>
         <div class="random-box-gift">
           <div class="gift-ribbon-top">🎀</div>
           <div class="gift-lid"></div>
@@ -1646,18 +1673,46 @@
     </div>
   </div>
 
-  <!-- ==================== [V2.0 모달 C] 28일 출석체크 보드 ==================== -->
+  <!-- ==================== [V2.2 모달 C] 28일 출석체크 보드 (14일·28일 대형 강조) ==================== -->
   <div id="attendanceModal" class="modal-backdrop hidden" style="z-index:2250;">
-    <div class="modal-content" style="max-width:420px;">
+    <div class="modal-content" style="max-width:430px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem;">📅 28일 출석체크 보드</h3>
+        <h3 style="font-size:1rem;">📅 28일 스페셜 출석체크</h3>
         <button class="header-btn" onclick="closeModal('attendanceModal')">닫기 ✕</button>
       </div>
-      <p style="font-size:0.76rem; color:var(--text-sub); margin-bottom:8px;">
-        매일 오전 6시 초기화 · <strong>14일차 ⚡더블어택</strong> · <strong>28일차 🧚요정날개(S+ 한정)</strong> 지급!
-      </p>
+      <div class="att-header-card">
+        <div class="att-progress-top">
+          <span id="attendanceStreakSummary">✨ 출석 현황: 0 / 28일</span>
+          <span style="font-size:0.68rem; color:#be123c;">매일 오전 6시 초기화</span>
+        </div>
+        <div class="att-progress-track">
+          <div id="attendanceProgressFill" class="att-progress-fill" style="width:0%;"></div>
+        </div>
+        <div class="att-milestone-row">
+          <span class="att-milestone-chip is-14">⚡ 14일차: 더블어택</span>
+          <span class="att-milestone-chip is-28">🧚 28일차: 요정날개(S+ 한정)</span>
+        </div>
+      </div>
       <div id="attendanceBoardGrid" class="attendance-grid"></div>
       <button type="button" id="claimAttendanceBtn" class="btn btn-primary" style="width:100%; margin-top:10px; padding:11px;" onclick="claimAttendanceDay()">📅 출석 보상 받기!</button>
+    </div>
+  </div>
+
+  <!-- ==================== [V2.2 모달 F] 운영자 선물 도착 실시간 알림 팝업 ==================== -->
+  <div id="adminGiftPopupModal" class="modal-backdrop hidden" style="z-index:2420;">
+    <div class="modal-content" style="max-width:380px; text-align:center; border-color:#f59e0b; background:linear-gradient(180deg, #fffbeb 0%, #ffffff 42%);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span class="badge gold" style="font-size:0.74rem;">👑 운영자 특별 알림</span>
+        <button type="button" class="header-btn" onclick="closeModal('adminGiftPopupModal')">나중에 ✕</button>
+      </div>
+      <div style="font-size:2.3rem; line-height:1.1; margin:4px 0;">🎁✨</div>
+      <h3 id="adminGiftPopupTitle" style="font-size:1.05rem; font-weight:900; color:#b45309; margin-bottom:6px;">관리자가 선물을 보냈습니다!</h3>
+      <p id="adminGiftPopupMsg" style="font-size:0.84rem; color:var(--text-main); line-height:1.5; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:11px; padding:9px 10px; margin-bottom:10px; word-break:keep-all;"></p>
+      <div id="adminGiftPopupRewards" class="admin-gift-rewards-row" style="justify-content:center; margin-bottom:14px;"></div>
+      <div class="action-row">
+        <button type="button" class="btn" onclick="closeModal('adminGiftPopupModal')" style="flex:0.85;">🔔 알림함 보관</button>
+        <button type="button" id="adminGiftPopupClaimBtn" class="btn btn-gold" style="flex:1.55; padding:11px;">🎁 지금 선물 받기!</button>
+      </div>
     </div>
   </div>
 
@@ -1742,11 +1797,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=21.0"></script>
-  <script defer src="pixel_avatar.js?v=21.0"></script>
-  <script defer src="online.js?v=21.0"></script>
-  <script defer src="fishing.js?v=21.0"></script>
-  <script defer src="app.js?v=21.0"></script>
+  <script defer src="data.js?v=21.1"></script>
+  <script defer src="pixel_avatar.js?v=21.1"></script>
+  <script defer src="online.js?v=21.1"></script>
+  <script defer src="fishing.js?v=21.1"></script>
+  <script defer src="app.js?v=21.1"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");
