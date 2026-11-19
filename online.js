@@ -2686,7 +2686,15 @@ window.syncDmNotiBadgeUI = function () {
   const btn = document.getElementById("floatingDmNotiBtn");
   const badge = document.getElementById("dmNotiBadgeCount");
   const homeBadge = document.getElementById("homeDmNotiBadgeCount");
-  const count = dmNotiState.unreadList.length + adminGiftState.unclaimedList.length;
+  const chatsTabBadge = document.getElementById("socialChatsUnreadBadge");
+  const dmUnreadCount = dmNotiState.unreadList.length;
+  const dmUnreadText = dmUnreadCount > 99 ? "99+" : String(dmUnreadCount);
+  if (chatsTabBadge) {
+    chatsTabBadge.classList.toggle("hidden", dmUnreadCount <= 0);
+    chatsTabBadge.textContent = dmUnreadText;
+  }
+
+  const count = dmUnreadCount + adminGiftState.unclaimedList.length;
   const countText = count > 99 ? "99+" : String(count);
   if (homeBadge) {
     homeBadge.classList.toggle("hidden", count <= 0);
@@ -3018,6 +3026,9 @@ window.startGlobalDmNotiListener = function () {
       const row = payload.new;
       if (row && row.receiver_id === userState.id) {
         refreshUnreadDmNotis();
+        if (typeof state !== "undefined" && state.currentScreen === "socialScreen" && socialUiState.activeTab === "chats") {
+          loadDmConversationsList();
+        }
       }
     })
     .subscribe();
@@ -3153,6 +3164,15 @@ window.stopDmRealtime = function () {
   }
 };
 
+const socialUiState = {
+  activeTab: "friends"
+};
+
+window.returnFromDmChatScreen = function () {
+  switchScreen("socialScreen");
+  switchSocialTab(socialUiState.activeTab || "friends");
+};
+
 window.openSocialModal = async function (tab = "friends") {
   if (!userState.isLoggedIn) {
     gameConfirm("친구 및 DM 기능은 로그인 후 이용하실 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
@@ -3169,21 +3189,194 @@ window.openSocialModal = async function (tab = "friends") {
   if (myBioEl) myBioEl.textContent = userState.bio || "상태 메시지가 없습니다.";
   if (myCv) renderPixelAvatar(myCv, userState.avatarConfig);
 
-  switchSocialTab(tab === "dm" ? "friends" : tab);
+  const normalizedTab = tab === "dm" || tab === "chats" ? "chats" : tab === "requests" ? "requests" : "friends";
+  switchSocialTab(normalizedTab);
 };
 
 window.switchSocialTab = async function (tab) {
+  const normalizedTab = tab === "dm" || tab === "chats" ? "chats" : tab === "requests" ? "requests" : "friends";
+  socialUiState.activeTab = normalizedTab;
+
   const fBtn = document.getElementById("socialTab_friends");
+  const cBtn = document.getElementById("socialTab_chats");
   const rBtn = document.getElementById("socialTab_requests");
   const fPane = document.getElementById("socialPane_friends");
+  const cPane = document.getElementById("socialPane_chats");
   const rPane = document.getElementById("socialPane_requests");
 
-  if (fBtn) fBtn.style.background = tab === "friends" ? "#fef08a" : "#ffffff";
-  if (rBtn) rBtn.style.background = tab === "requests" ? "#fef08a" : "#ffffff";
-  if (fPane) fPane.classList.toggle("hidden", tab !== "friends");
-  if (rPane) rPane.classList.toggle("hidden", tab !== "requests");
+  if (fBtn) fBtn.style.background = normalizedTab === "friends" ? "#fef08a" : "#ffffff";
+  if (cBtn) cBtn.style.background = normalizedTab === "chats" ? "#fef08a" : "#ffffff";
+  if (rBtn) rBtn.style.background = normalizedTab === "requests" ? "#fef08a" : "#ffffff";
+  if (fPane) fPane.classList.toggle("hidden", normalizedTab !== "friends");
+  if (cPane) cPane.classList.toggle("hidden", normalizedTab !== "chats");
+  if (rPane) rPane.classList.toggle("hidden", normalizedTab !== "requests");
 
-  await loadFriendsData();
+  if (normalizedTab === "chats") {
+    await loadDmConversationsList();
+  } else {
+    await loadFriendsData();
+  }
+};
+
+function formatDmConvTimeLabel(isoStr) {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    const h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return `${h >= 12 ? "오후" : "오전"} ${h % 12 || 12}:${m}`;
+  }
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) {
+    return "어제";
+  }
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+window.loadDmConversationsList = async function () {
+  const container = document.getElementById("dmConversationsContainer");
+  const countLabel = document.getElementById("kakaoChatsCountLabel");
+  if (!container || !sbClient || !userState.id) return;
+
+  container.innerHTML = `<div style="text-align:center; padding:32px 16px; color:var(--text-sub); font-size:0.84rem;">대화 목록을 불러오는 중...</div>`;
+
+  try {
+    const [dmRes] = await Promise.all([
+      sbClient
+        .from("direct_messages")
+        .select("id, sender_id, receiver_id, content, created_at")
+        .or(`sender_id.eq.${userState.id},receiver_id.eq.${userState.id}`)
+        .order("created_at", { ascending: false })
+        .limit(400),
+      typeof refreshOnlineUsersFriendships === "function" && (!globalOnlineState?.friendStatusMap || globalOnlineState.friendStatusMap.size === 0)
+        ? refreshOnlineUsersFriendships()
+        : Promise.resolve()
+    ]);
+
+    if (dmRes.error) {
+      if (countLabel) countLabel.textContent = "대화 목록 0";
+      container.innerHTML = `<div style="text-align:center; padding:32px 16px; color:var(--danger); font-size:0.84rem;">대화 목록을 불러오지 못했습니다.</div>`;
+      return;
+    }
+
+    const myId = String(userState.id);
+    const seenMap = getSeenDmMap();
+    const convMap = new Map();
+
+    (dmRes.data || []).forEach(m => {
+      const sId = String(m.sender_id || "");
+      const rId = String(m.receiver_id || "");
+      const peerId = sId === myId ? rId : sId;
+      if (!peerId || peerId === myId || isUserBlocked(peerId)) return;
+
+      if (!convMap.has(peerId)) {
+        convMap.set(peerId, {
+          peerId,
+          lastMsg: m,
+          unreadCount: 0
+        });
+      }
+
+      if (sId === peerId) {
+        const seenAt = seenMap[peerId] || "";
+        if (!seenAt || new Date(m.created_at).getTime() > new Date(seenAt).getTime()) {
+          convMap.get(peerId).unreadCount += 1;
+        }
+      }
+    });
+
+    const convs = Array.from(convMap.values());
+    const peerIds = convs.map(c => c.peerId);
+    const profMap = new Map();
+
+    if (peerIds.length > 0) {
+      const { data: profs } = await sbClient
+        .from("profiles")
+        .select("id, nickname, bio, avatar_config")
+        .in("id", peerIds);
+      const nowTs = Date.now();
+      (profs || []).forEach(p => {
+        profMap.set(String(p.id), p);
+        if (typeof syncSingleProfileFishingBgEntry === "function") {
+          syncSingleProfileFishingBgEntry(p, nowTs);
+        }
+      });
+    }
+
+    const visibleConvs = convs.filter(c => {
+      const prof = profMap.get(c.peerId);
+      return !isUserBlocked(c.peerId, prof?.nickname || "");
+    });
+
+    if (countLabel) countLabel.textContent = `대화 목록 ${visibleConvs.length}`;
+
+    if (visibleConvs.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:38px 16px; color:var(--text-sub); font-size:0.85rem; line-height:1.55;">아직 나눈 1:1 대화가 없습니다.<br/>친구나 낚시터·대기실·실시간 접속 목록에서<br/><strong>💬 1:1 채팅</strong>을 보내면 이곳에 대화방이 유지됩니다!</div>`;
+      return;
+    }
+
+    container.innerHTML = visibleConvs
+      .map(c => {
+        const prof = profMap.get(c.peerId) || { nickname: "알 수 없는 유저", bio: "", avatar_config: DEFAULT_AVATAR_CONFIG };
+        const rawNick = prof.nickname || "유저";
+        const safeId = escapeJsSingleArg(c.peerId);
+        const safeNick = escapeJsSingleArg(rawNick);
+        const isFriend = globalOnlineState?.friendStatusMap?.get(c.peerId) === "accepted";
+        const pres =
+          typeof getUserPresenceState === "function"
+            ? getUserPresenceState(c.peerId)
+            : { status: "offline", activity: "오프라인" };
+        const dotCls =
+          pres.status === "online" ? "is-online" : pres.status === "fishing_afk" ? "is-fishing-afk" : "";
+        const pillCls =
+          pres.status === "fishing_afk" ? "is-fishing-afk" : pres.status === "offline" ? "hidden" : "";
+        const previewRaw = formatDmNotiPreviewText(c.lastMsg?.content || "");
+        const timeStr = formatDmConvTimeLabel(c.lastMsg?.created_at);
+        const unreadHtml =
+          c.unreadCount > 0
+            ? `<span class="dm-unread-pill">${c.unreadCount > 99 ? "99+" : c.unreadCount}</span>`
+            : "";
+
+        return `
+          <div class="kakao-friend-row" onclick="prepareDmTo('${safeId}', '${safeNick}')">
+            <div class="kakao-friend-main">
+              <div class="kakao-avatar-wrap">
+                <canvas class="conv-mini-cv kakao-avatar-sq" width="480" height="480" data-avatar='${JSON.stringify(prof.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
+                <span class="online-status-dot ${dotCls}" data-online-uid="${c.peerId}" title="${String(pres.activity || "오프라인").replace(/"/g, "&quot;")}"></span>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div class="kakao-friend-nick" style="display:flex; align-items:center; gap:5px;">
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeOnlineHtml(rawNick)}</span>
+                  ${!isFriend ? `<span class="dm-nonfriend-tag">대화 상대</span>` : ""}
+                  <span class="friend-online-pill ${pillCls}" data-online-pill-uid="${c.peerId}">${pres.status === "offline" ? "" : escapeOnlineHtml(pres.activity)}</span>
+                </div>
+                <div class="kakao-friend-bio" style="${c.unreadCount > 0 ? "color:#1e1b18; font-weight:800;" : ""}">${escapeOnlineHtml(previewRaw)}</div>
+              </div>
+            </div>
+            <div class="dm-conv-right">
+              <span class="dm-conv-time">${escapeOnlineHtml(timeStr)}</span>
+              <div style="display:flex; align-items:center; gap:5px;">
+                ${unreadHtml}
+                <button class="header-btn" onclick="event.stopPropagation(); inspectOtherUser('${safeId}', '${safeNick}')" title="프로필" style="padding:3px 6px; font-size:0.74rem;">🪪</button>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    container.querySelectorAll(".conv-mini-cv").forEach(cv => {
+      try {
+        renderPixelAvatar(cv, JSON.parse(cv.getAttribute("data-avatar")));
+      } catch (e) {}
+    });
+  } catch (e) {
+    if (countLabel) countLabel.textContent = "대화 목록 0";
+    container.innerHTML = `<div style="text-align:center; padding:32px 16px; color:var(--danger); font-size:0.84rem;">대화 목록 조회 중 오류가 발생했습니다.</div>`;
+  }
 };
 
 window.sendFriendRequestByNick = async function (targetNickParam) {
@@ -3398,6 +3591,10 @@ window.prepareDmTo = async function (receiverId, receiverNick) {
   }
   closeModal("userInspectModal");
   if (typeof closeDmEmojiDrawer === "function") closeDmEmojiDrawer();
+  const curScreen = typeof state !== "undefined" ? state.currentScreen : "";
+  if (curScreen !== "socialScreen") {
+    socialUiState.activeTab = "chats";
+  }
   dmState.peerId = receiverId;
   dmState.peerNick = receiverNick || "친구";
   dmState.peerAvatar = { ...DEFAULT_AVATAR_CONFIG };
@@ -5510,8 +5707,9 @@ window.claimAttendanceDay = async function () {
 const DEFAULT_FALLBACK_EVENTS = [
   {
     id: 1,
-    title: "신고하고 보상받자!",
-    content: "신고만해도 보상해드립니다!, 이용해주셔서 감사합니다 이용하시다가 음악이나 가사, 듣기가 뭐 오류가 있거나 잘못되어있는 부분을 '관리자' 아이디 친구추천 해서 DM으로 신고해주시면 내용 반영 후 건마다 1,000CD 드리겠습니다",
+    title: "제보하고 보상받자!",
+    content:
+      "제보만해도 보상해드립니다! 이용해주셔서 감사합니다.\n이용하시다가 음악이나 가사, 1초 듣기 등에 오류가 있거나 잘못되어 있는 부분을 '관리자'에게 1:1 DM으로 제보(신고)해주시면 내용 반영 후 건마다 1,000CD 드리겠습니다!",
     banner_url: "",
     is_published: true
   }
@@ -5534,11 +5732,18 @@ window.openEventModal = async function () {
         .order("id", { ascending: true })
         .limit(5);
       if (!error && Array.isArray(data) && data.length > 0) {
-        cachedPublishedEvents = data;
-      } else if (!error && Array.isArray(data) && data.length === 0) {
-        cachedPublishedEvents = [];
+        cachedPublishedEvents = data.map(ev => {
+          if (ev && /제보|신고/.test(ev.title || "") && !String(ev.content || "").trim()) {
+            return { ...ev, content: DEFAULT_FALLBACK_EVENTS[0].content };
+          }
+          return ev;
+        });
+      } else {
+        cachedPublishedEvents = [...DEFAULT_FALLBACK_EVENTS];
       }
-    } catch (e) {}
+    } catch (e) {
+      cachedPublishedEvents = [...DEFAULT_FALLBACK_EVENTS];
+    }
   }
 
   selectedEventIndex = 0;
@@ -5567,13 +5772,14 @@ function renderEventModalContent() {
     .slice(0, 5)
     .map((ev, idx) => {
       const active = idx === selectedEventIndex;
-      const bgStyle = ev.banner_url
-        ? `background-image:linear-gradient(90deg, rgba(15,23,42,0.72), rgba(15,23,42,0.35)), url('${ev.banner_url}'); background-size:cover; background-position:center; color:#ffffff;`
+      const safeBannerUrl = String(ev.banner_url || "").replace(/'/g, "%27");
+      const bgStyle = safeBannerUrl
+        ? `background-image:linear-gradient(90deg, rgba(15,23,42,0.72), rgba(15,23,42,0.35)), url('${safeBannerUrl}'); background-size:cover; background-position:center; color:#ffffff;`
         : "";
       return `
         <button type="button" class="event-banner-pill ${active ? "active" : ""}" style="${bgStyle}" onclick="selectEventBanner(${idx})">
           <span class="event-banner-badge">EVENT ${idx + 1}</span>
-          <span class="event-banner-title">${ev.title}</span>
+          <span class="event-banner-title">${escapeOnlineHtml(ev.title || "이벤트")}</span>
         </button>
       `;
     })
@@ -5581,7 +5787,7 @@ function renderEventModalContent() {
 
   const cur = cachedPublishedEvents[selectedEventIndex] || cachedPublishedEvents[0];
   titleEl.textContent = cur.title || "이벤트";
-  bodyEl.innerHTML = String(cur.content || "").replace(/\n/g, "<br/>");
+  bodyEl.innerHTML = escapeOnlineHtml(cur.content || "").replace(/\n/g, "<br/>");
 }
 
 // ============================================================================

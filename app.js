@@ -538,9 +538,16 @@ function performCleanAppExit() {
     window.close();
   } catch (e) {}
   try {
-    history.back();
+    if (window.history.state && window.history.state.mkRole === "app_guard") {
+      history.back();
+    }
   } catch (e) {}
 }
+
+window.openAdminBackendPage = function () {
+  if (typeof closeModal === "function") closeModal("settingsModal");
+  location.replace("admin.html?v=21.4");
+};
 
 window.processInAppBackStep = function (fromOnestore = false) {
   if (appExited || allowAppExit) {
@@ -594,8 +601,12 @@ window.processInAppBackStep = function (fromOnestore = false) {
   }
 
   if (state.currentScreen === "dmChatScreen") {
-    switchScreen("socialScreen");
-    if (typeof loadFriendsData === "function") loadFriendsData();
+    if (typeof returnFromDmChatScreen === "function") {
+      returnFromDmChatScreen();
+    } else {
+      switchScreen("socialScreen");
+      if (typeof loadFriendsData === "function") loadFriendsData();
+    }
     if (!fromOnestore) armAppBackGuard(true);
     return true;
   }
@@ -640,6 +651,13 @@ window.handleOnestoreBackPressed = function () {
 
 window.addEventListener("popstate", () => {
   window.processInAppBackStep(false);
+});
+
+window.addEventListener("pageshow", e => {
+  if (e.persisted && !appExited) {
+    if (typeof closeAllModals === "function") closeAllModals();
+    armAppBackGuard(false);
+  }
 });
 
 // ============================================================================

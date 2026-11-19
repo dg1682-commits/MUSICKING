@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=21.2" />
+  <link rel="stylesheet" href="style.css?v=21.4" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -936,10 +936,14 @@
       <div class="kakao-screen-card">
         <div class="kakao-header">
           <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기" style="width:36px; height:36px; font-size:1rem;">⬅</button>
-          <h3 style="font-size:1.05rem; font-weight:900;">💬 친구</h3>
-          <div style="display:flex; gap:5px;">
-            <button class="header-btn" id="socialTab_friends" onclick="switchSocialTab('friends')" style="background:#fef08a;">👥 친구</button>
-            <button class="header-btn" id="socialTab_requests" onclick="switchSocialTab('requests')">➕ 추가</button>
+          <h3 style="font-size:1rem; font-weight:900; white-space:nowrap;">👥 친구 · DM</h3>
+          <div style="display:flex; gap:4px; flex-shrink:0;">
+            <button class="header-btn" id="socialTab_friends" onclick="switchSocialTab('friends')" style="background:#fef08a; padding:5px 7px; font-size:0.74rem;">👥 친구</button>
+            <button class="header-btn" id="socialTab_chats" onclick="switchSocialTab('chats')" style="position:relative; padding:5px 7px; font-size:0.74rem;">
+              💬 대화
+              <span id="socialChatsUnreadBadge" class="social-tab-badge hidden">0</span>
+            </button>
+            <button class="header-btn" id="socialTab_requests" onclick="switchSocialTab('requests')" style="padding:5px 7px; font-size:0.74rem;">➕ 추가</button>
           </div>
         </div>
 
@@ -956,6 +960,15 @@
 
           <div class="kakao-section-divider" id="kakaoFriendsCountLabel">친구 0</div>
           <div id="friendsListContainer" class="kakao-friend-list"></div>
+        </div>
+
+        <!-- 1:1 DM 대화 목록 뷰 (친구 여부 무관 카톡식 최근 대화 목록) -->
+        <div id="socialPane_chats" class="hidden" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+          <div class="kakao-section-divider" style="display:flex; justify-content:space-between; align-items:center;">
+            <span id="kakaoChatsCountLabel">대화 목록 0</span>
+            <button type="button" class="header-btn" onclick="loadDmConversationsList()" style="padding:2px 7px; font-size:0.68rem;">🔄 새로고침</button>
+          </div>
+          <div id="dmConversationsContainer" class="kakao-friend-list"></div>
         </div>
 
         <!-- 친구 찾기 & 받은/보낸 요청 뷰 -->
@@ -978,7 +991,7 @@
 
         <div class="kakao-chat-header">
           <div style="display:flex; align-items:center; gap:9px;">
-            <button class="header-btn" onclick="switchScreen('socialScreen'); loadFriendsData();" style="padding:6px 10px;">⬅ 뒤로</button>
+            <button class="header-btn" onclick="returnFromDmChatScreen()" style="padding:6px 10px;">⬅ 뒤로</button>
             <canvas id="dmPeerAvatarCanvas" class="kakao-avatar-sq" width="480" height="480" style="width:36px; height:36px; border-radius:12px;"></canvas>
             <strong id="dmPeerNickTitle" style="font-size:1rem; font-weight:900; color:#1e1b18;">친구</strong>
           </div>
@@ -1392,7 +1405,7 @@
           <span>📱 전체화면(주소창 숨김) 전환</span>
           <strong style="color:var(--accent);">전환 ➔</strong>
         </div>
-        <div class="pixel-list-item hidden" id="settingsAdminMenuBtn" onclick="location.href='admin.html'">
+        <div class="pixel-list-item hidden" id="settingsAdminMenuBtn" onclick="openAdminBackendPage()">
           <span>🛠️ 관리자 백엔드 페이지 (음악/아이템/계정/신고)</span>
           <strong style="color:#b45309;">이동 ➔</strong>
         </div>
@@ -1845,11 +1858,11 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=21.2"></script>
-  <script defer src="pixel_avatar.js?v=21.2"></script>
-  <script defer src="online.js?v=21.2"></script>
-  <script defer src="fishing.js?v=21.2"></script>
-  <script defer src="app.js?v=21.2"></script>
+  <script defer src="data.js?v=21.4"></script>
+  <script defer src="pixel_avatar.js?v=21.4"></script>
+  <script defer src="online.js?v=21.4"></script>
+  <script defer src="fishing.js?v=21.4"></script>
+  <script defer src="app.js?v=21.4"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");
