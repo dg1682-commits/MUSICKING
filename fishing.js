@@ -1441,18 +1441,209 @@ window.sendFishingChat = function () {
 // ============================================================================
 // 5. 2초 로딩 오버레이 · 폰 홈 유지 / 스와이프 강제종료 퇴장 라이프사이클
 // ============================================================================
+let fishingLoadingAnimId = null;
+
 function showFishingLoadingOverlay(labelText) {
   const overlay = document.getElementById("fishingLoadingOverlay");
   const titleEl = document.getElementById("fishingLoadingTitle");
+  const subEl = document.getElementById("fishingLoadingSub");
   const barEl = document.getElementById("fishingLoadingBarFill");
-  const avatarCv = document.getElementById("fishingLoadingAvatar");
+  const sceneCv = document.getElementById("fishingLoadingAvatar");
   if (!overlay) return;
 
+  const isExit = String(labelText || "").includes("나오는");
   if (titleEl) titleEl.textContent = labelText;
-  if (avatarCv && typeof renderPixelAvatar === "function") {
-    const cfg = typeof userState !== "undefined" ? userState.avatarConfig : DEFAULT_AVATAR_CONFIG;
-    renderPixelAvatar(avatarCv, cfg, { transparentBg: true, matchCssAspect: false });
+  if (subEl) subEl.textContent = isExit ? "오늘 낚시 기록을 저장하고 집으로 돌아가는 중!" : "차를 타고 호수로 신나게 달리는 중!";
+
+  if (fishingLoadingAnimId) {
+    cancelAnimationFrame(fishingLoadingAnimId);
+    fishingLoadingAnimId = null;
   }
+
+  if (sceneCv) {
+    const ctx = sceneCv.getContext("2d");
+    const W = sceneCv.width || 400;
+    const H = sceneCv.height || 220;
+
+    // 자동차 창문에 크게 담을 얼굴+머리+모자 전용 오프스크린 베이킹
+    const headOff = document.createElement("canvas");
+    headOff.width = 480;
+    headOff.height = 480;
+    if (typeof renderPixelAvatar === "function") {
+      try {
+        const cfg = typeof userState !== "undefined" ? userState.avatarConfig : DEFAULT_AVATAR_CONFIG;
+        renderPixelAvatar(headOff, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true, headOnly: true });
+      } catch (e) {}
+    }
+
+    const startMs = performance.now();
+    const outline = "#1e1b18";
+    const rrect = (x, y, w, h, r, fill, stroke = outline, lw = 3) => {
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+      else ctx.rect(x, y, w, h);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+    };
+
+    const drawFrame = now => {
+      if (overlay.classList.contains("hidden")) {
+        fishingLoadingAnimId = null;
+        return;
+      }
+      const t = (now - startMs) / 1000;
+      ctx.clearRect(0, 0, W, H);
+
+      // 1) 하늘 + 해
+      const skyG = ctx.createLinearGradient(0, 0, 0, 145);
+      skyG.addColorStop(0, isExit ? "#fb923c" : "#38bdf8");
+      skyG.addColorStop(1, isExit ? "#fef3c7" : "#e0f2fe");
+      ctx.fillStyle = skyG;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = isExit ? "#fde047" : "#fef08a";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(342, 40, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // 2) 구름 (오른쪽 -> 왼쪽 흐르기)
+      for (let i = 0; i < 3; i++) {
+        const cx = ((W + 100) - ((t * 42 + i * 165) % (W + 140))) - 20;
+        const cy = 34 + (i % 2) * 20;
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(cx - 14, cy + 3, 12, Math.PI * 0.5, Math.PI * 1.7);
+        ctx.arc(cx, cy - 5, 16, Math.PI, 0);
+        ctx.arc(cx + 15, cy + 3, 12, Math.PI * 1.3, Math.PI * 0.5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+
+      // 3) 먼 산 & 반짝이는 호수 물길 (오른쪽 -> 왼쪽)
+      for (let i = 0; i < 4; i++) {
+        const hx = ((W + 140) - ((t * 68 + i * 145) % (W + 180))) - 30;
+        ctx.fillStyle = i % 2 === 0 ? "#86efac" : "#4ade80";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(hx, 134, 62, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(0, 130, W, 14);
+
+      // 4) 잔디 갓길 + 나무 + 이정표 (오른쪽 -> 왼쪽 스크롤)
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(0, 140, W, 24);
+      ctx.strokeStyle = outline; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 140); ctx.lineTo(W, 140); ctx.stroke();
+
+      for (let i = 0; i < 4; i++) {
+        const tx = ((W + 90) - ((t * 175 + i * 135) % (W + 140))) - 25;
+        if (i === 1) {
+          // 낚시터/집 이정표 표지판
+          rrect(tx - 2, 102, 6, 44, 2, "#92400e", outline, 2);
+          rrect(tx - 28, 86, 58, 22, 6, "#fef08a", outline, 2.5);
+          ctx.fillStyle = outline;
+          ctx.font = "900 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(isExit ? "🏠 집으로" : "🎣 호수➔", tx + 1, 97);
+        } else {
+          rrect(tx - 4, 114, 8, 32, 2, "#78350e", outline, 2.2);
+          ctx.fillStyle = "#16a34a";
+          ctx.strokeStyle = outline;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(tx, 104, 18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      }
+
+      // 5) 아스팔트 도로 + 중앙선 점선 (오른쪽 -> 왼쪽)
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(0, 162, W, H - 162);
+      ctx.strokeStyle = outline; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(0, 162); ctx.lineTo(W, 162); ctx.stroke();
+
+      const dashOff = (t * 280) % 56;
+      ctx.fillStyle = "#fde047";
+      for (let lx = -dashOff; lx < W + 56; lx += 56) {
+        ctx.fillRect(lx, 188, 28, 5);
+      }
+
+      // 6) 배기구 동글 연기 (왼쪽으로 흘러감)
+      const bounce = Math.sin(t * 20) * 1.8;
+      const carX = 112;
+      const carY = 82 + bounce;
+      for (let p = 0; p < 3; p++) {
+        const age = (t * 2.1 + p * 0.33) % 1;
+        const px = carX - 10 - age * 54;
+        const py = carY + 74 - age * 14 + Math.sin(age * 6) * 3;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 0.72 * (1 - age));
+        ctx.fillStyle = "#f1f5f9";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(px, py, 5 + age * 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 7) 자동차 본체 (우측 주행, 낚시대 루프랙 장식)
+      if (!isExit) {
+        ctx.strokeStyle = outline; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(carX + 24, carY - 2); ctx.lineTo(carX + 132, carY - 12); ctx.stroke();
+        ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(carX + 24, carY - 2); ctx.lineTo(carX + 132, carY - 12); ctx.stroke();
+      }
+      // 차 윗몸체(캐빈) & 아랫몸체(보닛)
+      rrect(carX + 24, carY + 2, 114, 48, 16, "#fffbeb", outline, 3.5);
+      rrect(carX, carY + 38, 174, 46, 15, "#ef4444", outline, 3.5);
+      // 범퍼 + 헤드라이트 + 후미등
+      rrect(carX + 160, carY + 48, 16, 14, 6, "#fde047", outline, 2.5);
+      rrect(carX - 4, carY + 48, 10, 14, 4, "#fb7185", outline, 2.5);
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillRect(carX + 10, carY + 44, 142, 6);
+
+      // 8) 큼직한 자동차 창문 + 창문 밖으로 얼굴만 큼직하게 내민 내 캐릭터!
+      const winX = carX + 34;
+      const winY = carY + 7;
+      const winW = 94;
+      const winH = 54;
+      rrect(winX, winY, winW, winH, 12, "#bae6fd", outline, 3.5);
+      ctx.save();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(winX + 2, winY + 2, winW - 4, winH - 4, 10);
+      else ctx.rect(winX + 2, winY + 2, winW - 4, winH - 4);
+      ctx.clip();
+      // 480x480 에서 머리·모자 영역(x:82..398, y:36..288)을 창문 안에 크게 꽉 차게 배치!
+      ctx.drawImage(headOff, 82, 36, 316, 252, winX + 4, winY - 2 + bounce * 0.35, 86, 68);
+      // 창문 사선 반사광
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.beginPath();
+      ctx.moveTo(winX + 8, winY); ctx.lineTo(winX + 24, winY);
+      ctx.lineTo(winX + 10, winY + winH); ctx.lineTo(winX - 6, winY + winH);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      rrect(winX, winY, winW, winH, 12, null, outline, 3.5);
+
+      // 9) 빙글빙글 굴러가는 양쪽 바퀴
+      [carX + 36, carX + 136].forEach(wx => {
+        const wy = carY + 84;
+        ctx.save();
+        ctx.translate(wx, wy);
+        ctx.fillStyle = "#1e293b"; ctx.strokeStyle = outline; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e2e8f0";
+        ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.rotate(t * 11);
+        ctx.strokeStyle = outline; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+        ctx.restore();
+      });
+
+      fishingLoadingAnimId = requestAnimationFrame(drawFrame);
+    };
+    fishingLoadingAnimId = requestAnimationFrame(drawFrame);
+  }
+
   if (barEl) {
     barEl.style.transition = "none";
     barEl.style.width = "0%";
@@ -1464,6 +1655,10 @@ function showFishingLoadingOverlay(labelText) {
 }
 
 function hideFishingLoadingOverlay() {
+  if (fishingLoadingAnimId) {
+    cancelAnimationFrame(fishingLoadingAnimId);
+    fishingLoadingAnimId = null;
+  }
   const overlay = document.getElementById("fishingLoadingOverlay");
   if (overlay) overlay.classList.add("hidden");
 }

@@ -444,7 +444,7 @@
           <button type="button" class="play-hub-banner is-arcade" onclick="openArcadeScreen()">
             <div class="play-hub-ico">🕹️</div>
             <div class="play-hub-text">
-              <strong>음악왕 오락실 (7종 미니게임)</strong>
+              <strong>황금오락실 (8종 미니게임)</strong>
               <span>동전 1개로 황금주화 &amp; 주간 랭킹 도전! (보유 🎟️ <strong id="outingArcadeCoins">0</strong>개)</span>
             </div>
             <span class="play-hub-arrow">➔</span>
@@ -464,13 +464,13 @@
       </div>
     </section>
 
-    <!-- ==================== 1-E. 음악왕 오락실 (#arcadeScreen) ==================== -->
+    <!-- ==================== 1-E. 황금오락실 (#arcadeScreen) ==================== -->
     <section id="arcadeScreen" class="screen-view hidden">
       <div class="card arcade-lobby-card">
         <div class="arcade-topbar">
-          <button class="apf-back-circle" onclick="openOutingHubScreen()" title="놀러가기" style="width:32px; height:32px; font-size:0.9rem; flex-shrink:0;">⬅</button>
+          <button class="apf-back-circle" onclick="exitArcadeScreenWithLoading()" title="황금오락실 나가기" style="width:32px; height:32px; font-size:0.9rem; flex-shrink:0;">⬅</button>
           <div class="arcade-topbar-left">
-            <h3 class="arcade-topbar-title">🕹️ 오락실</h3>
+            <h3 class="arcade-topbar-title">🕹️ 황금오락실</h3>
             <button type="button" class="arcade-top-rank-btn" onclick="openArcadeRankingModal()" title="주간 랭킹 &amp; 보상 확인">🏆 랭킹</button>
           </div>
           <div class="arcade-currency-row">
@@ -484,17 +484,13 @@
           <!-- 상단 중앙 아저씨 NPC 환전소 부스 + 양옆 네온 기둥 -->
           <div class="arcade-booth-stage">
             <div class="arcade-booth-pillar is-left">🕹️</div>
-            <div class="arcade-npc-booth">
+            <div class="arcade-npc-booth" onclick="openArcadeExchangeModal()" style="cursor:pointer;">
               <div class="arcade-npc-visual-row">
                 <canvas id="arcadeNpcCanvas" class="arcade-npc-canvas" width="260" height="190"></canvas>
                 <div class="arcade-npc-dialog-col">
                   <span class="arcade-booth-sign">🎩 아저씨 동전 환전소</span>
                   <div id="arcadeNpcBubble" class="arcade-npc-bubble">어서오쇼~ 500 CD = 동전 1개!</div>
-                  <div class="arcade-exchange-btns">
-                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(1)">+1개<span>500 CD</span></button>
-                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(5)">+5개<span>2,500 CD</span></button>
-                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(10)">+10개<span>5,000 CD</span></button>
-                  </div>
+                  <button type="button" class="btn btn-gold arcade-open-ex-btn" onclick="event.stopPropagation(); openArcadeExchangeModal()">🎟️ 동전 환전하기 (500 CD = 1개)</button>
                 </div>
               </div>
             </div>
@@ -1204,16 +1200,28 @@
       </div>
     </section>
 
-    <!-- 낚시터 입·퇴장 2초 전용 로딩 오버레이 (흰 배경 + 바운스 캐릭터 + 2초 프로그레스) -->
-    <div id="fishingLoadingOverlay" class="fishing-loading-overlay hidden">
+    <!-- 낚시터 입·퇴장 2초 전용 로딩 오버레이 (자동차 창문 속 캐릭터 얼굴 + 흐르는 낚시터 도로 배경) -->
+    <div id="fishingLoadingOverlay" class="fishing-loading-overlay travel-loading-overlay hidden">
       <div id="fishingLoadingTitle" class="fishing-loading-title">🎣 낚시터 가는중..</div>
-      <div class="fishing-loading-center">
-        <canvas id="fishingLoadingAvatar" class="fishing-loading-avatar" width="480" height="480"></canvas>
+      <div class="fishing-loading-center travel-loading-center">
+        <canvas id="fishingLoadingAvatar" class="travel-scene-canvas" width="400" height="220"></canvas>
         <div class="fishing-loading-bar-track">
           <div id="fishingLoadingBarFill" class="fishing-loading-bar-fill"></div>
         </div>
       </div>
-      <div class="fishing-loading-sub">잠시만 기다려 주세요</div>
+      <div id="fishingLoadingSub" class="fishing-loading-sub">신나게 호수로 달리는 중!</div>
+    </div>
+
+    <!-- [V3.0] 황금오락실 입·퇴장 전용 로딩 오버레이 (골목길 캐릭터 이동 + 에셋·서버 사전 워밍업) -->
+    <div id="arcadeLoadingOverlay" class="fishing-loading-overlay travel-loading-overlay hidden">
+      <div id="arcadeLoadingTitle" class="fishing-loading-title">🕹️ 황금오락실 가는중..</div>
+      <div class="fishing-loading-center travel-loading-center">
+        <canvas id="arcadeLoadingCanvas" class="travel-scene-canvas" width="400" height="220"></canvas>
+        <div class="fishing-loading-bar-track">
+          <div id="arcadeLoadingBarFill" class="fishing-loading-bar-fill arcade-loading-bar-fill"></div>
+        </div>
+      </div>
+      <div id="arcadeLoadingSub" class="fishing-loading-sub">오락실 에셋·사운드 준비 중..</div>
     </div>
 
     <!-- [V3.0] 로그인/자동로그인 -> 메인 진입 시 파츠·이펙트·사운드 사전 워밍업 로딩 오버레이 -->
@@ -1944,18 +1952,18 @@
       <div id="arcadeResGoldenGain" style="font-size:0.94rem; font-weight:900; color:#b45309; background:#fef08a; border:2px solid #1e1b18; border-radius:999px; padding:4px 12px; display:inline-block; margin-bottom:8px;">🪙 +1개 획득!</div>
       <p id="arcadeResBestSummary" style="font-size:0.8rem; color:var(--text-sub); line-height:1.45; white-space:pre-line; background:#f8fafc; border:2px solid #cbd5e1; border-radius:10px; padding:8px; margin-bottom:12px;"></p>
       <div class="action-row" style="gap:6px;">
-        <button type="button" id="arcadeResLobbyBtn" class="btn" style="flex:0.85;">🕹️ 오락실</button>
+        <button type="button" id="arcadeResLobbyBtn" class="btn" style="flex:0.85;">🕹️ 황금오락실</button>
         <button type="button" id="arcadeResRankBtn" class="btn" style="flex:0.95;">🏆 랭킹</button>
         <button type="button" id="arcadeResReplayBtn" class="btn btn-gold" style="flex:1.25;">🔁 한 판 더!</button>
       </div>
     </div>
   </div>
 
-  <!-- ==================== [V3.0 모달 H] 오락실 주간 랭킹 & 명예의 전당 ==================== -->
+  <!-- ==================== [V3.0 모달 H] 황금오락실 주간 랭킹 & 명예의 전당 ==================== -->
   <div id="arcadeRankModal" class="modal-backdrop hidden" style="z-index:2450;">
     <div class="modal-content" style="max-width:430px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:1rem; font-weight:900;">🏆 오락실 랭킹</h3>
+        <h3 style="font-size:1rem; font-weight:900;">🏆 황금오락실 랭킹</h3>
         <button type="button" class="header-btn" onclick="closeModal('arcadeRankModal')">닫기 ✕</button>
       </div>
       <div class="arcade-rank-reward-banner">
@@ -1968,6 +1976,66 @@
       <div id="arcadeRankGameTabs" class="arcade-rank-game-tabs"></div>
       <div id="arcadeRankWeekLabel" style="font-size:0.74rem; font-weight:800; color:var(--text-sub); margin:4px 0 6px;">📅 주간 TOP 30</div>
       <div id="arcadeRankList" class="history-scroll-box" style="max-height:310px;"></div>
+    </div>
+  </div>
+
+  <!-- ==================== [V3.0 모달 I] 환전소 아저씨 블러 팝업 ==================== -->
+  <div id="arcadeExchangeModal" class="modal-backdrop is-blur-backdrop hidden" style="z-index:2470;">
+    <div class="arcade-ex-modal-wrap">
+      <div class="arcade-ex-npc-stage">
+        <canvas id="arcadeExNpcCanvas" class="arcade-ex-npc-canvas" width="260" height="190"></canvas>
+        <div id="arcadeExNpcBubble" class="arcade-ex-speech">얼마나 환전할텐가?</div>
+      </div>
+      <div class="modal-content arcade-ex-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span class="badge gold" style="font-size:0.74rem;">🎩 황금오락실 동전 환전소</span>
+          <button type="button" class="header-btn" onclick="closeModal('arcadeExchangeModal')">닫기 ✕</button>
+        </div>
+
+        <div class="arcade-ex-balance-bar">
+          <span>보유 💿 <strong id="arcadeExCurCd">0</strong></span>
+          <span>보유 🎟️ <strong id="arcadeExCurCoins">0</strong></span>
+        </div>
+
+        <div id="arcadeExControlArea">
+          <div class="arcade-ex-preset-row">
+            <button type="button" class="btn arcade-ex-preset-btn" data-ex-qty="1" onclick="setArcadeExchangeQty(1)">1개<span>500 CD</span></button>
+            <button type="button" class="btn arcade-ex-preset-btn" data-ex-qty="5" onclick="setArcadeExchangeQty(5)">5개<span>2,500 CD</span></button>
+            <button type="button" class="btn arcade-ex-preset-btn" data-ex-qty="10" onclick="setArcadeExchangeQty(10)">10개<span>5,000 CD</span></button>
+          </div>
+          <div class="arcade-ex-stepper-row">
+            <button type="button" class="btn arcade-step-btn" onclick="stepArcadeExchangeQty(-1)">－</button>
+            <div class="arcade-ex-qty-readout">
+              <strong id="arcadeExQtyValue">1</strong>개 <span>(<span id="arcadeExNeedCd">500</span> CD)</span>
+            </div>
+            <button type="button" class="btn arcade-step-btn" onclick="stepArcadeExchangeQty(1)">＋</button>
+          </div>
+        </div>
+
+        <div class="action-row" style="margin-top:10px; gap:8px;">
+          <button type="button" id="arcadeExCancelBtn" class="btn" onclick="closeModal('arcadeExchangeModal')" style="flex:0.85;">취소</button>
+          <button type="button" id="arcadeExSubmitBtn" class="btn btn-gold" onclick="confirmArcadeExchangeFromModal()" style="flex:1.5; padding:11px;">🎟️ 동전 1개 환전!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [V3.0 모달 J] 오락기 시작 전 간단 게임 가이드 팝업 ==================== -->
+  <div id="arcadeGuideModal" class="modal-backdrop is-blur-backdrop hidden" style="z-index:2465;">
+    <div class="modal-content" style="max-width:360px; text-align:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 id="arcadeGuideTitle" style="font-size:1.02rem; font-weight:900;">🕹️ 게임 가이드</h3>
+        <button type="button" class="header-btn" onclick="closeModal('arcadeGuideModal')">닫기 ✕</button>
+      </div>
+      <div class="arcade-guide-crt-wrap">
+        <canvas id="arcadeGuideArtCanvas" class="arcade-guide-crt" width="220" height="128"></canvas>
+      </div>
+      <div id="arcadeGuideBody" class="arcade-guide-body"></div>
+      <div id="arcadeGuideCuts" class="arcade-guide-cuts"></div>
+      <div class="action-row" style="gap:8px; margin-top:12px;">
+        <button type="button" class="btn" onclick="closeModal('arcadeGuideModal')" style="flex:0.8;">돌아가기</button>
+        <button type="button" id="arcadeGuideStartBtn" class="btn btn-gold" style="flex:1.5; padding:11px;">🎟️ 동전 1개 넣고 시작!</button>
+      </div>
     </div>
   </div>
 

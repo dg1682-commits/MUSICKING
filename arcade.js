@@ -101,6 +101,20 @@ const ARCADE_GAMES_META = [
   }
 ];
 
+const ARCADE_GAME_GUIDES = {
+  star_dodge: "• 화면이나 아래 슬라이드 패드를 좌우로 밀어 우주 유성을 피하세요!\n• 노랑 별보석(+55점)과 🛡️ 실드를 먹으며 오래 살아남으세요!",
+  side_sort: "• 위 표지판을 보고 가운데 천체를 왼쪽(내꺼)·오른쪽(니꺼)으로 빠르게 분류!\n• 틀리면 ⏱️ -3초! 20연속 맞히면 🔥FEVER (최대 20개 · 맞힐 때마다 +0.5초)!",
+  animal_match: "• 잠깐 열렸다 닫히는 동물 카드를 외우고 같은 짝을 맞추세요!\n• 연속 매치 콤보 보너스 & 스테이지 클리어 시 +5초 연장!",
+  melody_memory: "• 9개 패드가 빛나며 들려주는 색깔과 멜로디 순서를 외우세요!\n• 순서대로 터치해 라운드를 이어가세요! (기회 ❤️ 3개)",
+  jump_runner: "• 터치/스페이스바로 1단 점프! 공중에서 한 번 더 누르면 2단 점프!\n• 3단 토관 위는 밟고 설 수 있고, 몬스터를 위에서 밟으면 +75점!",
+  color_sort: "• 세로 줄을 눌러 맨 아래 같은 색 블록 묶음을 다른 줄로 옮겨 3개 이상 맞추세요!\n• 💣 폭탄 게이지(또는 버튼)를 누르면 다음 줄이 즉시 나와 빠른 콤보 가능!",
+  brick_breaker: "• 화면이나 아래 슬라이드 패드로 공을 튕겨 알록달록 벽돌을 부수세요!\n• 떨어지는 ×3 멀티볼 · 넓음 · 방어 파워업을 놓치지 마세요!",
+  note_pang: "• 인접한 두 음표를 스와이프하거나 두 번 눌러 3개 이상 맞추세요!\n• 4개=⚡번개줄 · 5개/십자=👑무지개왕관! 60초 연쇄 콤보 도전!"
+};
+
+const ARCADE_LOADING_DURATION_MS = 1800;
+const ARCADE_EXIT_DURATION_MS = 1400;
+
 const arcadeState = {
   games: ARCADE_GAMES_META.map(g => ({ ...g })),
   myScoresMap: new Map(),
@@ -113,6 +127,10 @@ const arcadeState = {
   activeInstance: null,
   isStarting: false,
   isSubmitting: false,
+  isTransitioning: false,
+  loadingAnimId: null,
+  exchangeQty: 1,
+  exchangeSubmitting: false,
   lastHudSig: "",
   rankGameId: "star_dodge",
   rankMode: "weekly",
@@ -409,7 +427,188 @@ function setArcadeNpcBubble(text, mood = "idle") {
 }
 
 // ============================================================================
-// 3. 오락실 로비 진입 · 서버 설정/주간보상 동기화 · 오락기 7대 대칭 배치
+// 3. 황금오락실 골목길 입·퇴장 로딩 & 에셋·서버 사전 세팅
+// ============================================================================
+function showArcadeLoadingOverlay(labelText, durationMs = ARCADE_LOADING_DURATION_MS) {
+  const overlay = document.getElementById("arcadeLoadingOverlay");
+  const titleEl = document.getElementById("arcadeLoadingTitle");
+  const subEl = document.getElementById("arcadeLoadingSub");
+  const barEl = document.getElementById("arcadeLoadingBarFill");
+  const sceneCv = document.getElementById("arcadeLoadingCanvas");
+  if (!overlay) return;
+
+  const isExit = String(labelText || "").includes("나오는");
+  if (titleEl) titleEl.textContent = labelText;
+  if (subEl) {
+    subEl.textContent = isExit
+      ? "골목길을 걸어 놀러가기 광장으로 돌아가는 중.."
+      : "미니게임 에셋·사운드·오락기 정보를 불러오는 중..";
+  }
+
+  if (arcadeState.loadingAnimId) {
+    cancelAnimationFrame(arcadeState.loadingAnimId);
+    arcadeState.loadingAnimId = null;
+  }
+
+  if (sceneCv) {
+    const ctx = sceneCv.getContext("2d");
+    const W = sceneCv.width || 400;
+    const H = sceneCv.height || 220;
+    const playerOff =
+      typeof ArcadeAssetCache !== "undefined"
+        ? ArcadeAssetCache.bakePlayer(128, false)
+        : typeof createBakedMiniPlayerCanvas === "function"
+        ? createBakedMiniPlayerCanvas(128)
+        : null;
+
+    const startMs = performance.now();
+    const outline = "#1e1b18";
+    const rrect = (x, y, w, h, r, fill, stroke = outline, lw = 2.8) => {
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+      else ctx.rect(x, y, w, h);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+    };
+
+    const drawAlleyFrame = now => {
+      if (overlay.classList.contains("hidden")) {
+        arcadeState.loadingAnimId = null;
+        return;
+      }
+      const t = (now - startMs) / 1000;
+      ctx.clearRect(0, 0, W, H);
+
+      // 1) 노을진 따뜻한 저녁 골목길 하늘
+      const skyG = ctx.createLinearGradient(0, 0, 0, 128);
+      skyG.addColorStop(0, isExit ? "#0284c7" : "#312e81");
+      skyG.addColorStop(0.6, isExit ? "#bae6fd" : "#f43f5e");
+      skyG.addColorStop(1, "#fde68a");
+      ctx.fillStyle = skyG;
+      ctx.fillRect(0, 0, W, H);
+
+      // 2) 골목 뒤 붉은 벽돌 담장 + 상가 어닝 + 네온 간판 (오른쪽 -> 왼쪽 흐르기)
+      const wallY = 46;
+      const wallH = 114;
+      ctx.fillStyle = "#991b1b";
+      ctx.fillRect(0, wallY, W, wallH);
+
+      const brickScroll = (t * 145) % 44;
+      ctx.strokeStyle = "rgba(30, 27, 24, 0.35)";
+      ctx.lineWidth = 2;
+      for (let by = wallY; by < wallY + wallH; by += 18) {
+        const stagger = Math.floor((by - wallY) / 18) % 2 === 0 ? 0 : 22;
+        for (let bx = -brickScroll - stagger; bx < W + 44; bx += 44) {
+          ctx.strokeRect(bx, by, 44, 18);
+        }
+      }
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, wallY); ctx.lineTo(W, wallY); ctx.stroke();
+
+      // 전봇대 · 골목 가로등 · 상점 어닝 · 황금오락실 간판 스크롤
+      for (let i = 0; i < 3; i++) {
+        const ax = ((W + 140) - ((t * 145 + i * 195) % (W + 200))) - 30;
+        if (i === 0) {
+          // 골목 전봇대 + 가로등
+          rrect(ax - 5, 16, 10, 144, 3, "#475569", outline, 2.5);
+          rrect(ax - 12, 34, 24, 10, 4, "#fde047", outline, 2.2);
+          ctx.fillStyle = "rgba(253, 224, 71, 0.25)";
+          ctx.beginPath(); ctx.arc(ax, 54, 28, 0, Math.PI * 2); ctx.fill();
+        } else if (i === 1) {
+          // 줄무늬 레트로 문방구/상점 어닝 + 간판
+          rrect(ax - 44, 62, 88, 98, 4, "#fef3c7", outline, 2.5);
+          for (let s = 0; s < 4; s++) {
+            rrect(ax - 46 + s * 23, 56, 23, 18, 4, s % 2 === 0 ? "#ef4444" : "#ffffff", outline, 2.2);
+          }
+          rrect(ax - 36, 86, 72, 24, 6, "#1e1b4b", outline, 2.5);
+          ctx.fillStyle = "#fde047";
+          ctx.font = "900 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(isExit ? "🏠 우리집➔" : "🕹️황금오락실", ax, 98);
+        } else {
+          // 음악 포스터 + 고양이/화분 데코
+          rrect(ax - 22, 74, 44, 52, 6, "#dbeafe", outline, 2.5);
+          ctx.fillStyle = "#2563eb";
+          ctx.font = "900 18px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("♪", ax, 100);
+          rrect(ax - 14, 138, 28, 22, 4, "#d97706", outline, 2.2);
+        }
+      }
+
+      // 3) 골목 보도블록 바닥 (오른쪽 -> 왼쪽 흐르기)
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillRect(0, 160, W, H - 160);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(0, 160); ctx.lineTo(W, 160); ctx.stroke();
+
+      const tileScroll = (t * 195) % 48;
+      ctx.strokeStyle = "rgba(30, 27, 24, 0.25)";
+      ctx.lineWidth = 2;
+      for (let sx = -tileScroll; sx < W + 48; sx += 48) {
+        ctx.beginPath(); ctx.moveTo(sx, 160); ctx.lineTo(sx - 18, H); ctx.stroke();
+      }
+
+      // 4) 발밑 먼지 & 경쾌하게 걸어가는 내 캐릭터!
+      const walkCycle = t * 11;
+      const hop = Math.abs(Math.sin(walkCycle)) * 12;
+      const tilt = Math.sin(walkCycle) * 0.08;
+      const charX = W / 2 - 10;
+      const charBaseY = 178;
+
+      for (let p = 0; p < 2; p++) {
+        const age = (t * 2.4 + p * 0.5) % 1;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 0.55 * (1 - age));
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(charX - 24 - age * 36, charBaseY - 4 - age * 10, 5 + age * 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // 땅 그림자
+      ctx.fillStyle = "rgba(15, 23, 42, 0.25)";
+      ctx.beginPath();
+      ctx.ellipse(charX, charBaseY + 2, 24 - hop * 0.5, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (playerOff) {
+        ctx.save();
+        ctx.translate(charX, charBaseY - 42 - hop);
+        ctx.rotate(tilt);
+        ctx.drawImage(playerOff, -42, -44, 84, 84);
+        ctx.restore();
+      }
+
+      arcadeState.loadingAnimId = requestAnimationFrame(drawAlleyFrame);
+    };
+    arcadeState.loadingAnimId = requestAnimationFrame(drawAlleyFrame);
+  }
+
+  if (barEl) {
+    barEl.style.transition = "none";
+    barEl.style.width = "0%";
+    void barEl.offsetWidth;
+    barEl.style.transition = `width ${durationMs}ms linear`;
+    barEl.style.width = "100%";
+  }
+  overlay.classList.remove("hidden");
+}
+
+function hideArcadeLoadingOverlay() {
+  if (arcadeState.loadingAnimId) {
+    cancelAnimationFrame(arcadeState.loadingAnimId);
+    arcadeState.loadingAnimId = null;
+  }
+  const overlay = document.getElementById("arcadeLoadingOverlay");
+  if (overlay) overlay.classList.add("hidden");
+}
+
+// ============================================================================
+// 4. 황금오락실 로비 진입 · 퇴장 · 서버 동기화 · 8종 대칭 오락기
 // ============================================================================
 window.claimMyArcadeWeeklyRewardsSilent = async function (showPopup = false) {
   if (!sbClient || typeof userState === "undefined" || !userState.isLoggedIn) return null;
@@ -437,27 +636,20 @@ window.claimMyArcadeWeeklyRewardsSilent = async function (showPopup = false) {
     arcadeState.pendingWeeklyRewardNotice = null;
     const lines = claimed.map(c => `• [${c.title}] ${c.rank}위 (+🪙${c.reward_golden})`).join("\n");
     gameAlert(
-      `지난주 오락실 주간 랭킹 보상이 지급되었습니다!\n\n${lines}\n\n총 획득: 🪙 +${total} 황금주화!`,
-      "🏆 주간 오락실 랭킹 정산"
+      `지난주 황금오락실 주간 랭킹 보상이 지급되었습니다!\n\n${lines}\n\n총 획득: 🪙 +${total} 황금주화!`,
+      "🏆 주간 황금오락실 랭킹 정산"
     );
   }
   return null;
 };
 
-window.openArcadeScreen = async function () {
-  cleanupArcadeRuntime();
-  switchScreen("arcadeScreen");
-  syncArcadeBalancesUI();
-  renderArcadeCabinetsGrid();
-  setArcadeNpcBubble("어서오쇼~ 500 CD = 동전 1개!", "idle");
-
+async function syncArcadeLobbyFromServer() {
   if (!sbClient || typeof userState === "undefined" || !userState.isLoggedIn) return;
-
   try {
-    const [gamesRes, weekRes, claimRes, profRes] = await Promise.all([
+    const [gamesRes, weekRes, , profRes] = await Promise.all([
       sbClient.from("v3_arcade_games").select("*").order("sort_order", { ascending: true }),
       sbClient.rpc("get_kst_week_key"),
-      claimMyArcadeWeeklyRewardsSilent(true),
+      claimMyArcadeWeeklyRewardsSilent(false),
       sbClient.from("profiles").select("cd_coins, arcade_coins, golden_coins").eq("id", userState.id).maybeSingle()
     ]);
 
@@ -490,10 +682,59 @@ window.openArcadeScreen = async function () {
 
     syncArcadeBalancesUI();
     renderArcadeCabinetsGrid();
-    if (claimRes && claimRes.total_golden > 0) {
-      syncArcadeBalancesUI();
-    }
   } catch (e) {}
+}
+
+window.openArcadeScreen = async function (opts = {}) {
+  const skipLoading = Boolean(opts && opts.skipLoading);
+  if (arcadeState.isTransitioning && !skipLoading) return;
+
+  cleanupArcadeRuntime();
+
+  if (skipLoading) {
+    if (typeof ArcadeAssetCache !== "undefined") ArcadeAssetCache.warmup();
+    switchScreen("arcadeScreen");
+    syncArcadeBalancesUI();
+    renderArcadeCabinetsGrid();
+    setArcadeNpcBubble("어서오쇼~ 500 CD = 동전 1개!", "idle");
+    await syncArcadeLobbyFromServer();
+    await claimMyArcadeWeeklyRewardsSilent(true);
+    return;
+  }
+
+  arcadeState.isTransitioning = true;
+  showArcadeLoadingOverlay("🕹️ 황금오락실 가는중..", ARCADE_LOADING_DURATION_MS);
+
+  const minWait = new Promise(resolve => setTimeout(resolve, ARCADE_LOADING_DURATION_MS));
+  // 로딩 화면 동안 미니게임 전체 에셋 사전 베이킹 + 로비 렌더링 + 서버 데이터 병렬 로드!
+  const preloadWork = (async () => {
+    try {
+      if (typeof ArcadeAssetCache !== "undefined") ArcadeAssetCache.warmup();
+    } catch (e) {}
+    switchScreen("arcadeScreen");
+    syncArcadeBalancesUI();
+    renderArcadeCabinetsGrid();
+    setArcadeNpcBubble("어서오쇼~ 500 CD = 동전 1개!", "idle");
+    await syncArcadeLobbyFromServer();
+  })();
+
+  await Promise.all([minWait, preloadWork]);
+  hideArcadeLoadingOverlay();
+  arcadeState.isTransitioning = false;
+  await claimMyArcadeWeeklyRewardsSilent(true);
+};
+
+window.exitArcadeScreenWithLoading = function () {
+  if (arcadeState.isTransitioning) return;
+  arcadeState.isTransitioning = true;
+  cleanupArcadeRuntime();
+  showArcadeLoadingOverlay("🏠 황금오락실 나오는중..", ARCADE_EXIT_DURATION_MS);
+
+  setTimeout(() => {
+    hideArcadeLoadingOverlay();
+    arcadeState.isTransitioning = false;
+    openOutingHubScreen();
+  }, ARCADE_EXIT_DURATION_MS);
 };
 
 function renderArcadeCabinetsGrid() {
@@ -535,13 +776,114 @@ function renderArcadeCabinetsGrid() {
 }
 
 // ============================================================================
-// 4. 환전소 아저씨: 500 CD = 오락실 동전 1개 교환
+// 5. 환전소 아저씨 블러 팝업 & 동전 교환: 500 CD = 오락실 동전 1개
 // ============================================================================
+function syncArcadeExchangeModalUI(doneMode = false) {
+  const qty = Math.max(1, Math.min(50, Math.floor(Number(arcadeState.exchangeQty) || 1)));
+  arcadeState.exchangeQty = qty;
+  const needCd = qty * 500;
+  const curCd = typeof userState !== "undefined" ? Math.max(0, Number(userState.cdCoins) || 0) : 0;
+  const curCoins = typeof userState !== "undefined" ? Math.max(0, Number(userState.arcadeCoins) || 0) : 0;
+
+  const setTxt = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  setTxt("arcadeExCurCd", curCd.toLocaleString());
+  setTxt("arcadeExCurCoins", curCoins.toLocaleString());
+  setTxt("arcadeExQtyValue", String(qty));
+  setTxt("arcadeExNeedCd", needCd.toLocaleString());
+
+  document.querySelectorAll(".arcade-ex-preset-btn").forEach(btn => {
+    btn.classList.toggle("is-active", Number(btn.getAttribute("data-ex-qty")) === qty);
+  });
+
+  const ctrlArea = document.getElementById("arcadeExControlArea");
+  const submitBtn = document.getElementById("arcadeExSubmitBtn");
+  const cancelBtn = document.getElementById("arcadeExCancelBtn");
+  if (ctrlArea) ctrlArea.classList.toggle("hidden", doneMode);
+
+  if (doneMode) {
+    if (cancelBtn) cancelBtn.classList.add("hidden");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "🕹️ 게임하러 가기!";
+      submitBtn.onclick = () => closeModal("arcadeExchangeModal");
+    }
+  } else {
+    if (cancelBtn) cancelBtn.classList.remove("hidden");
+    if (submitBtn) {
+      submitBtn.disabled = arcadeState.exchangeSubmitting;
+      submitBtn.textContent = `🎟️ 동전 ${qty}개 환전! (${needCd.toLocaleString()} CD)`;
+      submitBtn.onclick = () => confirmArcadeExchangeFromModal();
+    }
+  }
+}
+
+window.openArcadeExchangeModal = function () {
+  if (typeof userState === "undefined" || !userState.isLoggedIn) {
+    gameAlert("로그인 후 동전 환전소를 이용할 수 있습니다!");
+    return;
+  }
+  arcadeState.exchangeQty = 1;
+  arcadeState.exchangeSubmitting = false;
+  const npcCv = document.getElementById("arcadeExNpcCanvas");
+  if (npcCv) drawArcadeNpcAjusshi(npcCv, "idle");
+  const bubble = document.getElementById("arcadeExNpcBubble");
+  if (bubble) bubble.textContent = "얼마나 환전할텐가?";
+  syncArcadeExchangeModalUI(false);
+  openModal("arcadeExchangeModal");
+};
+
+window.setArcadeExchangeQty = function (qty) {
+  arcadeState.exchangeQty = Math.max(1, Math.min(50, Math.floor(Number(qty) || 1)));
+  syncArcadeExchangeModalUI(false);
+};
+
+window.stepArcadeExchangeQty = function (delta) {
+  const next = (Number(arcadeState.exchangeQty) || 1) + (Number(delta) || 0);
+  arcadeState.exchangeQty = Math.max(1, Math.min(50, next));
+  syncArcadeExchangeModalUI(false);
+};
+
+window.confirmArcadeExchangeFromModal = async function () {
+  if (arcadeState.exchangeSubmitting) return;
+  const qty = Math.max(1, Math.min(50, Math.floor(Number(arcadeState.exchangeQty) || 1)));
+  const needCd = qty * 500;
+  const curCd = typeof userState !== "undefined" ? Math.max(0, Number(userState.cdCoins) || 0) : 0;
+
+  if (curCd < needCd) {
+    const bubble = document.getElementById("arcadeExNpcBubble");
+    if (bubble) bubble.textContent = "어허~ CD가 모자라구만! 수량을 줄여보게나~";
+    const npcCv = document.getElementById("arcadeExNpcCanvas");
+    if (npcCv) drawArcadeNpcAjusshi(npcCv, "idle");
+    gameAlert(
+      `💿 CD가 부족합니다!\n(필요: ${needCd.toLocaleString()} CD / 보유: ${curCd.toLocaleString()} CD)\n퀴즈나 낚시로 CD를 모아오세요!`
+    );
+    return;
+  }
+
+  arcadeState.exchangeSubmitting = true;
+  syncArcadeExchangeModalUI(false);
+  const ok = await window.exchangeArcadeCoin(qty);
+  arcadeState.exchangeSubmitting = false;
+
+  if (ok) {
+    const npcCv = document.getElementById("arcadeExNpcCanvas");
+    if (npcCv) drawArcadeNpcAjusshi(npcCv, "happy");
+    const bubble = document.getElementById("arcadeExNpcBubble");
+    if (bubble) bubble.textContent = "자 이제 재밌게 게임하고 기록을 세워보게!";
+    syncArcadeExchangeModalUI(true);
+  } else {
+    syncArcadeExchangeModalUI(false);
+  }
+};
+
 window.exchangeArcadeCoin = async function (qty = 1) {
   const safeQty = Math.max(1, Math.min(50, Math.floor(Number(qty) || 1)));
   if (!sbClient || typeof userState === "undefined" || !userState.isLoggedIn) {
     gameAlert("로그인 후 오락실 동전을 교환할 수 있습니다!");
-    return;
+    return false;
   }
   const needCd = safeQty * 500;
   const curCd = Math.max(0, Number(userState.cdCoins) || 0);
@@ -550,7 +892,7 @@ window.exchangeArcadeCoin = async function (qty = 1) {
     gameAlert(
       `💿 CD가 부족합니다!\n(필요: ${needCd.toLocaleString()} CD / 보유: ${curCd.toLocaleString()} CD)\n퀴즈나 낚시로 CD를 모아오세요!`
     );
-    return;
+    return false;
   }
 
   try {
@@ -558,7 +900,7 @@ window.exchangeArcadeCoin = async function (qty = 1) {
     const { data, error } = await sbClient.rpc("exchange_cd_to_arcade_coin", { p_qty: safeQty });
     if (error) {
       gameAlert(`동전 교환 중 오류가 발생했습니다.\n(${error.message || "서버 오류"})`);
-      return;
+      return false;
     }
     if (data) {
       userState.cdCoins = Number(data.cd_coins ?? curCd - needCd);
@@ -567,9 +909,11 @@ window.exchangeArcadeCoin = async function (qty = 1) {
     if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
     syncArcadeBalancesUI();
     if (typeof ArcadeSfx !== "undefined") ArcadeSfx.coin();
-    setArcadeNpcBubble(`동전 ${safeQty}개 받으쇼! 대박 나시게~`, "happy");
+    setArcadeNpcBubble(`동전 ${safeQty}개 받으쇼! 자 이제 재밌게 게임하고 기록을 세워보게!`, "happy");
+    return true;
   } catch (e) {
     gameAlert("네트워크 오류로 동전 교환에 실패했습니다.");
+    return false;
   }
 };
 
@@ -596,8 +940,8 @@ window.resetArcadeAccountState = function () {
   arcadeState.pendingWeeklyRewardNotice = null;
 };
 
-window.playArcadeCabinet = async function (gameId) {
-  if (arcadeState.isStarting || arcadeState.isSubmitting) return;
+window.playArcadeCabinet = async function (gameId, opts = {}) {
+  if (arcadeState.isStarting || arcadeState.isSubmitting || arcadeState.isTransitioning) return;
   if (!sbClient || typeof userState === "undefined" || !userState.isLoggedIn) {
     gameAlert("로그인이 필요한 기능입니다!");
     return;
@@ -628,6 +972,30 @@ window.playArcadeCabinet = async function (gameId) {
       `🎟️ 오락실 동전이 부족해요! (보유 동전: ${curCoins}개 · 보유 CD: ${curCd.toLocaleString()} CD)\n\n위쪽 [🎩 아저씨 동전 환전소]에서 CD를 동전으로 먼저 교환해 주세요!`,
       "🎟️ 동전 환전 필요"
     );
+    return;
+  }
+
+  // 시작 전 간단 게임 가이드 팝업 (동전 차감 전 안내!)
+  if (!opts || !opts.skipGuide) {
+    const gTitle = document.getElementById("arcadeGuideTitle");
+    const gBody = document.getElementById("arcadeGuideBody");
+    const gCuts = document.getElementById("arcadeGuideCuts");
+    const gArt = document.getElementById("arcadeGuideArtCanvas");
+    const gStartBtn = document.getElementById("arcadeGuideStartBtn");
+    if (gTitle) gTitle.textContent = `🕹️ ${meta.title} 게임 가이드`;
+    if (gBody) gBody.textContent = ARCADE_GAME_GUIDES[gameId] || `${meta.subtitle || "최고 점수에 도전하세요!"}`;
+    if (gCuts) {
+      gCuts.textContent = `목표 점수: C ${Number(meta.cut_c).toLocaleString()} · A ${Number(meta.cut_a).toLocaleString()} · S ${Number(meta.cut_s).toLocaleString()}`;
+    }
+    if (gArt) drawArcadeCabinetScreenArt(gArt, gameId);
+    if (gStartBtn) {
+      gStartBtn.textContent = `🎟️ 동전 ${cost}개 넣고 시작!`;
+      gStartBtn.onclick = () => {
+        closeModal("arcadeGuideModal");
+        window.playArcadeCabinet(gameId, { skipGuide: true });
+      };
+    }
+    openModal("arcadeGuideModal");
     return;
   }
 
@@ -678,7 +1046,7 @@ window.playArcadeCabinet = async function (gameId) {
     if (!factory) {
       gameAlert("미니게임 모듈을 불러오지 못했습니다.");
       cleanupArcadeRuntime();
-      openArcadeScreen();
+      openArcadeScreen({ skipLoading: true });
       return;
     }
 
@@ -721,7 +1089,7 @@ window.playArcadeCabinet = async function (gameId) {
 window.quitArcadeGameConfirm = function () {
   if (arcadeState.isSubmitting) return;
   if (!arcadeState.activeSessionId) {
-    openArcadeScreen();
+    openArcadeScreen({ skipLoading: true });
     return;
   }
   const curScore =
@@ -767,7 +1135,7 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
     arcadeState.isSubmitting = false;
     if (error || !data) {
       gameAlert(`결과 정산 중 오류가 발생했습니다.\n(${error?.message || "서버 오류"})`);
-      openArcadeScreen();
+      openArcadeScreen({ skipLoading: true });
       return;
     }
 
@@ -807,14 +1175,14 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
     if (replayBtn) {
       replayBtn.onclick = () => {
         closeModal("arcadeResultModal");
-        playArcadeCabinet(gameId);
+        playArcadeCabinet(gameId, { skipGuide: true });
       };
     }
     const rankBtn = document.getElementById("arcadeResRankBtn");
     if (rankBtn) {
       rankBtn.onclick = () => {
         closeModal("arcadeResultModal");
-        openArcadeScreen();
+        openArcadeScreen({ skipLoading: true });
         openArcadeRankingModal(gameId);
       };
     }
@@ -822,7 +1190,7 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
     if (lobbyBtn) {
       lobbyBtn.onclick = () => {
         closeModal("arcadeResultModal");
-        openArcadeScreen();
+        openArcadeScreen({ skipLoading: true });
       };
     }
 
@@ -831,7 +1199,7 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
   } catch (err) {
     arcadeState.isSubmitting = false;
     gameAlert("서버 통신 오류로 정산을 완료하지 못했습니다.");
-    openArcadeScreen();
+    openArcadeScreen({ skipLoading: true });
   }
 }
 

@@ -89,32 +89,139 @@ const ArcadeSfx = (() => {
   return { unlock, tone, coin, jump, pop, hit, wrong, clear };
 })();
 
+// [V3.0] 황금오락실 공용 오프스크린 에셋 캐시 (로딩 중 사전 베이킹해 플레이 렉 방지)
+const ArcadeAssetCache = (() => {
+  const playerMap = new Map();
+  const headMap = new Map();
+  const blockFaceMap = new Map();
+  const animalMap = new Map();
+  const celestialMap = new Map();
+
+  function getCfgKey() {
+    const cfg =
+      typeof userState !== "undefined" && userState.avatarConfig
+        ? userState.avatarConfig
+        : typeof DEFAULT_AVATAR_CONFIG !== "undefined"
+        ? DEFAULT_AVATAR_CONFIG
+        : null;
+    try {
+      return cfg ? JSON.stringify(cfg) : "default";
+    } catch (e) {
+      return "default";
+    }
+  }
+
+  function bakePlayer(size = 128, headOnly = false) {
+    const cfgKey = `${getCfgKey()}|${size}|${headOnly ? "H" : "F"}`;
+    const map = headOnly ? headMap : playerMap;
+    if (map.has(cfgKey)) return map.get(cfgKey);
+
+    const off = document.createElement("canvas");
+    off.width = size;
+    off.height = size;
+    const cfg =
+      typeof userState !== "undefined" && userState.avatarConfig
+        ? userState.avatarConfig
+        : typeof DEFAULT_AVATAR_CONFIG !== "undefined"
+        ? DEFAULT_AVATAR_CONFIG
+        : null;
+    let rendered = false;
+    if (cfg && typeof renderPixelAvatar === "function") {
+      try {
+        renderPixelAvatar(off, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true, headOnly });
+        rendered = true;
+      } catch (e) {}
+    }
+    if (!rendered) {
+      const ctx = off.getContext("2d");
+      ctx.fillStyle = "#fffdf9";
+      ctx.strokeStyle = "#1e1b18";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    if (map.size > 8) map.clear();
+    map.set(cfgKey, off);
+    return off;
+  }
+
+  function getBlockFace(faceId, withCheek = true) {
+    const key = `${faceId}|${withCheek ? 1 : 0}`;
+    if (blockFaceMap.has(key)) return blockFaceMap.get(key);
+
+    // 음악왕 자체 drawDetailedFace() 에셋을 블록용 고해상도 스탬프로 사전 베이킹
+    const off = document.createElement("canvas");
+    off.width = 160;
+    off.height = 96;
+    const c = off.getContext("2d");
+    c.save();
+    c.translate(80, 48);
+    c.scale(0.36, 0.36);
+    c.translate(-240, -206);
+    if (withCheek) {
+      c.fillStyle = "#fda4af";
+      c.beginPath();
+      c.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
+      c.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
+      c.fill();
+    }
+    if (typeof drawDetailedFace === "function") {
+      drawDetailedFace(c, { id: faceId });
+    } else {
+      c.fillStyle = "#1e1b18";
+      c.beginPath(); c.arc(190, 192, 14, 0, Math.PI * 2); c.arc(290, 192, 14, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "#1e1b18"; c.lineWidth = 8;
+      c.beginPath(); c.arc(240, 222, 24, 0.1 * Math.PI, 0.9 * Math.PI); c.stroke();
+    }
+    c.restore();
+    blockFaceMap.set(key, off);
+    return off;
+  }
+
+  function getAnimalStamp(kind) {
+    if (animalMap.has(kind)) return animalMap.get(kind);
+    const off = document.createElement("canvas");
+    off.width = 120;
+    off.height = 120;
+    const c = off.getContext("2d");
+    if (typeof drawAnimalChibi === "function") drawAnimalChibi(c, kind, 60, 62, 42);
+    animalMap.set(kind, off);
+    return off;
+  }
+
+  function getCelestialStamp(type) {
+    if (celestialMap.has(type)) return celestialMap.get(type);
+    const off = document.createElement("canvas");
+    off.width = 96;
+    off.height = 96;
+    const c = off.getContext("2d");
+    if (typeof drawCelestialAsset === "function") drawCelestialAsset(c, type, 48, 48, 34);
+    celestialMap.set(type, off);
+    return off;
+  }
+
+  function warmup() {
+    try { ArcadeSfx.unlock(); } catch (e) {}
+    bakePlayer(128, false);
+    bakePlayer(108, false);
+    bakePlayer(480, true);
+    ["xd_laugh", "star_eyes", "heart_eyes", "surprised", "cat_face"].forEach(fid => getBlockFace(fid, true));
+    ["dog", "cat", "rabbit", "pig", "horse", "monkey", "bear", "frog"].forEach(k => getAnimalStamp(k));
+    ["sun", "cloud", "star", "moon"].forEach(t => getCelestialStamp(t));
+  }
+
+  return { bakePlayer, getBlockFace, getAnimalStamp, getCelestialStamp, warmup };
+})();
+
+if (typeof window !== "undefined") {
+  window.ArcadeAssetCache = ArcadeAssetCache;
+}
+
 // 사용자 현재 착용 아바타(투명 배경)를 미니게임용 경량 오프스크린으로 1회 베이킹
 function createBakedMiniPlayerCanvas(size = 128) {
-  const off = document.createElement("canvas");
-  off.width = size;
-  off.height = size;
-  const cfg =
-    typeof userState !== "undefined" && userState.avatarConfig
-      ? userState.avatarConfig
-      : typeof DEFAULT_AVATAR_CONFIG !== "undefined"
-      ? DEFAULT_AVATAR_CONFIG
-      : null;
-  if (cfg && typeof renderPixelAvatar === "function") {
-    try {
-      renderPixelAvatar(off, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true });
-      return off;
-    } catch (e) {}
-  }
-  const ctx = off.getContext("2d");
-  ctx.fillStyle = "#fffdf9";
-  ctx.strokeStyle = "#1e1b18";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  return off;
+  return ArcadeAssetCache.bakePlayer(size, false);
 }
 
 // 공통 #1e1b18 둥근 사각 유틸 (pixel_avatar.js 미로드 방어용)
@@ -1367,16 +1474,25 @@ function createJumpRunnerGame(mountEl, hooks) {
   let scrollX = 0;
   let speed = 240;
 
+  const BASE_PLAYER_X = 86;
+  const PIPE_TIERS = [
+    { h: 34, w: 42 }, // 1단: 작은 토관
+    { h: 58, w: 46 }, // 2단: 중간 토관
+    { h: 82, w: 50 }  // 3단: 높은 토관 (2단점프 권장!)
+  ];
+
   const player = {
-    x: 86,
-    y: GROUND_Y - 30,
+    x: BASE_PLAYER_X,
+    y: GROUND_Y - 28,
+    vx: 0,
     vy: 0,
     jumpsLeft: 2,
     onGround: true,
-    spin: 0
+    spin: 0,
+    knockSec: 0
   };
 
-  let spawnObsTimer = 0.8;
+  let spawnObsTimer = 0.85;
   let spawnCoinTimer = 0.9;
   const obstacles = [];
   const coins = [];
@@ -1391,7 +1507,7 @@ function createJumpRunnerGame(mountEl, hooks) {
     if (stopped || player.jumpsLeft <= 0) return;
     ArcadeSfx.unlock();
     const isDouble = !player.onGround;
-    player.vy = isDouble ? -540 : -610;
+    player.vy = isDouble ? -555 : -625;
     player.onGround = false;
     player.jumpsLeft -= 1;
     if (isDouble) player.spin = 1;
@@ -1412,6 +1528,20 @@ function createJumpRunnerGame(mountEl, hooks) {
     return obstacles.find(o => Math.abs(o.x - x) < padX) || null;
   }
 
+  function hasCoinOverlapAt(cx, cy) {
+    if (coins.some(c => Math.hypot(c.x - cx, c.y - cy) < 38)) return true;
+    if (qBlocks.some(qb => Math.abs(qb.x - cx) < 50 && Math.abs(qb.y - cy) < 42)) return true;
+    for (const o of obstacles) {
+      if (o.kind === "pipe") {
+        const pyTop = GROUND_Y - o.h;
+        if (Math.abs(o.x - cx) < o.w * 0.68 + 20 && cy + 18 > pyTop - 8) return true;
+      } else {
+        if (Math.abs(o.x - cx) < 52 && Math.abs(o.y - cy) < 46) return true;
+      }
+    }
+    return false;
+  }
+
   function frame(now) {
     if (stopped) return;
     const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
@@ -1422,43 +1552,65 @@ function createJumpRunnerGame(mountEl, hooks) {
     score += 24 * dt;
     if (invulnSec > 0) invulnSec -= dt;
 
-    // 물리 점프
+    const prevBottom = player.y + 24;
+
+    // 넉백 반동 및 X 복귀 물리
+    if (player.knockSec > 0) {
+      player.knockSec -= dt;
+      player.x = Math.max(26, player.x + player.vx * dt);
+      player.vx *= Math.max(0, 1 - 4.5 * dt);
+    } else if (Math.abs(player.x - BASE_PLAYER_X) > 0.5) {
+      player.x += (BASE_PLAYER_X - player.x) * Math.min(1, dt * 4.5);
+    }
+
+    // 물리 점프 (중력)
     player.vy += 1550 * dt;
     player.y += player.vy * dt;
     if (player.spin > 0) player.spin = Math.max(0, player.spin - dt * 2.8);
 
-    if (player.y >= GROUND_Y - 28) {
-      player.y = GROUND_Y - 28;
+    if (player.y >= GROUND_Y - 24) {
+      player.y = GROUND_Y - 24;
       player.vy = 0;
       player.onGround = true;
       player.jumpsLeft = 2;
     }
 
-    // 토관 / 몬스터 스폰 (토관 높이 하향: 30~50px + 서로 간격 확보)
+    // 토관(3단: 소/중/대) / 뾰족 몬스터 스폰 (등속 스크롤로 코인 추월 겹침 방지)
     spawnObsTimer -= dt;
     if (spawnObsTimer <= 0) {
-      const spawnX = W + 32;
-      if (findSpawnObstacleNearby(spawnX, 95)) {
+      const spawnX = W + 38;
+      if (findSpawnObstacleNearby(spawnX, 118)) {
         spawnObsTimer = 0.25;
       } else {
-        spawnObsTimer = Math.max(0.78, 1.48 - (speed - 240) * 0.0022) + Math.random() * 0.45;
-        const isEnemy = Math.random() < 0.42;
-        obstacles.push(
-          isEnemy
-            ? { kind: "goomba", x: spawnX, y: GROUND_Y - 22, w: 36, h: 36, dead: false }
-            : { kind: "pipe", x: spawnX, h: 30 + Math.random() * 20, w: 42 }
-        );
+        spawnObsTimer = Math.max(0.84, 1.54 - (speed - 240) * 0.0022) + Math.random() * 0.45;
+        const isEnemy = Math.random() < 0.36;
+        if (isEnemy) {
+          obstacles.push({
+            kind: "goomba",
+            x: spawnX,
+            y: GROUND_Y - 20,
+            w: 36,
+            h: 36,
+            bounced: false,
+            vx: 0,
+            vy: 0,
+            hopSeed: Math.random() * Math.PI * 2
+          });
+        } else {
+          const tier = PIPE_TIERS[Math.floor(Math.random() * PIPE_TIERS.length)];
+          obstacles.push({ kind: "pipe", x: spawnX, h: tier.h, w: tier.w });
+        }
       }
     }
 
-    // ? 물음표 블록 스폰 (기존 장애물·코인·?블록과 겹치지 않는 X/Y만 허용)
+    // ? 물음표 블록 스폰
     spawnQBlockTimer -= dt;
     if (spawnQBlockTimer <= 0) {
-      const qx = W + 32;
-      const qy = GROUND_Y - 138;
-      const conflictObs = findSpawnObstacleNearby(qx, 62);
-      const conflictQ = qBlocks.some(qb => Math.abs(qb.x - qx) < 92);
-      const conflictCoin = coins.some(c => Math.abs(c.x - qx) < 52 && Math.abs(c.y - qy) < 42);
+      const qx = W + 36;
+      const qy = GROUND_Y - 144;
+      const conflictObs = findSpawnObstacleNearby(qx, 70);
+      const conflictQ = qBlocks.some(qb => Math.abs(qb.x - qx) < 96);
+      const conflictCoin = coins.some(c => Math.abs(c.x - qx) < 54 && Math.abs(c.y - qy) < 46);
       if (conflictObs || conflictQ || conflictCoin) {
         spawnQBlockTimer = 0.45;
       } else {
@@ -1467,36 +1619,23 @@ function createJumpRunnerGame(mountEl, hooks) {
       }
     }
 
-    // 코인 스폰 (토관/몬스터/?블록/다른 코인과 절대 겹치지 않게 배치)
+    // 코인 스폰 (토관/몬스터/?블록/코인 간 물리적 겹침 0% 차단)
     spawnCoinTimer -= dt;
     if (spawnCoinTimer <= 0) {
-      const cx = W + 30;
-      const nearCoin = coins.some(c => Math.abs(c.x - cx) < 38);
-      if (nearCoin) {
-        spawnCoinTimer = 0.25;
+      const cx = W + 34;
+      const nearObs = findSpawnObstacleNearby(cx, 74);
+      let candY = null;
+      if (nearObs) {
+        candY = nearObs.kind === "pipe" ? Math.min(GROUND_Y - 118, GROUND_Y - nearObs.h - 46) : GROUND_Y - 126;
       } else {
-        const nearObs = findSpawnObstacleNearby(cx, 66);
-        const nearQ = qBlocks.find(qb => Math.abs(qb.x - cx) < 54);
-        let cy = null;
-        if (nearObs) {
-          // 장애물 위는 높은 점프 궤적 아치로만 배치 (물음표 블록과 겹치면 건너뜀)
-          const arcY = nearObs.kind === "pipe" ? Math.min(GROUND_Y - 118, GROUND_Y - nearObs.h - 68) : GROUND_Y - 122;
-          if (!qBlocks.some(qb => Math.abs(qb.x - cx) < 52 && Math.abs(qb.y - arcY) < 40)) {
-            cy = arcY;
-          }
-        } else if (nearQ) {
-          // ?블록 주변엔 낮은 레인으로만 코인 배치
-          cy = GROUND_Y - 52;
-        } else {
-          cy = Math.random() < 0.5 ? GROUND_Y - 128 : GROUND_Y - 54;
-        }
+        candY = Math.random() < 0.48 ? GROUND_Y - 134 : GROUND_Y - 52;
+      }
 
-        if (cy !== null) {
-          spawnCoinTimer = 0.85 + Math.random() * 0.7;
-          coins.push({ x: cx, y: cy });
-        } else {
-          spawnCoinTimer = 0.28;
-        }
+      if (candY !== null && !hasCoinOverlapAt(cx, candY)) {
+        spawnCoinTimer = 0.88 + Math.random() * 0.68;
+        coins.push({ x: cx, y: candY });
+      } else {
+        spawnCoinTimer = 0.28;
       }
     }
 
@@ -1595,10 +1734,16 @@ function createJumpRunnerGame(mountEl, hooks) {
       }
     }
 
-    // 토관 / 몬스터 렌더 & 충돌
+    // 토관(상단 착지 + 옆면 튕김) / 몬스터(밟기 + 부딪히면 쌍방 튕김!) 렌더 & 충돌
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
-      o.x -= (o.kind === "goomba" ? speed + 45 : speed) * dt;
+      if (o.bounced) {
+        o.x += o.vx * dt;
+        o.vy += 1200 * dt;
+        o.y += o.vy * dt;
+      } else {
+        o.x -= speed * dt;
+      }
 
       if (o.kind === "pipe") {
         const pyTop = GROUND_Y - o.h;
@@ -1607,57 +1752,86 @@ function createJumpRunnerGame(mountEl, hooks) {
         ctx.fillStyle = "#86efac";
         ctx.fillRect(o.x - o.w * 0.3, pyTop + 18, 6, Math.max(0, o.h - 22));
 
-        if (
-          invulnSec <= 0 &&
-          Math.abs(player.x - o.x) < o.w * 0.34 + 12 &&
-          player.y + 18 > pyTop + 7
-        ) {
-          hearts -= 1;
-          invulnSec = 1.05;
-          ArcadeSfx.hit();
-          if (hearts <= 0) {
-            stopped = true;
-            syncHud();
-            hooks.onFinish(Math.floor(score), "토관 충돌! 점프점프 완료");
-            return;
+        // 1) 토관 위 착지 판정 (마리오처럼 밟고 지나가거나 2단점프 출발!)
+        if (Math.abs(player.x - o.x) < o.w * 0.46 + 10 && player.vy >= 0 && prevBottom <= pyTop + 14 && player.y + 24 >= pyTop) {
+          player.y = pyTop - 24;
+          player.vy = 0;
+          player.onGround = true;
+          player.jumpsLeft = 2;
+        } else if (Math.abs(player.x - o.x) < o.w * 0.44 + 16 && player.y + 20 > pyTop + 8) {
+          // 2) 옆면 충돌: 절대 통과하지 않고 뒤·위로 통통 튕겨 밀려남!
+          const pipeLeft = o.x - o.w * 0.52 - 18;
+          if (player.x <= o.x) {
+            player.x = Math.max(24, Math.min(player.x, pipeLeft));
           }
-        }
-      } else {
-        // 뾰족 몬스터
-        _arcFillRoundRect(ctx, o.x - 18, o.y - 18, 36, 36, 14, "#9333ea", "#1e1b18", 3.5);
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(o.x - 6, o.y - 4, 4, 0, Math.PI * 2); ctx.arc(o.x + 6, o.y - 4, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#1e1b18";
-        ctx.beginPath(); ctx.arc(o.x - 6, o.y - 4, 2, 0, Math.PI * 2); ctx.arc(o.x + 6, o.y - 4, 2, 0, Math.PI * 2); ctx.fill();
-
-        const dx = Math.abs(player.x - o.x);
-        const dy = player.y - o.y;
-        if (dx < 28 && Math.abs(dy) < 30) {
-          // 위에서 밟으면 밟기 보상 + 통통 바운스!
-          if (player.vy > 0 && dy < -6) {
-            score += 75;
-            player.vy = -440;
-            player.jumpsLeft = 1;
-            ArcadeSfx.pop(2);
-            obstacles.splice(i, 1);
-            continue;
-          } else if (invulnSec <= 0) {
+          if (invulnSec <= 0) {
             hearts -= 1;
-            invulnSec = 1.05;
+            invulnSec = 1.15;
+            player.vx = -155;
+            player.vy = -420;
+            player.onGround = false;
+            player.jumpsLeft = 1;
+            player.knockSec = 0.42;
             ArcadeSfx.hit();
-            obstacles.splice(i, 1);
             if (hearts <= 0) {
               stopped = true;
               syncHud();
-              hooks.onFinish(Math.floor(score), "몬스터 충돌! 점프점프 완료");
+              hooks.onFinish(Math.floor(score), "토관 충돌! 점프점프 완료");
               return;
             }
-            continue;
+          } else {
+            player.vy = Math.min(player.vy, -240);
+          }
+        }
+      } else {
+        // 뾰족 몬스터 (살짝 통통 뛰며 접근)
+        const hopY = o.bounced ? 0 : Math.abs(Math.sin(scrollX * 0.055 + (o.hopSeed || 0))) * -5;
+        const drawY = o.y + hopY;
+        _arcFillRoundRect(ctx, o.x - 18, drawY - 18, 36, 36, 14, "#9333ea", "#1e1b18", 3.5);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(o.x - 6, drawY - 4, 4, 0, Math.PI * 2); ctx.arc(o.x + 6, drawY - 4, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1e1b18";
+        ctx.beginPath(); ctx.arc(o.x - 6, drawY - 4, 2, 0, Math.PI * 2); ctx.arc(o.x + 6, drawY - 4, 2, 0, Math.PI * 2); ctx.fill();
+
+        if (!o.bounced) {
+          const dx = Math.abs(player.x - o.x);
+          const dy = player.y - drawY;
+          if (dx < 28 && Math.abs(dy) < 30) {
+            // 위에서 밟으면 밟기 보상 + 통통 바운스!
+            if (player.vy > 0 && dy < -6) {
+              score += 75;
+              player.vy = -440;
+              player.jumpsLeft = 1;
+              ArcadeSfx.pop(2);
+              obstacles.splice(i, 1);
+              continue;
+            } else if (invulnSec <= 0) {
+              // 옆면 충돌: 캐릭터는 뒤·위로, 몹은 앞·위로 서로 튕겨나감!
+              hearts -= 1;
+              invulnSec = 1.15;
+              player.x = Math.max(26, o.x - 32);
+              player.vx = -165;
+              player.vy = -370;
+              player.onGround = false;
+              player.jumpsLeft = 1;
+              player.knockSec = 0.42;
+              o.bounced = true;
+              o.vx = 230;
+              o.vy = -290;
+              ArcadeSfx.hit();
+              if (hearts <= 0) {
+                stopped = true;
+                syncHud();
+                hooks.onFinish(Math.floor(score), "몬스터 충돌! 점프점프 완료");
+                return;
+              }
+              continue;
+            }
           }
         }
       }
 
-      if (o.x < -70) obstacles.splice(i, 1);
+      if (o.x < -70 || o.x > W + 90 || o.y > H + 60) obstacles.splice(i, 1);
     }
 
     // 내 캐릭터 그리기
@@ -1689,28 +1863,28 @@ function createJumpRunnerGame(mountEl, hooks) {
 }
 
 // ============================================================================
-// [게임 6] 정리고수 (color_sort) — 액퍼 『엄마의 삼단정리』 3열 블록 정리 콤보!
+// [게임 6] 정리고수 (color_sort) — 음악왕 블록 3열 정리 콤보 (화면 꽉참 + 자체 표정 에셋)
 // ============================================================================
 function createColorSortGame(mountEl, hooks) {
   const W = 420;
-  const H = 540;
+  const H = 560;
   const COLORS = [
-    { id: "red", bg: "#ef4444", cheek: "#fda4af", face: "cat" },
-    { id: "blue", bg: "#3b82f6", cheek: "#93c5fd", face: "bear" },
-    { id: "yellow", bg: "#facc15", cheek: "#fef08a", face: "smile" },
-    { id: "green", bg: "#22c55e", cheek: "#86efac", face: "frog" },
-    { id: "purple", bg: "#a855f7", cheek: "#e9d5ff", face: "wink" }
+    { id: "red", bg: "#ef4444", faceId: "xd_laugh" },
+    { id: "blue", bg: "#3b82f6", faceId: "star_eyes" },
+    { id: "yellow", bg: "#facc15", faceId: "heart_eyes" },
+    { id: "green", bg: "#22c55e", faceId: "surprised" },
+    { id: "purple", bg: "#a855f7", faceId: "cat_face" }
   ];
   const COLOR_MAP = Object.fromEntries(COLORS.map(c => [c.id, c]));
 
-  const BOARD_TOP = 104;
-  const COL_W = 122;
+  const BOARD_TOP = 76;
+  const COL_W = 128;
   const COL_GAP = 8;
-  const BOARD_X = (W - (COL_W * 3 + COL_GAP * 2)) / 2; // 19
-  const BLOCK_H = 33;
-  const ROW_PITCH = 38;
+  const BOARD_X = (W - (COL_W * 3 + COL_GAP * 2)) / 2; // 10
+  const BLOCK_H = 40;
+  const ROW_PITCH = 45;
   const DANGER_ROWS = 9; // 0..8 안전, 9번째(10개째) 넘으면 위험선 초과 게임오버
-  const DANGER_Y = BOARD_TOP + DANGER_ROWS * ROW_PITCH + 2; // 448
+  const DANGER_Y = BOARD_TOP + DANGER_ROWS * ROW_PITCH + 2; // 483
 
   mountEl.innerHTML = `
     <div class="arcade-csort-canvas-shell">
@@ -1987,61 +2161,20 @@ function createColorSortGame(mountEl, hooks) {
       y,
       w,
       h,
-      9,
+      11,
       meta.bg,
       dangerGlow ? "#ef4444" : isHeldBlock ? "#fde047" : "#1e1b18",
-      isHeldBlock ? 4 : 3
+      isHeldBlock ? 4 : 3.2
     );
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.fillRect(x + 8, y + 3, w - 16, 4);
+    ctx.fillStyle = "rgba(255,255,255,0.32)";
+    ctx.fillRect(x + 10, y + 3, w - 20, 5);
 
     const cx = x + w / 2;
     const cy = y + h / 2 + 1;
-    // 볼터치
-    ctx.fillStyle = meta.cheek;
-    ctx.beginPath();
-    ctx.ellipse(cx - 24, cy + 3, 5.5, 3, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx + 24, cy + 3, 5.5, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 눈
-    ctx.fillStyle = "#1e1b18";
-    ctx.strokeStyle = "#1e1b18";
-    ctx.lineWidth = 2.4;
-    ctx.lineCap = "round";
-    if (meta.face === "wink") {
-      ctx.beginPath();
-      ctx.moveTo(cx - 18, cy - 4); ctx.lineTo(cx - 12, cy - 1); ctx.lineTo(cx - 18, cy + 2);
-      ctx.moveTo(cx + 18, cy - 4); ctx.lineTo(cx + 12, cy - 1); ctx.lineTo(cx + 18, cy + 2);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.arc(cx - 14, cy - 2, 3.2, 0, Math.PI * 2);
-      ctx.arc(cx + 14, cy - 2, 3.2, 0, Math.PI * 2);
-      ctx.fill();
-      if (meta.face === "bear") {
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(cx - 15, cy - 3, 1.1, 0, Math.PI * 2); ctx.arc(cx + 13, cy - 3, 1.1, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-
-    // 입 표정
-    ctx.strokeStyle = "#1e1b18";
-    ctx.lineWidth = 2.2;
-    if (meta.face === "cat") {
-      ctx.beginPath();
-      ctx.arc(cx - 3.5, cy + 2, 3.5, 0, Math.PI);
-      ctx.arc(cx + 3.5, cy + 2, 3.5, 0, Math.PI);
-      ctx.stroke();
-    } else if (meta.face === "bear") {
-      _arcFillRoundRect(ctx, cx - 10, cy - 1, 20, 8, 4, "#ffffff", "#1e1b18", 2);
-      ctx.beginPath(); ctx.moveTo(cx - 4, cy - 1); ctx.lineTo(cx - 4, cy + 7); ctx.moveTo(cx + 4, cy - 1); ctx.lineTo(cx + 4, cy + 7); ctx.stroke();
-    } else if (meta.face === "frog") {
-      _arcFillRoundRect(ctx, cx - 5, cy - 1, 10, 7, 4, "#fb7185", "#1e1b18", 2);
-    } else {
-      ctx.beginPath();
-      ctx.arc(cx, cy + 1, 6, 0.15 * Math.PI, 0.85 * Math.PI);
-      ctx.stroke();
+    // 음악왕 자체 drawDetailedFace 스탬프(사전 베이킹) 합성
+    const stamp = ArcadeAssetCache.getBlockFace(meta.faceId, true);
+    if (stamp) {
+      ctx.drawImage(stamp, cx - 44, cy - 23, 88, 48);
     }
     ctx.restore();
   }
@@ -2067,40 +2200,32 @@ function createColorSortGame(mountEl, hooks) {
       if (stopped) return;
     }
 
-    // 1) 상단 하늘 + 아바타 + 폭탄 게이지 + 점수 말풍선
-    const skyG = ctx.createLinearGradient(0, 0, 0, 96);
+    // 1) 컴팩트 상단 하늘 + 아바타 + 폭탄 게이지 + 점수 말풍선
+    const skyG = ctx.createLinearGradient(0, 0, 0, BOARD_TOP);
     skyG.addColorStop(0, "#38bdf8");
     skyG.addColorStop(1, "#e0f2fe");
     ctx.fillStyle = skyG;
-    ctx.fillRect(0, 0, W, 96);
+    ctx.fillRect(0, 0, W, BOARD_TOP);
 
-    // 풀밭 & 울타리 경계
     ctx.fillStyle = "#22c55e";
-    ctx.fillRect(0, 82, W, 16);
+    ctx.fillRect(0, 62, W, 14);
     ctx.strokeStyle = "#1e1b18";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath(); ctx.moveTo(0, 82); ctx.lineTo(W, 82); ctx.moveTo(0, 98); ctx.lineTo(W, 98); ctx.stroke();
+    ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.moveTo(0, 62); ctx.lineTo(W, 62); ctx.moveTo(0, 76); ctx.lineTo(W, 76); ctx.stroke();
 
-    // 중앙 내 캐릭터 + 작은 빗자루
-    const bob = Math.sin(elapsedSec * 5.2) * 2.5;
+    // 중앙 내 캐릭터 + 작은 지휘봉/빗자루
+    const bob = Math.sin(elapsedSec * 5.2) * 2;
     ctx.save();
-    ctx.translate(W / 2, 54 + bob);
-    ctx.strokeStyle = "#92400e";
-    ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(-20, 12); ctx.lineTo(-42, -6); ctx.stroke();
-    ctx.fillStyle = "#4ade80";
-    ctx.strokeStyle = "#1e1b18";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(-42, -6); ctx.lineTo(-54, -14); ctx.lineTo(-48, -2); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.drawImage(playerOffscreen, -28, -32, 56, 56);
+    ctx.translate(W / 2, 42 + bob);
+    ctx.drawImage(playerOffscreen, -24, -28, 48, 48);
     ctx.restore();
 
     // 좌상단 폭탄 시간 게이지 (클릭 가능)
     const fuseRatio = Math.max(0, Math.min(1, pushTimer / pushInterval));
-    _arcFillRoundRect(ctx, 12, 24, 142, 34, 12, "#1e1b18", "#1e1b18", 2.5);
+    _arcFillRoundRect(ctx, 10, 14, 148, 34, 12, "#1e1b18", "#1e1b18", 2.5);
     if (fuseRatio > 0) {
       const fCol = fuseRatio > 0.78 ? "#ef4444" : fuseRatio > 0.45 ? "#f59e0b" : "#22c55e";
-      _arcFillRoundRect(ctx, 16, 28, Math.max(10, Math.round(134 * fuseRatio)), 26, 9, fCol, null, 0);
+      _arcFillRoundRect(ctx, 14, 18, Math.max(10, Math.round(140 * fuseRatio)), 26, 9, fCol, null, 0);
     }
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#1e1b18";
@@ -2108,24 +2233,24 @@ function createColorSortGame(mountEl, hooks) {
     ctx.font = "900 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.strokeText("💣 탭: 즉시 줄 등장!", 83, 41);
-    ctx.fillText("💣 탭: 즉시 줄 등장!", 83, 41);
+    ctx.strokeText("💣 탭: 즉시 줄 등장!", 84, 31);
+    ctx.fillText("💣 탭: 즉시 줄 등장!", 84, 31);
 
     // 우상단 콤보/점수 말풍선
-    _arcFillRoundRect(ctx, W - 154, 18, 142, 46, 16, "#271206", "#1e1b18", 3);
+    _arcFillRoundRect(ctx, W - 158, 12, 148, 42, 14, "#271206", "#1e1b18", 3);
     ctx.fillStyle = "#fde047";
     ctx.font = "900 11px sans-serif";
-    ctx.fillText(combo >= 2 ? `🔥 ${combo} COMBO!` : "✨ 3단 정리!", W - 83, 32);
+    ctx.fillText(combo >= 2 ? `🔥 ${combo} COMBO!` : "✨ 3단 정리!", W - 84, 24);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "900 16px sans-serif";
-    ctx.fillText(`${score.toLocaleString()}점`, W - 83, 50);
+    ctx.font = "900 15px sans-serif";
+    ctx.fillText(`${score.toLocaleString()}점`, W - 84, 41);
 
-    // 2) 어두운 흙 배경 보드 + 3개 세로 레인
-    const soilG = ctx.createLinearGradient(0, 98, 0, H);
+    // 2) 어두운 흙 배경 보드 + 3개 대형 세로 레인
+    const soilG = ctx.createLinearGradient(0, BOARD_TOP, 0, H);
     soilG.addColorStop(0, "#451a03");
     soilG.addColorStop(1, "#271206");
     ctx.fillStyle = soilG;
-    ctx.fillRect(0, 98, W, H - 98);
+    ctx.fillRect(0, BOARD_TOP, W, H - BOARD_TOP);
 
     // 3개 레인 가이드 & 들려진 블록 대상 강조
     for (let c = 0; c < 3; c++) {
@@ -2137,12 +2262,12 @@ function createColorSortGame(mountEl, hooks) {
         : held && !isSourceCol
         ? "rgba(250, 204, 21, 0.14)"
         : "rgba(255, 255, 255, 0.05)";
-      _arcFillRoundRect(ctx, rx, BOARD_TOP - 2, COL_W, DANGER_Y - BOARD_TOP + 2, 10, ctx.fillStyle, held && !isSourceCol ? "rgba(250, 204, 21, 0.55)" : "rgba(255,255,255,0.12)", 2);
+      _arcFillRoundRect(ctx, rx, BOARD_TOP + 2, COL_W, DANGER_Y - BOARD_TOP - 2, 10, ctx.fillStyle, held && !isSourceCol ? "rgba(250, 204, 21, 0.55)" : "rgba(255,255,255,0.12)", 2);
 
       const stack = cols[c];
       for (let r = 0; r < stack.length; r++) {
         const bx = rx + 4;
-        const by = BOARD_TOP + r * ROW_PITCH + rowAnimY;
+        const by = BOARD_TOP + 4 + r * ROW_PITCH + rowAnimY;
         const warnGlow = r >= DANGER_ROWS - 1;
         drawFaceBlock(bx, by, COL_W - 8, BLOCK_H, stack[r], false, warnGlow);
       }
@@ -2153,18 +2278,18 @@ function createColorSortGame(mountEl, hooks) {
     ctx.strokeStyle = "#ef4444";
     ctx.setLineDash([10, 6]);
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(12, DANGER_Y); ctx.lineTo(W - 12, DANGER_Y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, DANGER_Y); ctx.lineTo(W - 10, DANGER_Y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+    ctx.fillStyle = "rgba(239, 68, 68, 0.9)";
     ctx.font = "900 10px sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText("⚠️ 위험선 (넘으면 종료)", W - 18, DANGER_Y - 7);
+    ctx.fillText("⚠️ 위험선 (넘으면 종료)", W - 14, DANGER_Y - 7);
     ctx.restore();
 
-    // 현재 집어 들고 있는 블록 (하단 프리뷰 존: y = 456..534)
+    // 현재 집어 들고 있는 블록 (하단 프리뷰 존: y = 490..552)
     if (held) {
       const hx = BOARD_X + held.fromCol * (COL_W + COL_GAP) + 4;
-      const baseHy = DANGER_Y + 12 + Math.sin(elapsedSec * 9) * 3;
+      const baseHy = DANGER_Y + 8 + Math.sin(elapsedSec * 9) * 2.5;
       const previewCount = Math.min(2, held.count);
       for (let k = 0; k < previewCount; k++) {
         drawFaceBlock(hx, baseHy + k * 28, COL_W - 8, 26, held.color, true, false);
@@ -2172,7 +2297,7 @@ function createColorSortGame(mountEl, hooks) {
       ctx.fillStyle = "#fde047";
       ctx.font = "900 12px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(`👆 옮길 줄을 선택! (${held.count}개)`, W / 2, H - 14);
+      ctx.fillText(`👆 옮길 줄을 선택! (${held.count}개)`, W / 2, H - 12);
     } else {
       ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
       ctx.font = "800 12px sans-serif";
@@ -2575,7 +2700,12 @@ function createNotePangGame(mountEl, hooks) {
 
   const grid = Array.from({ length: GRID }, () => Array(GRID).fill(null));
   const particles = [];
+  const shockwaves = [];
+  const beams = [];
+  const popGhosts = [];
   const popups = [];
+  let shakeTimer = 0;
+  let shakeAmp = 0;
 
   function makeCell(color, special = null, yOff = 0) {
     return { color, special, yOff };
@@ -2733,14 +2863,51 @@ function createNotePangGame(mountEl, hooks) {
     });
   }
 
-  function spawnPangParticles(r, c, colorIdx) {
-    const meta = TILES[colorIdx] || TILES[0];
+  function spawnPangEffects(r, c, cell) {
+    const meta = TILES[cell.color] || TILES[0];
     const cx = PAD_X + c * CELL + CELL / 2;
     const cy = BOARD_Y + r * CELL + CELL / 2;
-    for (let k = 0; k < 5; k++) {
-      const a = (Math.PI * 2 * k) / 5 + Math.random() * 0.6;
-      const s = 60 + Math.random() * 120;
-      particles.push({ x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s, r: 4, col: meta.bg, life: 0.42 });
+    popGhosts.push({ cx, cy, col: meta.bg, sym: meta.sym, txtCol: meta.txtCol, isRainbow: cell.special === "rainbow", life: 0.2, maxLife: 0.2 });
+    shockwaves.push({ x: cx, y: cy, r: 8, maxR: CELL * (cell.special ? 1.55 : 0.95), col: cell.special ? "#fde047" : meta.bg, life: 0.26, maxLife: 0.26 });
+
+    if (cell.special === "lineH") {
+      beams.push({ x1: PAD_X, y1: cy, x2: PAD_X + GRID * CELL, y2: cy, col: "#fde047", width: 22, life: 0.24, maxLife: 0.24 });
+    } else if (cell.special === "lineV") {
+      beams.push({ x1: cx, y1: BOARD_Y, x2: cx, y2: BOARD_Y + GRID * CELL, col: "#fde047", width: 22, life: 0.24, maxLife: 0.24 });
+    } else if (cell.special === "rainbow") {
+      const rCols = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#38bdf8", "#a855f7"];
+      for (let i = 0; i < 8; i++) {
+        const ang = (Math.PI * 2 * i) / 8;
+        beams.push({
+          x1: cx,
+          y1: cy,
+          x2: cx + Math.cos(ang) * 210,
+          y2: cy + Math.sin(ang) * 210,
+          col: rCols[i % rCols.length],
+          width: 14,
+          life: 0.3,
+          maxLife: 0.3
+        });
+      }
+    }
+
+    const pCount = cell.special ? 14 : 9;
+    const shapes = ["dot", "star", "note"];
+    for (let k = 0; k < pCount; k++) {
+      const a = (Math.PI * 2 * k) / pCount + Math.random() * 0.5;
+      const s = 75 + Math.random() * (cell.special ? 185 : 140);
+      particles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 24,
+        r: 4 + Math.random() * 4,
+        col: cell.special === "rainbow" ? TILES[k % TILES.length].bg : meta.bg,
+        shape: shapes[k % shapes.length],
+        rot: Math.random() * Math.PI * 2,
+        rotSpd: (Math.random() - 0.5) * 12,
+        life: 0.48 + Math.random() * 0.14
+      });
     }
   }
 
@@ -2801,15 +2968,24 @@ function createNotePangGame(mountEl, hooks) {
     let sumX = 0;
     let sumY = 0;
     let n = 0;
+    let hadSpecial = false;
     visited.forEach(k => {
       const [rr, cc] = k.split(",").map(Number);
       const cell = grid[rr][cc];
-      if (cell) spawnPangParticles(rr, cc, cell.color);
+      if (cell) {
+        if (cell.special) hadSpecial = true;
+        spawnPangEffects(rr, cc, cell);
+      }
       grid[rr][cc] = null;
       sumX += PAD_X + cc * CELL + CELL / 2;
       sumY += BOARD_Y + rr * CELL + CELL / 2;
       n++;
     });
+
+    if (hadSpecial || wave >= 2 || visited.size >= 4) {
+      shakeTimer = Math.max(shakeTimer, hadSpecial ? 0.24 : 0.14);
+      shakeAmp = Math.max(shakeAmp, hadSpecial ? 7 : Math.min(6, 2.5 + wave * 1.1));
+    }
 
     newSpecials.forEach(sp => {
       grid[sp.r][sp.c] = makeCell(sp.color, sp.special, 0);
@@ -3100,15 +3276,23 @@ function createNotePangGame(mountEl, hooks) {
       }
     }
 
-    // 배경 & 상단 배너
+    // 배경 & 상단 배너 (+ 콤보/특수폭발 보드 쉐이크)
     const bgG = ctx.createLinearGradient(0, 0, 0, H);
     bgG.addColorStop(0, "#ccfbf1");
     bgG.addColorStop(1, "#fef9c3");
     ctx.fillStyle = bgG;
     ctx.fillRect(0, 0, W, H);
 
+    ctx.save();
+    if (shakeTimer > 0) {
+      shakeTimer = Math.max(0, shakeTimer - dt);
+      const mag = shakeAmp * (shakeTimer / 0.24);
+      ctx.translate((Math.random() - 0.5) * mag * 2, (Math.random() - 0.5) * mag * 2);
+      if (shakeTimer <= 0) shakeAmp = 0;
+    }
+
     _arcFillRoundRect(ctx, 18, 10, W - 36, 36, 12, "#ffffff", "#1e1b18", 3);
-    ctx.fillStyle = "#0f766e";
+    ctx.fillStyle = wave >= 2 ? "#dc2626" : "#0f766e";
     ctx.font = "900 13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -3134,43 +3318,120 @@ function createNotePangGame(mountEl, hooks) {
       }
     }
 
+    // 1) 터지며 커지는 플래시 고스트 타일
+    for (let i = popGhosts.length - 1; i >= 0; i--) {
+      const g = popGhosts[i];
+      g.life -= dt;
+      if (g.life <= 0) {
+        popGhosts.splice(i, 1);
+      } else {
+        const p = 1 - g.life / g.maxLife;
+        const sz = CELL * (0.9 + p * 0.45);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        _arcFillRoundRect(ctx, g.cx - sz / 2, g.cy - sz / 2, sz, sz, 12, "#ffffff", "#fde047", 3);
+        ctx.restore();
+      }
+    }
+
+    // 2) 번개줄 & 무지개 광선 빔
+    for (let i = beams.length - 1; i >= 0; i--) {
+      const b = beams[i];
+      b.life -= dt;
+      if (b.life <= 0) {
+        beams.splice(i, 1);
+      } else {
+        const ratio = Math.max(0, b.life / b.maxLife);
+        ctx.save();
+        ctx.globalAlpha = ratio;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = b.col;
+        ctx.lineWidth = b.width * ratio + 6;
+        ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = b.width * ratio * 0.45;
+        ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 3) 확산 충격파 링
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const sw = shockwaves[i];
+      sw.life -= dt;
+      if (sw.life <= 0) {
+        shockwaves.splice(i, 1);
+      } else {
+        const prog = 1 - sw.life / sw.maxLife;
+        const rad = sw.r + (sw.maxR - sw.r) * prog;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 0.9 * (1 - prog));
+        ctx.strokeStyle = sw.col;
+        ctx.lineWidth = Math.max(1.5, 5 * (1 - prog));
+        ctx.beginPath(); ctx.arc(sw.x, sw.y, rad, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 4) 회전 반짝이 · 별 · 음표 파티클
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      p.vy += 260 * dt;
+      p.rot += (p.rotSpd || 0) * dt;
       p.life -= dt;
       if (p.life <= 0) {
         particles.splice(i, 1);
       } else {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2.4));
-        ctx.fillStyle = p.col;
-        ctx.strokeStyle = "#1e1b18";
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot || 0);
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2.3));
+        if (p.shape === "star" || p.shape === "note") {
+          ctx.font = "900 14px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#1e1b18";
+          const ch = p.shape === "note" ? "♪" : "★";
+          ctx.strokeText(ch, 0, 0);
+          ctx.fillStyle = p.shape === "star" ? "#fde047" : p.col;
+          ctx.fillText(ch, 0, 0);
+        } else {
+          ctx.fillStyle = p.col;
+          ctx.strokeStyle = "#1e1b18";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
         ctx.restore();
       }
     }
 
+    // 5) 타격감 콤보 점수 팝업
     for (let i = popups.length - 1; i >= 0; i--) {
       const p = popups[i];
-      p.y -= 32 * dt;
-      p.alpha -= dt * 1.3;
+      p.y -= 36 * dt;
+      p.alpha -= dt * 1.25;
       if (p.alpha <= 0) {
         popups.splice(i, 1);
       } else {
+        const bounce = p.alpha > 1.05 ? 1.22 : 1.0;
         ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(bounce, bounce);
         ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
-        ctx.font = "900 17px sans-serif";
+        ctx.font = "900 18px sans-serif";
         ctx.textAlign = "center";
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 4.5;
         ctx.strokeStyle = "#ffffff";
-        ctx.strokeText(p.text, p.x, p.y);
+        ctx.strokeText(p.text, 0, 0);
         ctx.fillStyle = p.col;
-        ctx.fillText(p.text, p.x, p.y);
+        ctx.fillText(p.text, 0, 0);
         ctx.restore();
       }
     }
+    ctx.restore();
 
     syncHud();
     rafId = requestAnimationFrame(frame);

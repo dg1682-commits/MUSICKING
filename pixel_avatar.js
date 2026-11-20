@@ -2295,23 +2295,28 @@ function drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options = {}) {
 
   const outline = "#1e1b18";
   const faceWhite = "#fffdf9";
+  const headOnly = Boolean(options.headOnly);
   const coversFace = !!(hatItem && hatItem.coversFace);
   const isMonkeyHat = hatItem?.id === "monkey_hood" || hairItem?.style === "monkey";
 
-  // 발밑 동그란 그림자
-  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-  ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
+  if (!headOnly) {
+    // 발밑 동그란 그림자
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+    ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
 
-  // 날개·동물 친구들 (등 뒤 최후방 레이어)
-  drawDetailedWing(ctx, wingItem);
+    // 날개·동물 친구들 (등 뒤 최후방 레이어)
+    drawDetailedWing(ctx, wingItem);
+  }
 
   // 뒷머리 (풀페이스 탈/헬멧 또는 원숭이 모자 착용 시 삐져나오지 않게 생략)
   if (!coversFace && !isMonkeyHat) {
     drawHairBack(ctx, hairItem);
   }
 
-  // 의상·다리·신발·소매·장갑
-  drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
+  // 의상·다리·신발·소매·장갑 (얼굴 전용 렌더링 시 생략)
+  if (!headOnly) {
+    drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
+  }
 
   if (!coversFace) {
     // 양쪽 동글 귀
@@ -2363,7 +2368,9 @@ function drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options = {}) {
   }
 
   // 정밀 악기·소품 렌더링 결합
-  drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
+  if (!headOnly) {
+    drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
+  }
 
   ctx.restore();
 }

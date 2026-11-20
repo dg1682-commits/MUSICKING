@@ -618,7 +618,8 @@ window.processInAppBackStep = function (fromOnestore = false) {
   }
 
   if (state.currentScreen === "arcadeScreen") {
-    if (typeof openOutingHubScreen === "function") openOutingHubScreen();
+    if (typeof exitArcadeScreenWithLoading === "function") exitArcadeScreenWithLoading();
+    else if (typeof openOutingHubScreen === "function") openOutingHubScreen();
     else showHome();
     if (!fromOnestore) armAppBackGuard(true);
     return true;
