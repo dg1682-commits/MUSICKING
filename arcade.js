@@ -66,9 +66,9 @@ const ARCADE_GAMES_META = [
   {
     game_id: "color_sort",
     title: "정리고수",
-    subtitle: "엄마의 삼단정리",
-    marqueeBg: "#d97706",
-    cabinetCol: "#f59e0b",
+    subtitle: "세로줄 블록 정리",
+    marqueeBg: "#047857",
+    cabinetCol: "#10b981",
     coin_cost: 1,
     cut_c: 1600,
     cut_a: 4000,
@@ -107,7 +107,7 @@ const ARCADE_GAME_GUIDES = {
   animal_match: "• 잠깐 열렸다 닫히는 동물 카드를 외우고 같은 짝을 맞추세요!\n• 연속 매치 콤보 보너스 & 스테이지 클리어 시 +5초 연장!",
   melody_memory: "• 9개 패드가 빛나며 들려주는 색깔과 멜로디 순서를 외우세요!\n• 순서대로 터치해 라운드를 이어가세요! (기회 ❤️ 3개)",
   jump_runner: "• 터치/스페이스바로 1단 점프! 공중에서 한 번 더 누르면 2단 점프!\n• 3단 토관 위는 밟고 설 수 있고, 몬스터를 위에서 밟으면 +75점!",
-  color_sort: "• 세로 줄을 눌러 맨 아래 같은 색 블록 묶음을 다른 줄로 옮겨 3개 이상 맞추세요!\n• 💣 폭탄 게이지(또는 버튼)를 누르면 다음 줄이 즉시 나와 빠른 콤보 가능!",
+  color_sort: "• 세로 줄을 눌러 맨 아래 같은 색 블록 묶음을 다른 줄로 옮겨 3개 이상 맞추세요!\n• 🎵 타이머 게이지(또는 버튼)를 누르면 다음 줄이 즉시 나와 빠른 콤보 가능!",
   brick_breaker: "• 화면이나 아래 슬라이드 패드로 공을 튕겨 알록달록 벽돌을 부수세요!\n• 떨어지는 ×3 멀티볼 · 넓음 · 방어 파워업을 놓치지 마세요!",
   note_pang: "• 인접한 두 음표를 스와이프하거나 두 번 눌러 3개 이상 맞추세요!\n• 4개=⚡번개줄 · 5개/십자=👑무지개왕관! 60초 연쇄 콤보 도전!"
 };
@@ -365,13 +365,13 @@ function drawArcadeCabinetScreenArt(canvas, gameId) {
     _arcFillRoundRect(ctx, W - 52, H - 56, 26, 34, 4, "#16a34a", "#1e1b18", 2.5);
     _arcFillRoundRect(ctx, 44, H - 54, 24, 24, 12, "#fffdf9", "#1e1b18", 2.5);
   } else if (gameId === "color_sort") {
-    ctx.fillStyle = "#38bdf8"; ctx.fillRect(0, 0, W, 24);
-    ctx.fillStyle = "#22c55e"; ctx.fillRect(0, 20, W, 8);
-    ctx.fillStyle = "#451a03"; ctx.fillRect(0, 28, W, H - 28);
+    ctx.fillStyle = "#a7f3d0"; ctx.fillRect(0, 0, W, 24);
+    ctx.fillStyle = "#10b981"; ctx.fillRect(0, 20, W, 8);
+    ctx.fillStyle = "#064e3b"; ctx.fillRect(0, 28, W, H - 28);
     const stacks = [
       ["#facc15", "#ef4444", "#3b82f6"],
       ["#3b82f6", "#facc15", "#3b82f6", "#ef4444"],
-      ["#ef4444", "#22c55e", "#facc15"]
+      ["#ef4444", "#4ade80", "#facc15"]
     ];
     stacks.forEach((colArr, ci) => {
       colArr.forEach((bCol, ri) => {

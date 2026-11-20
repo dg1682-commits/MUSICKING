@@ -1863,28 +1863,28 @@ function createJumpRunnerGame(mountEl, hooks) {
 }
 
 // ============================================================================
-// [게임 6] 정리고수 (color_sort) — 음악왕 블록 3열 정리 콤보 (화면 꽉참 + 자체 표정 에셋)
+// [게임 6] 정리고수 (color_sort) — 음악왕 3열 블록 정리 콤보 (풀스크린 + 초록 숲 테마)
 // ============================================================================
 function createColorSortGame(mountEl, hooks) {
   const W = 420;
-  const H = 560;
+  let H = 640;
   const COLORS = [
     { id: "red", bg: "#ef4444", faceId: "xd_laugh" },
     { id: "blue", bg: "#3b82f6", faceId: "star_eyes" },
     { id: "yellow", bg: "#facc15", faceId: "heart_eyes" },
-    { id: "green", bg: "#22c55e", faceId: "surprised" },
+    { id: "green", bg: "#4ade80", faceId: "surprised" },
     { id: "purple", bg: "#a855f7", faceId: "cat_face" }
   ];
   const COLOR_MAP = Object.fromEntries(COLORS.map(c => [c.id, c]));
 
-  const BOARD_TOP = 76;
+  const BOARD_TOP = 74;
   const COL_W = 128;
   const COL_GAP = 8;
   const BOARD_X = (W - (COL_W * 3 + COL_GAP * 2)) / 2; // 10
-  const BLOCK_H = 40;
-  const ROW_PITCH = 45;
   const DANGER_ROWS = 9; // 0..8 안전, 9번째(10개째) 넘으면 위험선 초과 게임오버
-  const DANGER_Y = BOARD_TOP + DANGER_ROWS * ROW_PITCH + 2; // 483
+  let DANGER_Y = H - 72;
+  let ROW_PITCH = Math.floor((DANGER_Y - BOARD_TOP - 10) / DANGER_ROWS);
+  let BLOCK_H = Math.max(34, ROW_PITCH - 5);
 
   mountEl.innerHTML = `
     <div class="arcade-csort-canvas-shell">
@@ -1900,6 +1900,23 @@ function createColorSortGame(mountEl, hooks) {
   const ctx = canvas.getContext("2d");
   const pushBtn = document.getElementById("arcCSortPushBtn");
   const playerOffscreen = createBakedMiniPlayerCanvas(108);
+
+  function syncCanvasAspect() {
+    const cw = canvas.clientWidth;
+    const ch = canvas.clientHeight;
+    if (cw > 20 && ch > 20) {
+      const targetH = Math.max(480, Math.min(860, Math.round(W * (ch / cw))));
+      if (Math.abs(H - targetH) > 2 || canvas.height !== targetH) {
+        H = targetH;
+        canvas.height = H;
+        DANGER_Y = H - 72;
+        ROW_PITCH = Math.floor((DANGER_Y - BOARD_TOP - 10) / DANGER_ROWS);
+        BLOCK_H = Math.max(34, ROW_PITCH - 5);
+      }
+    }
+  }
+  syncCanvasAspect();
+  requestAnimationFrame(syncCanvasAspect);
 
   let stopped = false;
   let rafId = null;
@@ -2181,6 +2198,7 @@ function createColorSortGame(mountEl, hooks) {
 
   function frame(now) {
     if (stopped) return;
+    syncCanvasAspect();
     const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
     lastMs = now;
     elapsedSec += dt;
@@ -2200,31 +2218,31 @@ function createColorSortGame(mountEl, hooks) {
       if (stopped) return;
     }
 
-    // 1) 컴팩트 상단 하늘 + 아바타 + 폭탄 게이지 + 점수 말풍선
+    // 1) 컴팩트 상단 민트 하늘 + 아바타 + 음표 타이머 게이지 + 점수 말풍선
     const skyG = ctx.createLinearGradient(0, 0, 0, BOARD_TOP);
-    skyG.addColorStop(0, "#38bdf8");
-    skyG.addColorStop(1, "#e0f2fe");
+    skyG.addColorStop(0, "#6ee7b7");
+    skyG.addColorStop(1, "#ecfdf5");
     ctx.fillStyle = skyG;
     ctx.fillRect(0, 0, W, BOARD_TOP);
 
-    ctx.fillStyle = "#22c55e";
-    ctx.fillRect(0, 62, W, 14);
+    ctx.fillStyle = "#10b981";
+    ctx.fillRect(0, 60, W, 14);
     ctx.strokeStyle = "#1e1b18";
     ctx.lineWidth = 3.2;
-    ctx.beginPath(); ctx.moveTo(0, 62); ctx.lineTo(W, 62); ctx.moveTo(0, 76); ctx.lineTo(W, 76); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 60); ctx.lineTo(W, 60); ctx.moveTo(0, 74); ctx.lineTo(W, 74); ctx.stroke();
 
-    // 중앙 내 캐릭터 + 작은 지휘봉/빗자루
+    // 중앙 내 캐릭터
     const bob = Math.sin(elapsedSec * 5.2) * 2;
     ctx.save();
-    ctx.translate(W / 2, 42 + bob);
+    ctx.translate(W / 2, 41 + bob);
     ctx.drawImage(playerOffscreen, -24, -28, 48, 48);
     ctx.restore();
 
-    // 좌상단 폭탄 시간 게이지 (클릭 가능)
+    // 좌상단 다음 줄 게이지 (클릭 가능)
     const fuseRatio = Math.max(0, Math.min(1, pushTimer / pushInterval));
-    _arcFillRoundRect(ctx, 10, 14, 148, 34, 12, "#1e1b18", "#1e1b18", 2.5);
+    _arcFillRoundRect(ctx, 10, 14, 148, 34, 12, "#022c22", "#1e1b18", 2.5);
     if (fuseRatio > 0) {
-      const fCol = fuseRatio > 0.78 ? "#ef4444" : fuseRatio > 0.45 ? "#f59e0b" : "#22c55e";
+      const fCol = fuseRatio > 0.78 ? "#ef4444" : fuseRatio > 0.45 ? "#f59e0b" : "#34d399";
       _arcFillRoundRect(ctx, 14, 18, Math.max(10, Math.round(140 * fuseRatio)), 26, 9, fCol, null, 0);
     }
     ctx.fillStyle = "#ffffff";
@@ -2233,24 +2251,38 @@ function createColorSortGame(mountEl, hooks) {
     ctx.font = "900 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.strokeText("💣 탭: 즉시 줄 등장!", 84, 31);
-    ctx.fillText("💣 탭: 즉시 줄 등장!", 84, 31);
+    ctx.strokeText("🎵 탭: 즉시 줄 등장!", 84, 31);
+    ctx.fillText("🎵 탭: 즉시 줄 등장!", 84, 31);
 
     // 우상단 콤보/점수 말풍선
-    _arcFillRoundRect(ctx, W - 158, 12, 148, 42, 14, "#271206", "#1e1b18", 3);
+    _arcFillRoundRect(ctx, W - 158, 12, 148, 42, 14, "#064e3b", "#1e1b18", 3);
     ctx.fillStyle = "#fde047";
     ctx.font = "900 11px sans-serif";
-    ctx.fillText(combo >= 2 ? `🔥 ${combo} COMBO!` : "✨ 3단 정리!", W - 84, 24);
+    ctx.fillText(combo >= 2 ? `🔥 ${combo} COMBO!` : "✨ 정리고수!", W - 84, 24);
     ctx.fillStyle = "#ffffff";
     ctx.font = "900 15px sans-serif";
     ctx.fillText(`${score.toLocaleString()}점`, W - 84, 41);
 
-    // 2) 어두운 흙 배경 보드 + 3개 대형 세로 레인
-    const soilG = ctx.createLinearGradient(0, BOARD_TOP, 0, H);
-    soilG.addColorStop(0, "#451a03");
-    soilG.addColorStop(1, "#271206");
-    ctx.fillStyle = soilG;
+    // 2) 음악왕 딥 포레스트 그린 배경 보드 + 은은한 음표 워터마크 + 3개 대형 세로 레인
+    const greenBoardG = ctx.createLinearGradient(0, BOARD_TOP, 0, H);
+    greenBoardG.addColorStop(0, "#065f46");
+    greenBoardG.addColorStop(0.55, "#064e3b");
+    greenBoardG.addColorStop(1, "#022c22");
+    ctx.fillStyle = greenBoardG;
     ctx.fillRect(0, BOARD_TOP, W, H - BOARD_TOP);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(167, 243, 208, 0.08)";
+    ctx.font = "900 28px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const bgNotes = ["♪", "♫", "♬", "♩"];
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 4; c++) {
+        ctx.fillText(bgNotes[(r + c) % bgNotes.length], 54 + c * 104, BOARD_TOP + 42 + r * Math.round((H - BOARD_TOP) / 6));
+      }
+    }
+    ctx.restore();
 
     // 3개 레인 가이드 & 들려진 블록 대상 강조
     for (let c = 0; c < 3; c++) {
@@ -2258,16 +2290,16 @@ function createColorSortGame(mountEl, hooks) {
       const isDangerCol = cols[c].length >= DANGER_ROWS - 1;
       const isSourceCol = held && held.fromCol === c;
       ctx.fillStyle = isDangerCol && Math.floor(elapsedSec * 6) % 2 === 0
-        ? "rgba(239, 68, 68, 0.2)"
+        ? "rgba(239, 68, 68, 0.22)"
         : held && !isSourceCol
-        ? "rgba(250, 204, 21, 0.14)"
-        : "rgba(255, 255, 255, 0.05)";
-      _arcFillRoundRect(ctx, rx, BOARD_TOP + 2, COL_W, DANGER_Y - BOARD_TOP - 2, 10, ctx.fillStyle, held && !isSourceCol ? "rgba(250, 204, 21, 0.55)" : "rgba(255,255,255,0.12)", 2);
+        ? "rgba(250, 204, 21, 0.16)"
+        : "rgba(236, 253, 245, 0.09)";
+      _arcFillRoundRect(ctx, rx, BOARD_TOP + 4, COL_W, DANGER_Y - BOARD_TOP - 4, 12, ctx.fillStyle, held && !isSourceCol ? "rgba(250, 204, 21, 0.65)" : "rgba(167, 243, 208, 0.25)", 2);
 
       const stack = cols[c];
       for (let r = 0; r < stack.length; r++) {
         const bx = rx + 4;
-        const by = BOARD_TOP + 4 + r * ROW_PITCH + rowAnimY;
+        const by = BOARD_TOP + 6 + r * ROW_PITCH + rowAnimY;
         const warnGlow = r >= DANGER_ROWS - 1;
         drawFaceBlock(bx, by, COL_W - 8, BLOCK_H, stack[r], false, warnGlow);
       }
@@ -2275,34 +2307,34 @@ function createColorSortGame(mountEl, hooks) {
 
     // 위험 경계선 (y = DANGER_Y)
     ctx.save();
-    ctx.strokeStyle = "#ef4444";
+    ctx.strokeStyle = "#fca5a5";
     ctx.setLineDash([10, 6]);
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(10, DANGER_Y); ctx.lineTo(W - 10, DANGER_Y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(239, 68, 68, 0.9)";
-    ctx.font = "900 10px sans-serif";
+    ctx.fillStyle = "#fecaca";
+    ctx.font = "900 11px sans-serif";
     ctx.textAlign = "right";
     ctx.fillText("⚠️ 위험선 (넘으면 종료)", W - 14, DANGER_Y - 7);
     ctx.restore();
 
-    // 현재 집어 들고 있는 블록 (하단 프리뷰 존: y = 490..552)
+    // 현재 집어 들고 있는 블록 (하단 프리뷰 존)
     if (held) {
       const hx = BOARD_X + held.fromCol * (COL_W + COL_GAP) + 4;
       const baseHy = DANGER_Y + 8 + Math.sin(elapsedSec * 9) * 2.5;
       const previewCount = Math.min(2, held.count);
       for (let k = 0; k < previewCount; k++) {
-        drawFaceBlock(hx, baseHy + k * 28, COL_W - 8, 26, held.color, true, false);
+        drawFaceBlock(hx, baseHy + k * 27, COL_W - 8, 25, held.color, true, false);
       }
       ctx.fillStyle = "#fde047";
       ctx.font = "900 12px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(`👆 옮길 줄을 선택! (${held.count}개)`, W / 2, H - 12);
+      ctx.fillText(`👆 옮길 줄을 선택! (${held.count}개)`, W / 2, H - 11);
     } else {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.fillStyle = "rgba(236, 253, 245, 0.85)";
       ctx.font = "800 12px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("원하는 줄을 눌러 맨 아래 블록을 집어 옮기세요!", W / 2, H - 18);
+      ctx.fillText("원하는 줄을 눌러 맨 아래 블록을 집어 옮기세요!", W / 2, H - 22);
     }
 
     // 폭발 파티클
