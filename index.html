@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=22.0" />
+  <link rel="stylesheet" href="style.css?v=23.0" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -315,8 +315,8 @@
             <button class="btn btn-home-white" id="enterBagBtn" onclick="openBagScreen()">
               <span>🎒 가방</span>
             </button>
-            <button class="btn btn-home-white" id="enterFishingBtn" onclick="enterFishingRoom()">
-              <span>🎣 낚시터</span>
+            <button class="btn btn-home-white" id="enterOutingBtn" onclick="openOutingHubScreen()">
+              <span>🏘️ 놀러가기</span>
             </button>
             <button class="btn btn-home-white" onclick="openShopModal()">👗 상점 · 옷장</button>
             <button class="btn btn-home-white" onclick="openRankingModal()">🏆 랭킹</button>
@@ -419,6 +419,106 @@
             <button type="button" class="btn btn-gold" id="bagAdRechargeBtn" style="flex:1.15; padding:8px; font-size:0.78rem;">📺 광고 보고 충전</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ==================== 1-D. 놀러가기 허브 화면 (#outingHubScreen) ==================== -->
+    <section id="outingHubScreen" class="screen-view hidden">
+      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기" style="width:36px; height:36px; font-size:1rem;">⬅</button>
+          <h3 style="font-size:1.05rem; font-weight:900;">🏘️ 음악왕 놀러가기</h3>
+          <span class="cd-pill golden-coin-pill" style="padding:3px 7px; font-size:0.72rem;" title="보유 황금주화">🪙 <strong id="outingGoldenCoins">0</strong></span>
+        </div>
+
+        <div class="play-hub-banners">
+          <button type="button" class="play-hub-banner is-fishing" onclick="enterFishingRoom()">
+            <div class="play-hub-ico">🎣</div>
+            <div class="play-hub-text">
+              <strong>잔잔한 호수 낚시터</strong>
+              <span>친구들과 수다 떨며 자동 경험치 &amp; CD 수확하기!</span>
+            </div>
+            <span class="play-hub-arrow">➔</span>
+          </button>
+
+          <button type="button" class="play-hub-banner is-arcade" onclick="openArcadeScreen()">
+            <div class="play-hub-ico">🕹️</div>
+            <div class="play-hub-text">
+              <strong>음악왕 오락실 (7종 미니게임)</strong>
+              <span>동전 1개로 황금주화 &amp; 주간 랭킹 도전! (보유 🎟️ <strong id="outingArcadeCoins">0</strong>개)</span>
+            </div>
+            <span class="play-hub-arrow">➔</span>
+          </button>
+
+          <div class="play-hub-banner is-coming-soon" aria-disabled="true">
+            <div class="play-hub-ico">🎡</div>
+            <div class="play-hub-text">
+              <strong>타운 놀이터 (확장 예정)</strong>
+              <span>추후 새로운 놀거리가 이곳에 추가됩니다!</span>
+            </div>
+            <span class="badge">준비중</span>
+          </div>
+        </div>
+
+        <button class="btn" onclick="showHome()" style="width:100%;">⬅ 메인 화면으로 돌아가기</button>
+      </div>
+    </section>
+
+    <!-- ==================== 1-E. 음악왕 오락실 (#arcadeScreen) ==================== -->
+    <section id="arcadeScreen" class="screen-view hidden">
+      <div class="card arcade-lobby-card">
+        <div class="arcade-topbar">
+          <button class="apf-back-circle" onclick="openOutingHubScreen()" title="놀러가기" style="width:34px; height:34px; font-size:0.95rem; flex-shrink:0;">⬅</button>
+          <h3 class="arcade-topbar-title">🕹️ 오락실</h3>
+          <div class="arcade-currency-row">
+            <span class="cd-pill golden-coin-pill" title="황금주화">🪙 <strong id="arcadeGoldenBalance">0</strong></span>
+            <span class="cd-pill arcade-coin-pill" title="오락실 동전">🎟️ <strong id="arcadeCoinsBalance">0</strong></span>
+            <span class="cd-pill" title="보유 CD">💿 <strong id="arcadeCdBalance">100</strong></span>
+          </div>
+        </div>
+
+        <div class="arcade-lobby-scroll">
+          <!-- 상단 중앙 아저씨 NPC 환전소 부스 + 양옆 네온 기둥 -->
+          <div class="arcade-booth-stage">
+            <div class="arcade-booth-pillar is-left">🕹️</div>
+            <div class="arcade-npc-booth">
+              <div class="arcade-npc-visual-row">
+                <canvas id="arcadeNpcCanvas" class="arcade-npc-canvas" width="260" height="190"></canvas>
+                <div class="arcade-npc-dialog-col">
+                  <span class="arcade-booth-sign">🎩 아저씨 동전 환전소</span>
+                  <div id="arcadeNpcBubble" class="arcade-npc-bubble">어서오쇼~ 500 CD = 동전 1개!</div>
+                  <div class="arcade-exchange-btns">
+                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(1)">+1개<span>500 CD</span></button>
+                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(5)">+5개<span>2,500 CD</span></button>
+                    <button type="button" class="btn btn-gold arcade-ex-btn" onclick="exchangeArcadeCoin(10)">+10개<span>5,000 CD</span></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="arcade-booth-pillar is-right">👾</div>
+          </div>
+
+          <!-- 양옆 대칭 7종 오락기 + 주간랭킹 부스 (오락기 상단 이름표 표시) -->
+          <div class="arcade-aisle-label">👾 왼쪽·오른쪽 원하는 오락기를 눌러 시작! (1판 = 🎟️ 1개 · 참가 🪙1 / C 🪙3 / A 🪙6 / S 🪙10)</div>
+          <div id="arcadeCabinetsGrid" class="arcade-cabinets-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 1-F. 오락실 미니게임 플레이 화면 (#arcadePlayScreen) ==================== -->
+    <section id="arcadePlayScreen" class="screen-view hidden">
+      <div class="card arcade-play-card">
+        <div class="arcade-play-hud-top">
+          <button type="button" class="btn" onclick="quitArcadeGameConfirm()" style="padding:5px 10px; font-size:0.76rem; flex-shrink:0;">🚪 나가기</button>
+          <strong id="arcadePlayTitle" class="arcade-play-title">🕹️ 미니게임</strong>
+          <button type="button" id="arcadePlaySoundBtn" class="header-btn" onclick="toggleBgmMute()" title="사운드 켜기/끄기">🔊</button>
+        </div>
+        <div class="arcade-play-hud-stats">
+          <span id="arcadePlayScore" class="arcade-hud-score">0점</span>
+          <span id="arcadePlayTier" class="arcade-hud-tier">🎯 C:300</span>
+          <span id="arcadePlaySubHud" class="arcade-hud-sub">준비!</span>
+        </div>
+        <div id="arcadePlayStage" class="arcade-play-stage"></div>
       </div>
     </section>
 
@@ -1832,6 +1932,42 @@
     </div>
   </div>
 
+  <!-- ==================== [V3.0 모달 G] 오락실 미니게임 결과 정산 모달 ==================== -->
+  <div id="arcadeResultModal" class="modal-backdrop hidden" style="z-index:2460;">
+    <div class="modal-content" style="max-width:370px; text-align:center;">
+      <div id="arcadeResGameTitle" style="font-size:0.86rem; font-weight:900; color:var(--text-sub); margin-bottom:4px;">🕹️ 오락실 결과</div>
+      <div id="arcadeResTierBadge" class="arcade-result-tier-badge">👑 S목표! (+10 🪙)</div>
+      <div id="arcadeResScore" style="font-size:1.75rem; font-weight:900; color:#1e1b18; margin:6px 0 4px;">0점</div>
+      <div id="arcadeResGoldenGain" style="font-size:0.94rem; font-weight:900; color:#b45309; background:#fef08a; border:2px solid #1e1b18; border-radius:999px; padding:4px 12px; display:inline-block; margin-bottom:8px;">🪙 +1개 획득!</div>
+      <p id="arcadeResBestSummary" style="font-size:0.8rem; color:var(--text-sub); line-height:1.45; white-space:pre-line; background:#f8fafc; border:2px solid #cbd5e1; border-radius:10px; padding:8px; margin-bottom:12px;"></p>
+      <div class="action-row" style="gap:6px;">
+        <button type="button" id="arcadeResLobbyBtn" class="btn" style="flex:0.85;">🕹️ 오락실</button>
+        <button type="button" id="arcadeResRankBtn" class="btn" style="flex:0.95;">🏆 랭킹</button>
+        <button type="button" id="arcadeResReplayBtn" class="btn btn-gold" style="flex:1.25;">🔁 한 판 더!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [V3.0 모달 H] 오락실 주간 랭킹 & 명예의 전당 ==================== -->
+  <div id="arcadeRankModal" class="modal-backdrop hidden" style="z-index:2450;">
+    <div class="modal-content" style="max-width:430px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="font-size:1rem; font-weight:900;">🏆 오락실 랭킹</h3>
+        <button type="button" class="header-btn" onclick="closeModal('arcadeRankModal')">닫기 ✕</button>
+      </div>
+      <div class="arcade-rank-reward-banner">
+        매주 월요일 00시(KST) 마감 · 🥇1위 <strong>+30🪙</strong> · 🥈2위 <strong>+20🪙</strong> · 🥉3위 <strong>+10🪙</strong>
+      </div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <button type="button" class="rank-chip active" data-arc-rank-mode="weekly" onclick="switchArcadeRankMode('weekly')" style="flex:1;">📅 이번 주 랭킹</button>
+        <button type="button" class="rank-chip" data-arc-rank-mode="best" onclick="switchArcadeRankMode('best')" style="flex:1;">👑 역대 최고</button>
+      </div>
+      <div id="arcadeRankGameTabs" class="arcade-rank-game-tabs"></div>
+      <div id="arcadeRankWeekLabel" style="font-size:0.74rem; font-weight:800; color:var(--text-sub); margin:4px 0 6px;">📅 주간 TOP 30</div>
+      <div id="arcadeRankList" class="history-scroll-box" style="max-height:310px;"></div>
+    </div>
+  </div>
+
   <!-- ==================== [커스텀 시스템 팝업 모달] ==================== -->
   <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
     <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
@@ -1878,12 +2014,14 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=22.0"></script>
-  <script defer src="pixel_avatar_v3.js?v=22.0"></script>
-  <script defer src="pixel_avatar.js?v=22.0"></script>
-  <script defer src="online.js?v=22.0"></script>
-  <script defer src="fishing.js?v=22.0"></script>
-  <script defer src="app.js?v=22.0"></script>
+  <script defer src="data.js?v=23.0"></script>
+  <script defer src="pixel_avatar_v3.js?v=23.0"></script>
+  <script defer src="pixel_avatar.js?v=23.0"></script>
+  <script defer src="online.js?v=23.0"></script>
+  <script defer src="fishing.js?v=23.0"></script>
+  <script defer src="arcade_games.js?v=23.0"></script>
+  <script defer src="arcade.js?v=23.0"></script>
+  <script defer src="app.js?v=23.0"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

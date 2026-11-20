@@ -56,7 +56,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, .dm-emoji-grid, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, .dm-emoji-grid, .arcade-lobby-scroll, .arcade-match-board, .arcade-csort-shelves, .arcade-rank-game-tabs, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -546,7 +546,7 @@ function performCleanAppExit() {
 
 window.openAdminBackendPage = function () {
   if (typeof closeModal === "function") closeModal("settingsModal");
-  location.replace("admin.html?v=21.4");
+  location.replace("admin.html?v=23.0");
 };
 
 window.processInAppBackStep = function (fromOnestore = false) {
@@ -611,7 +611,20 @@ window.processInAppBackStep = function (fromOnestore = false) {
     return true;
   }
 
-  if (["setupScreen", "plazaScreen", "playHubScreen", "bagScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
+  if (state.currentScreen === "arcadePlayScreen") {
+    if (typeof quitArcadeGameConfirm === "function") quitArcadeGameConfirm();
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
+  }
+
+  if (state.currentScreen === "arcadeScreen") {
+    if (typeof openOutingHubScreen === "function") openOutingHubScreen();
+    else showHome();
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
+  }
+
+  if (["setupScreen", "plazaScreen", "playHubScreen", "outingHubScreen", "bagScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
     if (!fromOnestore) armAppBackGuard(true);
     return true;
@@ -1057,6 +1070,7 @@ function isOnlineOneSecRoomActive() {
 
 function shouldSuppressClickSfx(clickable) {
   if (!clickable) return false;
+  if (clickable.closest("#arcadePlayStage")) return true;
   // 1초 듣기 모드(싱글/온라인 대전)에서는 재생 충돌 방지를 위해 클릭 효과음(click.wav) 무음 처리
   if (state.mode === "onesec") {
     if (clickable.closest("#gameScreen, #judgeScreen")) return true;
@@ -1089,6 +1103,11 @@ function syncFloatingSoundBtn(screenId) {
     fishSoundBtn.textContent = bgmState.muted ? "🔇" : "🔊";
     fishSoundBtn.classList.toggle("is-muted", bgmState.muted);
   }
+  const arcadeSoundBtn = document.getElementById("arcadePlaySoundBtn");
+  if (arcadeSoundBtn) {
+    arcadeSoundBtn.textContent = bgmState.muted ? "🔇" : "🔊";
+    arcadeSoundBtn.classList.toggle("is-muted", bgmState.muted);
+  }
   const homeSoundBtn = document.getElementById("homeSoundBtn");
   const homeSoundIcon = document.getElementById("homeSoundIcon");
   if (homeSoundBtn) homeSoundBtn.classList.toggle("is-muted", bgmState.muted);
@@ -1096,7 +1115,7 @@ function syncFloatingSoundBtn(screenId) {
 
   const btn = document.getElementById("floatingSoundBtn");
   if (!btn) return;
-  const showBtn = ["loginScreen", "rankingScreen", "shopScreen", "socialScreen"].includes(screenId);
+  const showBtn = ["loginScreen", "rankingScreen", "shopScreen", "socialScreen", "outingHubScreen", "arcadeScreen"].includes(screenId);
   btn.classList.toggle("hidden", !showBtn);
   btn.textContent = bgmState.muted ? "🔇" : "🔊";
   btn.classList.toggle("is-muted", bgmState.muted);
@@ -1120,7 +1139,7 @@ function updateBgmForScreen(screenId) {
   }
 
   // 게임 진행 화면 & 결과 화면만 BGM 정지 (상점=shop.mp3, 낚시터=fish.mp3, 친구목록 포함 그 외 화면=main.mp3)
-  if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen"].includes(screenId)) {
+  if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen", "arcadePlayScreen"].includes(screenId)) {
     bgmState.mainAudio.pause();
     bgmState.shopAudio.pause();
     if (bgmState.fishAudio) bgmState.fishAudio.pause();
@@ -1314,6 +1333,13 @@ window.switchScreen = function (targetId, opts = {}) {
   ) {
     cleanupFishingRuntime(true);
   }
+  if (
+    prevScreen === "arcadePlayScreen" &&
+    targetId !== "arcadePlayScreen" &&
+    typeof cleanupArcadeRuntime === "function"
+  ) {
+    cleanupArcadeRuntime();
+  }
 
   state.currentScreen = targetId;
   if (opts && opts.replaceHistory) {
@@ -1346,7 +1372,7 @@ window.switchScreen = function (targetId, opts = {}) {
   if (headerEl) {
     headerEl.classList.toggle(
       "hidden",
-      ["loginScreen", "shopScreen", "fishingScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
+      ["loginScreen", "shopScreen", "fishingScreen", "outingHubScreen", "arcadeScreen", "arcadePlayScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
     );
   }
 
@@ -1354,6 +1380,9 @@ window.switchScreen = function (targetId, opts = {}) {
     "loginScreen",
     "homeScreen",
     "playHubScreen",
+    "outingHubScreen",
+    "arcadeScreen",
+    "arcadePlayScreen",
     "bagScreen",
     "setupScreen",
     "gameScreen",

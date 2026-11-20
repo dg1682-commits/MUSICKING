@@ -252,6 +252,11 @@ function resetUserStateToFreshDefaults() {
   if (typeof cleanupFishingRuntime === "function") {
     try { cleanupFishingRuntime(false); } catch (e) {}
   }
+  if (typeof resetArcadeAccountState === "function") {
+    try { resetArcadeAccountState(); } catch (e) {}
+  } else if (typeof cleanupArcadeRuntime === "function") {
+    try { cleanupArcadeRuntime(); } catch (e) {}
+  }
   userState.id = null;
   userState.nickname = "게스트도전자";
   userState.bio = "안녕하세요! 음악왕 도전자입니다.";
@@ -382,6 +387,7 @@ window.confirmSignupWithGender = function () {
 function updateHeaderUserUI() {
   const cdEl = document.getElementById("headerCdCount");
   if (cdEl) cdEl.textContent = `${userState.cdCoins}`;
+  if (typeof syncArcadeBalancesUI === "function") syncArcadeBalancesUI();
 
   // 왼쪽 상단: 아이콘·도형 없이 닉네임 전체 표기
   const topNickEl = document.getElementById("headerTopMyNick");
