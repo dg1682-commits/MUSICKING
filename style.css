@@ -4360,28 +4360,58 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 6px;
+  row-gap: 4px;
   flex-shrink: 0;
 }
 
+.arcade-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .arcade-topbar-title {
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 900;
   color: #fde047;
   text-shadow: 0 2px 0 #1e1b18;
   white-space: nowrap;
 }
 
+.arcade-top-rank-btn {
+  background: linear-gradient(135deg, #fde047, #f59e0b);
+  color: #1e1b18;
+  border: 2px solid #1e1b18;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #1e1b18;
+  transition: transform 0.08s ease;
+}
+
+.arcade-top-rank-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
 .arcade-currency-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   flex-wrap: nowrap;
+  margin-left: auto;
 }
 
 .arcade-currency-row .cd-pill {
-  padding: 2px 6px;
-  font-size: 0.7rem;
+  padding: 2px 5px;
+  font-size: 0.68rem;
 }
 
 .arcade-lobby-scroll {
@@ -4421,6 +4451,16 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   border-radius: 14px;
   padding: 7px 8px;
   box-shadow: 0 4px 0 #1e1b18;
+}
+
+@keyframes arcadeBoothAttention {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 0 #1e1b18; }
+  25% { transform: scale(1.025); box-shadow: 0 0 0 4px #fde047, 0 4px 0 #1e1b18; }
+  65% { transform: scale(1.015); box-shadow: 0 0 0 3px #f97316, 0 4px 0 #1e1b18; }
+}
+
+.arcade-npc-booth.is-attention {
+  animation: arcadeBoothAttention 0.9s ease 2;
 }
 
 .arcade-npc-visual-row {
@@ -4742,9 +4782,19 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  width: 100%;
   height: 100%;
   min-height: 0;
   justify-content: center;
+}
+
+.arcade-canvas-wrap.has-slide-pad {
+  touch-action: none;
+  user-select: none;
+}
+
+.arcade-canvas-wrap.has-slide-pad .arcade-game-canvas {
+  max-height: calc(100% - 74px);
 }
 
 .arcade-game-canvas {
@@ -4760,6 +4810,34 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   user-select: none;
   box-shadow: 0 4px 0 #1e1b18;
   display: block;
+}
+
+.arcade-slide-pad {
+  width: 100%;
+  max-width: 390px;
+  flex: 1;
+  min-height: 54px;
+  max-height: 92px;
+  border-radius: 14px;
+  border: 3px dashed #94a3b8;
+  background: linear-gradient(180deg, #f8fafc, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #475569;
+  touch-action: none;
+  user-select: none;
+  cursor: ew-resize;
+}
+
+.arcade-slide-pad.is-active {
+  border-style: solid;
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
 }
 
 .arcade-touch-hint {
@@ -4942,123 +5020,39 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   text-shadow: 0 1.5px 0 #1e1b18;
 }
 
-/* 정리고수 색깔블록 */
-.arcade-csort-shell {
+/* 정리고수 (엄마의 삼단정리) & 음표팡팡 하단 액션바 */
+.arcade-csort-canvas-shell {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  height: 100%;
-}
-
-.arcade-csort-toprow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.arcade-csort-hint {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--text-sub);
-}
-
-.arcade-csort-shelves {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: grid;
-  gap: 8px;
-  align-content: center;
-}
-
-.arcade-csort-bin {
-  background: #fef3c7;
-  border: 2.5px solid #1e1b18;
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 3px 0 #1e1b18;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.arcade-csort-back-row,
-.arcade-csort-front-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.arcade-cblock-mini {
-  height: 10px;
-  border-radius: 4px;
-  border: 1.5px solid #1e1b18;
-  opacity: 0.52;
-}
-
-.arcade-cblock-mini.is-empty {
-  background: transparent;
-  border-style: dashed;
-  opacity: 0.25;
-}
-
-.arcade-cblock {
-  height: 44px;
-  border-radius: 10px;
-  border: 2.5px solid #1e1b18;
-  box-shadow: 0 3px 0 #1e1b18;
-  font-size: 1.15rem;
-  font-weight: 900;
-  display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  touch-action: manipulation;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-.arcade-cblock.is-in-tray {
-  height: 40px;
-  cursor: default;
+.arcade-csort-canvas-shell .arcade-game-canvas {
+  max-height: calc(100% - 50px);
 }
 
-.arcade-cblock-empty {
-  height: 44px;
-  border-radius: 10px;
-  border: 2px dashed #cbd5e1;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.arcade-cblock-empty.is-tray-slot {
-  height: 40px;
-}
-
-.arcade-csort-tray-wrap {
-  background: #e2e8f0;
-  border: 2.5px solid #1e1b18;
-  border-radius: 14px;
-  padding: 6px 8px;
+.arcade-csort-actionbar {
+  width: 100%;
+  max-width: 390px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.arcade-csort-tray-label {
-  font-size: 0.68rem;
+.arcade-csort-push-btn {
+  padding: 7px 12px;
+  font-size: 0.78rem;
   font-weight: 900;
-  color: #334155;
-  margin-bottom: 4px;
-  text-align: center;
-}
-
-.arcade-csort-tray {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.arcade-csort-tray.is-danger {
-  outline: 2.5px solid #ef4444;
-  border-radius: 8px;
+  border-radius: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* 결과 / 랭킹 모달 */

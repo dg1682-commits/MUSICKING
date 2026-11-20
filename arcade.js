@@ -1,5 +1,5 @@
 // ============================================================================
-// [음악왕 V3.0] 놀러가기 허브 · 오락실(환전소 NPC · 7종 오락기 · 주간 랭킹) 모듈
+// [음악왕 V3.0] 놀러가기 허브 · 오락실(환전소 NPC · 8종 오락기 · 주간 랭킹) 모듈
 // ============================================================================
 
 const ARCADE_GAMES_META = [
@@ -10,9 +10,9 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#312e81",
     cabinetCol: "#6366f1",
     coin_cost: 1,
-    cut_c: 300,
-    cut_a: 800,
-    cut_s: 1500,
+    cut_c: 1200,
+    cut_a: 3200,
+    cut_s: 6000,
     enabled: true
   },
   {
@@ -22,9 +22,9 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#0284c7",
     cabinetCol: "#0ea5e9",
     coin_cost: 1,
-    cut_c: 500,
-    cut_a: 1200,
-    cut_s: 2200,
+    cut_c: 2000,
+    cut_a: 4800,
+    cut_s: 8800,
     enabled: true
   },
   {
@@ -34,9 +34,9 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#059669",
     cabinetCol: "#10b981",
     coin_cost: 1,
-    cut_c: 400,
-    cut_a: 1000,
-    cut_s: 1800,
+    cut_c: 1600,
+    cut_a: 4000,
+    cut_s: 7200,
     enabled: true
   },
   {
@@ -46,9 +46,9 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#9333ea",
     cabinetCol: "#a855f7",
     coin_cost: 1,
-    cut_c: 400,
-    cut_a: 900,
-    cut_s: 1600,
+    cut_c: 1600,
+    cut_a: 3600,
+    cut_s: 6400,
     enabled: true
   },
   {
@@ -58,21 +58,21 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#dc2626",
     cabinetCol: "#ef4444",
     coin_cost: 1,
-    cut_c: 400,
-    cut_a: 1000,
-    cut_s: 2000,
+    cut_c: 1600,
+    cut_a: 4000,
+    cut_s: 8000,
     enabled: true
   },
   {
     game_id: "color_sort",
     title: "정리고수",
-    subtitle: "색깔 블록 3칸 정리",
+    subtitle: "엄마의 삼단정리",
     marqueeBg: "#d97706",
     cabinetCol: "#f59e0b",
     coin_cost: 1,
-    cut_c: 400,
-    cut_a: 1000,
-    cut_s: 1900,
+    cut_c: 1600,
+    cut_a: 4000,
+    cut_s: 7600,
     enabled: true
   },
   {
@@ -82,9 +82,21 @@ const ARCADE_GAMES_META = [
     marqueeBg: "#db2777",
     cabinetCol: "#ec4899",
     coin_cost: 1,
-    cut_c: 500,
-    cut_a: 1200,
-    cut_s: 2400,
+    cut_c: 2000,
+    cut_a: 4800,
+    cut_s: 9600,
+    enabled: true
+  },
+  {
+    game_id: "note_pang",
+    title: "음표팡팡",
+    subtitle: "3매치 음표 퍼즐",
+    marqueeBg: "#0f766e",
+    cabinetCol: "#14b8a6",
+    coin_cost: 1,
+    cut_c: 1800,
+    cut_a: 4200,
+    cut_s: 8000,
     enabled: true
   }
 ];
@@ -335,12 +347,35 @@ function drawArcadeCabinetScreenArt(canvas, gameId) {
     _arcFillRoundRect(ctx, W - 52, H - 56, 26, 34, 4, "#16a34a", "#1e1b18", 2.5);
     _arcFillRoundRect(ctx, 44, H - 54, 24, 24, 12, "#fffdf9", "#1e1b18", 2.5);
   } else if (gameId === "color_sort") {
-    ctx.fillStyle = "#fef3c7"; ctx.fillRect(0, 0, W, H);
-    const bCols = ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#a855f7", "#06b6d4"];
-    for (let i = 0; i < 6; i++) {
-      const c = i % 3;
-      const r = Math.floor(i / 3);
-      _arcFillRoundRect(ctx, 26 + c * 42, 22 + r * 36, 36, 28, 7, bCols[i], "#1e1b18", 2.5);
+    ctx.fillStyle = "#38bdf8"; ctx.fillRect(0, 0, W, 24);
+    ctx.fillStyle = "#22c55e"; ctx.fillRect(0, 20, W, 8);
+    ctx.fillStyle = "#451a03"; ctx.fillRect(0, 28, W, H - 28);
+    const stacks = [
+      ["#facc15", "#ef4444", "#3b82f6"],
+      ["#3b82f6", "#facc15", "#3b82f6", "#ef4444"],
+      ["#ef4444", "#22c55e", "#facc15"]
+    ];
+    stacks.forEach((colArr, ci) => {
+      colArr.forEach((bCol, ri) => {
+        _arcFillRoundRect(ctx, 18 + ci * 46, 33 + ri * 17, 40, 14, 4, bCol, "#1e1b18", 2);
+      });
+    });
+  } else if (gameId === "note_pang") {
+    ctx.fillStyle = "#ccfbf1"; ctx.fillRect(0, 0, W, H);
+    const gems = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#38bdf8", "#a855f7"];
+    const syms = ["♪", "★", "♫", "♣", "♬", "♥"];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        const idx = r === 1 ? 0 : (r * 4 + c) % gems.length;
+        const bx = 22 + c * 33;
+        const by = 12 + r * 28;
+        _arcFillRoundRect(ctx, bx, by, 28, 24, 6, gems[idx], "#1e1b18", 2.2);
+        ctx.fillStyle = idx === 2 ? "#1e1b18" : "#ffffff";
+        ctx.font = "900 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(syms[idx], bx + 14, by + 13);
+      }
     }
   } else {
     // brick_breaker
@@ -491,27 +526,7 @@ function renderArcadeCabinetsGrid() {
     })
     .join("");
 
-  // 8번째 대칭 우측 하단 슬롯: 주간 랭킹 & 황금주화 보상 키오스크!
-  const rankCardHtml = `
-    <button type="button" class="arcade-cabinet-card is-rank-kiosk" onclick="openArcadeRankingModal()">
-      <div class="arcade-cabinet-marquee" style="background:#b45309;">주간 랭킹 🏆</div>
-      <div class="arcade-rank-kiosk-body">
-        <div class="arcade-rank-trophy">🏆</div>
-        <div class="arcade-rank-prizes">
-          <span>🥇 1위 +30 🪙</span>
-          <span>🥈 2위 +20 🪙</span>
-          <span>🥉 3위 +10 🪙</span>
-        </div>
-        <div class="arcade-rank-kiosk-sub">실시간 순위표 & 보상</div>
-      </div>
-      <div class="arcade-cabinet-footer">
-        <span class="arcade-cab-best">매주 월요일 초기화</span>
-        <span class="arcade-cab-cost">열기 ➔</span>
-      </div>
-    </button>
-  `;
-
-  grid.innerHTML = cardsHtml + rankCardHtml;
+  grid.innerHTML = cardsHtml;
 
   arcadeState.games.forEach(g => {
     const cv = document.getElementById(`cabArt_${g.game_id}`);
@@ -600,22 +615,19 @@ window.playArcadeCabinet = async function (gameId) {
 
   if (curCoins < cost) {
     const curCd = Math.max(0, Number(userState.cdCoins) || 0);
-    if (curCd >= 500) {
-      gameConfirm(
-        `🎟️ 오락실 동전이 부족합니다! (보유: ${curCoins}개)\n아저씨 환전소에서 💿 500 CD로 동전 1개를 바로 바꿔서 [${meta.title}] 게임을 시작할까요?`,
-        async () => {
-          await exchangeArcadeCoin(1);
-          if ((Number(userState.arcadeCoins) || 0) >= cost) {
-            playArcadeCabinet(gameId);
-          }
-        },
-        "🎟️ 동전 즉시 교환"
-      );
-    } else {
-      gameAlert(
-        `🎟️ 오락실 동전과 CD가 모두 부족합니다!\n(보유 동전: ${curCoins}개 · 보유 CD: ${curCd} CD)`
-      );
+    const scroller = document.querySelector("#arcadeScreen .arcade-lobby-scroll");
+    if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+    const booth = document.querySelector("#arcadeScreen .arcade-npc-booth");
+    if (booth) {
+      booth.classList.remove("is-attention");
+      void booth.offsetWidth;
+      booth.classList.add("is-attention");
     }
+    setArcadeNpcBubble("어이~ 위쪽 내 환전소에서 먼저 동전 바꿔가쇼! (500 CD = 1동전)", "happy");
+    gameAlert(
+      `🎟️ 오락실 동전이 부족해요! (보유 동전: ${curCoins}개 · 보유 CD: ${curCd.toLocaleString()} CD)\n\n위쪽 [🎩 아저씨 동전 환전소]에서 CD를 동전으로 먼저 교환해 주세요!`,
+      "🎟️ 동전 환전 필요"
+    );
     return;
   }
 
@@ -628,6 +640,11 @@ window.playArcadeCabinet = async function (gameId) {
         meta.enabled = false;
         renderArcadeCabinetsGrid();
         gameAlert(`[${meta.title}] 오락기는 현재 점검(공사중)입니다!`, "🚧 공사중");
+      } else if (msg.includes("INSUFFICIENT_ARCADE_COINS")) {
+        setArcadeNpcBubble("동전이 모자라네~ 여기서 바꿔가쇼!", "happy");
+        gameAlert("🎟️ 오락실 동전이 부족합니다!\n위쪽 [🎩 아저씨 동전 환전소]에서 먼저 동전을 교환해 주세요!", "🎟️ 동전 환전 필요");
+      } else if (msg.includes("UNKNOWN_GAME")) {
+        gameAlert("신규 오락기 서버 DB 반영이 필요합니다!\n관리자 SQL 업데이트 후 바로 플레이할 수 있어요.");
       } else {
         gameAlert(`오락기 시작에 실패했습니다.\n(${msg || "서버 오류"})`);
       }

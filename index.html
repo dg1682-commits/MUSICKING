@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=23.0" />
+  <link rel="stylesheet" href="style.css?v=24.0" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -468,8 +468,11 @@
     <section id="arcadeScreen" class="screen-view hidden">
       <div class="card arcade-lobby-card">
         <div class="arcade-topbar">
-          <button class="apf-back-circle" onclick="openOutingHubScreen()" title="놀러가기" style="width:34px; height:34px; font-size:0.95rem; flex-shrink:0;">⬅</button>
-          <h3 class="arcade-topbar-title">🕹️ 오락실</h3>
+          <button class="apf-back-circle" onclick="openOutingHubScreen()" title="놀러가기" style="width:32px; height:32px; font-size:0.9rem; flex-shrink:0;">⬅</button>
+          <div class="arcade-topbar-left">
+            <h3 class="arcade-topbar-title">🕹️ 오락실</h3>
+            <button type="button" class="arcade-top-rank-btn" onclick="openArcadeRankingModal()" title="주간 랭킹 &amp; 보상 확인">🏆 랭킹</button>
+          </div>
           <div class="arcade-currency-row">
             <span class="cd-pill golden-coin-pill" title="황금주화">🪙 <strong id="arcadeGoldenBalance">0</strong></span>
             <span class="cd-pill arcade-coin-pill" title="오락실 동전">🎟️ <strong id="arcadeCoinsBalance">0</strong></span>
@@ -498,8 +501,8 @@
             <div class="arcade-booth-pillar is-right">👾</div>
           </div>
 
-          <!-- 양옆 대칭 7종 오락기 + 주간랭킹 부스 (오락기 상단 이름표 표시) -->
-          <div class="arcade-aisle-label">👾 왼쪽·오른쪽 원하는 오락기를 눌러 시작! (1판 = 🎟️ 1개 · 참가 🪙1 / C 🪙3 / A 🪙6 / S 🪙10)</div>
+          <!-- 양옆 대칭 8종 오락기 (오락기 상단 이름표 표시) -->
+          <div class="arcade-aisle-label">👾 8종의 오락기를 눌러 시작! (1판 = 🎟️ 1개 · 참가 🪙1 / C 🪙3 / A 🪙6 / S 🪙10)</div>
           <div id="arcadeCabinetsGrid" class="arcade-cabinets-grid"></div>
         </div>
       </div>
@@ -2014,14 +2017,14 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=23.0"></script>
-  <script defer src="pixel_avatar_v3.js?v=23.0"></script>
-  <script defer src="pixel_avatar.js?v=23.0"></script>
-  <script defer src="online.js?v=23.0"></script>
-  <script defer src="fishing.js?v=23.0"></script>
-  <script defer src="arcade_games.js?v=23.0"></script>
-  <script defer src="arcade.js?v=23.0"></script>
-  <script defer src="app.js?v=23.0"></script>
+  <script defer src="data.js?v=24.0"></script>
+  <script defer src="pixel_avatar_v3.js?v=24.0"></script>
+  <script defer src="pixel_avatar.js?v=24.0"></script>
+  <script defer src="online.js?v=24.0"></script>
+  <script defer src="fishing.js?v=24.0"></script>
+  <script defer src="arcade_games.js?v=24.0"></script>
+  <script defer src="arcade.js?v=24.0"></script>
+  <script defer src="app.js?v=24.0"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

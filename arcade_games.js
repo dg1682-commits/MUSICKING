@@ -1,9 +1,9 @@
 // ============================================================================
-// [음악왕 V3.0] 오락실 미니게임 7종 통합 엔진 (arcade_games.js)
+// [음악왕 V3.0] 오락실 미니게임 8종 통합 엔진 (arcade_games.js)
 // - 본게임과 동일한 #1e1b18 굵은 잉크 외곽선 & 선명한 카툰 톤앤매너 통일
 // - 1. 별피하기(star_dodge)    2. 니꺼내꺼(side_sort)    3. 짝맞추기(animal_match)
 // - 4. 기억하기(melody_memory) 5. 점프점프(jump_runner)  6. 정리고수(color_sort)
-// - 7. 뿌셔뿌셔(brick_breaker)
+// - 7. 뿌셔뿌셔(brick_breaker) 8. 음표팡팡(note_pang)
 // ============================================================================
 
 const ArcadeSfx = (() => {
@@ -131,6 +131,100 @@ function _arcFillRoundRect(ctx, x, y, w, h, r, fill, stroke = "#1e1b18", lw = 3)
     ctx.lineWidth = lw;
     ctx.stroke();
   }
+}
+
+// object-fit: contain 캔버스 비율 보정 공용 포인터 좌표 변환 유틸
+function _arcMapCanvasPoint(canvas, logicalW, logicalH, ev) {
+  const rect = canvas.getBoundingClientRect();
+  const src = (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]) || ev;
+  const clientX = Number(src.clientX) || 0;
+  const clientY = Number(src.clientY) || 0;
+  const cw = Math.max(1, rect.width);
+  const ch = Math.max(1, rect.height);
+  const aspect = logicalW / Math.max(1, logicalH);
+  const renderedW = Math.min(cw, ch * aspect);
+  const renderedH = Math.min(ch, cw / aspect);
+  const offX = rect.left + (cw - renderedW) / 2;
+  const offY = rect.top + (ch - renderedH) / 2;
+  return {
+    x: ((clientX - offX) / Math.max(1, renderedW)) * logicalW,
+    y: ((clientY - offY) / Math.max(1, renderedH)) * logicalH,
+    clientX,
+    clientY
+  };
+}
+
+// 캔버스 + 하단 빈 여백(슬라이드 패드 포함) 전체 좌우 터치/키보드 공용 컨트롤러
+function _arcBindSlideControl({ mountEl, canvas, slidePadEl, logicalW, marginX, onX, onKeyState, allowMouseHover = false }) {
+  const prevTouchAction = mountEl.style.touchAction;
+  mountEl.style.touchAction = "none";
+
+  const mapPointerX = ev => {
+    const pt = _arcMapCanvasPoint(canvas, logicalW, canvas.height || 1, ev);
+    return Math.max(marginX, Math.min(logicalW - marginX, pt.x));
+  };
+
+  let dragging = false;
+  let activePointerId = null;
+
+  const setActiveVisual = active => {
+    if (slidePadEl) slidePadEl.classList.toggle("is-active", Boolean(active));
+  };
+
+  const onDown = ev => {
+    if (ev.pointerType !== "mouse" && typeof ev.preventDefault === "function") {
+      ev.preventDefault();
+    }
+    dragging = true;
+    activePointerId = ev.pointerId ?? null;
+    setActiveVisual(true);
+    onX(mapPointerX(ev));
+    ArcadeSfx.unlock();
+  };
+
+  const onMove = ev => {
+    if (activePointerId !== null && ev.pointerId != null && ev.pointerId !== activePointerId) return;
+    if (dragging || (allowMouseHover && ev.pointerType === "mouse")) {
+      if (dragging && ev.pointerType !== "mouse" && typeof ev.preventDefault === "function") {
+        ev.preventDefault();
+      }
+      onX(mapPointerX(ev));
+    }
+  };
+
+  const onUp = ev => {
+    if (activePointerId !== null && ev.pointerId != null && ev.pointerId !== activePointerId) return;
+    dragging = false;
+    activePointerId = null;
+    setActiveVisual(false);
+  };
+
+  const onKeyDown = ev => {
+    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") onKeyState("left", true);
+    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") onKeyState("right", true);
+  };
+
+  const onKeyUp = ev => {
+    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") onKeyState("left", false);
+    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") onKeyState("right", false);
+  };
+
+  mountEl.addEventListener("pointerdown", onDown);
+  window.addEventListener("pointermove", onMove, { passive: false });
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
+
+  return () => {
+    mountEl.style.touchAction = prevTouchAction;
+    mountEl.removeEventListener("pointerdown", onDown);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keyup", onKeyUp);
+  };
 }
 
 // 니꺼내꺼(태양·구름·별·달) 공용 고화질 벡터 일러스트 렌더러
@@ -346,12 +440,17 @@ function createStarDodgeGame(mountEl, hooks) {
   const W = 420;
   const H = 560;
   mountEl.innerHTML = `
-    <div class="arcade-canvas-wrap">
+    <div class="arcade-canvas-wrap has-slide-pad">
       <canvas id="arcStarCanvas" class="arcade-game-canvas" width="${W}" height="${H}"></canvas>
-      <div class="arcade-touch-hint">👆 화면 좌우 드래그(또는 ◀▶ 키)로 쏟아지는 유성을 피하세요!</div>
+      <div id="arcStarSlidePad" class="arcade-slide-pad">
+        <span>◀</span>
+        <span>여기를 좌우로 문질러도 이동해요!</span>
+        <span>▶</span>
+      </div>
     </div>
   `;
   const canvas = document.getElementById("arcStarCanvas");
+  const slidePadEl = document.getElementById("arcStarSlidePad");
   const ctx = canvas.getContext("2d");
   const playerOffscreen = createBakedMiniPlayerCanvas(128);
 
@@ -382,31 +481,15 @@ function createStarDodgeGame(mountEl, hooks) {
     hooks.onHud({ score: Math.floor(score), hearts, extra: hasShield ? "🛡️ 실드 ON" : `${Math.floor(elapsedSec)}초 생존` });
   }
 
-  function pointerToX(ev) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-    return Math.max(32, Math.min(W - 32, ((clientX - rect.left) / Math.max(1, rect.width)) * W));
-  }
-
-  let dragging = false;
-  const onDown = ev => { dragging = true; targetX = pointerToX(ev); ArcadeSfx.unlock(); };
-  const onMove = ev => { if (dragging) targetX = pointerToX(ev); };
-  const onUp = () => { dragging = false; };
-  const onKeyDown = ev => {
-    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") keys.left = true;
-    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") keys.right = true;
-  };
-  const onKeyUp = ev => {
-    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") keys.left = false;
-    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") keys.right = false;
-  };
-
-  canvas.addEventListener("pointerdown", onDown);
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onUp);
-  window.addEventListener("pointercancel", onUp);
-  window.addEventListener("keydown", onKeyDown);
-  window.addEventListener("keyup", onKeyUp);
+  const unbindSlide = _arcBindSlideControl({
+    mountEl,
+    canvas,
+    slidePadEl,
+    logicalW: W,
+    marginX: 32,
+    onX: nx => { targetX = nx; },
+    onKeyState: (dir, isDown) => { keys[dir] = isDown; }
+  });
 
   function frame(now) {
     if (stopped) return;
@@ -597,12 +680,7 @@ function createStarDodgeGame(mountEl, hooks) {
     destroy: () => {
       stopped = true;
       if (rafId) cancelAnimationFrame(rafId);
-      canvas.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
+      unbindSlide();
     }
   };
 }
@@ -660,18 +738,33 @@ function createSideSortGame(mountEl, hooks) {
   let rafId = null;
   let score = 0;
   let combo = 0;
+  let normalStreak = 0;
+  let inFever = false;
+  let feverLeft = 0;
   let timeLeft = 35.0;
   let stunUntil = 0;
+  let missFlashUntil = 0;
   let lastMs = performance.now();
   const queue = Array.from({ length: 6 }, () => TYPES[Math.floor(Math.random() * 4)]);
   const flyItems = [];
+  const popups = [];
 
   function syncHud() {
     hooks.onHud({
       score,
       timeSec: Math.max(0, timeLeft),
-      extra: combo >= 3 ? `🔥 ${combo}콤보!` : "좌/우 분류!"
+      extra: inFever
+        ? `🔥 FEVER 남은 ${feverLeft}/20 (+0.5s)`
+        : `🔥 ${normalStreak}/20연속 · 틀리면 -3초`
     });
+  }
+
+  function finishSideSort(reason) {
+    if (stopped) return;
+    timeLeft = Math.max(0, timeLeft);
+    stopped = true;
+    syncHud();
+    hooks.onFinish(score, reason);
   }
 
   function pickSide(dir) {
@@ -684,13 +777,38 @@ function createSideSortGame(mountEl, hooks) {
     const allowed = dir === "left" ? leftTypes : rightTypes;
     if (allowed.includes(current)) {
       combo += 1;
-      const pts = 25 + Math.min(25, combo * 2);
+      const basePts = 25 + Math.min(30, combo * 2);
+      const pts = inFever ? Math.round(basePts * 1.5) : basePts;
       score += pts;
-      ArcadeSfx.pop(combo);
+
+      if (inFever) {
+        timeLeft = Math.min(99.0, timeLeft + 0.5);
+        feverLeft -= 1;
+        popups.push({ text: `+0.5초! (+${pts})`, x: W / 2, y: 244, col: "#d97706", alpha: 1.15 });
+        ArcadeSfx.pop(Math.min(14, combo + 3));
+        if (feverLeft <= 0) {
+          inFever = false;
+          feverLeft = 0;
+          normalStreak = 0;
+          ArcadeSfx.clear();
+          popups.push({ text: "✨ FEVER 완료! 20연속 재도전!", x: W / 2, y: 208, col: "#2563eb", alpha: 1.45 });
+        }
+      } else {
+        normalStreak += 1;
+        ArcadeSfx.pop(combo);
+        if (normalStreak >= 20) {
+          inFever = true;
+          feverLeft = 20;
+          normalStreak = 0;
+          ArcadeSfx.clear();
+          popups.push({ text: "🔥 FEVER TIME! (+0.5s × 20개)", x: W / 2, y: 214, col: "#dc2626", alpha: 1.55 });
+        }
+      }
+
       flyItems.push({
         type: current,
         x: W / 2,
-        y: 288,
+        y: 304,
         vx: dir === "left" ? -900 : 900,
         vy: -140,
         alpha: 1
@@ -698,9 +816,26 @@ function createSideSortGame(mountEl, hooks) {
       queue.shift();
       queue.push(TYPES[Math.floor(Math.random() * 4)]);
     } else {
+      const wasFever = inFever;
       combo = 0;
-      stunUntil = now + 360;
+      normalStreak = 0;
+      inFever = false;
+      feverLeft = 0;
+      timeLeft = Math.max(0, timeLeft - 3.0);
+      stunUntil = now + 240;
+      missFlashUntil = now + 380;
       ArcadeSfx.wrong();
+      popups.push({
+        text: wasFever ? "-3.0초! FEVER 종료" : "-3.0초!",
+        x: W / 2,
+        y: 236,
+        col: "#dc2626",
+        alpha: 1.35
+      });
+      if (timeLeft <= 0) {
+        finishSideSort("시간 종료! 분류 완료");
+        return;
+      }
     }
     syncHud();
   }
@@ -736,25 +871,33 @@ function createSideSortGame(mountEl, hooks) {
     timeLeft -= dt;
 
     if (timeLeft <= 0) {
-      timeLeft = 0;
-      stopped = true;
-      syncHud();
-      hooks.onFinish(score, "시간 종료! 분류 완료");
+      finishSideSort("시간 종료! 분류 완료");
       return;
     }
 
-    // 배경 무대 (좌: 파스텔 스카이 / 우: 파스텔 선셋)
+    // 배경 무대 (좌: 파스텔 스카이 / 우: 파스텔 선셋, 피버타임 황금빛!)
     const skyL = ctx.createLinearGradient(0, 0, 0, H);
-    skyL.addColorStop(0, "#dbeafe");
-    skyL.addColorStop(1, "#eff6ff");
+    skyL.addColorStop(0, inFever ? "#fef08a" : "#dbeafe");
+    skyL.addColorStop(1, inFever ? "#fffbeb" : "#eff6ff");
     ctx.fillStyle = skyL;
     ctx.fillRect(0, 0, W / 2, H);
 
     const skyR = ctx.createLinearGradient(0, 0, 0, H);
-    skyR.addColorStop(0, "#ffedd5");
+    skyR.addColorStop(0, inFever ? "#fed7aa" : "#ffedd5");
     skyR.addColorStop(1, "#fffbeb");
     ctx.fillStyle = skyR;
     ctx.fillRect(W / 2, 0, W / 2, H);
+
+    if (inFever) {
+      ctx.save();
+      ctx.strokeStyle = now % 320 < 160 ? "#f59e0b" : "#ec4899";
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, W - 8, H - 8);
+      ctx.restore();
+    } else if (now < missFlashUntil) {
+      ctx.fillStyle = "rgba(239, 68, 68, 0.22)";
+      ctx.fillRect(0, 0, W, H);
+    }
 
     ctx.strokeStyle = "rgba(30, 27, 24, 0.16)";
     ctx.setLineDash([8, 8]);
@@ -771,13 +914,33 @@ function createSideSortGame(mountEl, hooks) {
     drawCelestialAsset(ctx, rightTypes[0], W - 110, 43, 18);
     drawCelestialAsset(ctx, rightTypes[1], W - 52, 43, 18);
 
-    // 대기열 5개 (위에서 아래로 정렬)
+    // FEVER 게이지 바 (표지판 아래 중앙)
+    const barW = W - 120;
+    const barX = 60;
+    const barY = 82;
+    const fillRatio = inFever ? Math.max(0, feverLeft / 20) : Math.max(0, normalStreak / 20);
+    _arcFillRoundRect(ctx, barX, barY, barW, 24, 12, "#1e1b18", "#1e1b18", 2.5);
+    if (fillRatio > 0) {
+      const innerW = Math.max(12, Math.round((barW - 6) * fillRatio));
+      _arcFillRoundRect(ctx, barX + 3, barY + 3, innerW, 18, 9, inFever ? "#fbbf24" : "#38bdf8", null, 0);
+    }
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 3;
+    ctx.font = "900 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const barTxt = inFever ? `🔥 FEVER TIME! 남은 ${feverLeft}/20 (+0.5s)` : `FEVER 게이지 ${normalStreak} / 20`;
+    ctx.strokeText(barTxt, W / 2, barY + 12);
+    ctx.fillText(barTxt, W / 2, barY + 12);
+
+    // 대기열 (위에서 아래로 정렬)
     const stunShake = now < stunUntil ? Math.sin(now * 0.08) * 10 : 0;
-    for (let i = Math.min(4, queue.length - 1); i >= 1; i--) {
-      const y = 288 - i * 54;
-      const r = Math.max(17, 30 - i * 3);
+    for (let i = Math.min(3, queue.length - 1); i >= 1; i--) {
+      const y = 304 - i * 50;
+      const r = Math.max(17, 29 - i * 3);
       ctx.save();
-      ctx.globalAlpha = Math.max(0.35, 1 - i * 0.15);
+      ctx.globalAlpha = Math.max(0.38, 1 - i * 0.16);
       drawCelestialAsset(ctx, queue[i], W / 2, y, r);
       ctx.restore();
     }
@@ -785,11 +948,13 @@ function createSideSortGame(mountEl, hooks) {
     // 현재 분류 대상 강조 링
     ctx.save();
     if (now < stunUntil) {
-      _arcFillRoundRect(ctx, W / 2 - 48 + stunShake, 242, 96, 92, 22, "#fecaca", "#dc2626", 4);
+      _arcFillRoundRect(ctx, W / 2 - 48 + stunShake, 260, 96, 90, 22, "#fecaca", "#dc2626", 4);
+    } else if (inFever) {
+      _arcFillRoundRect(ctx, W / 2 - 48, 260, 96, 90, 22, "#fef9c3", "#f59e0b", 4.5);
     } else {
-      _arcFillRoundRect(ctx, W / 2 - 48, 242, 96, 92, 22, "#ffffff", "#1e1b18", 4);
+      _arcFillRoundRect(ctx, W / 2 - 48, 260, 96, 90, 22, "#ffffff", "#1e1b18", 4);
     }
-    drawCelestialAsset(ctx, queue[0], W / 2 + stunShake, 288, 34);
+    drawCelestialAsset(ctx, queue[0], W / 2 + stunShake, 305, 34);
     ctx.restore();
 
     // 날아가는 분류 모션
@@ -804,6 +969,28 @@ function createSideSortGame(mountEl, hooks) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, f.alpha);
         drawCelestialAsset(ctx, f.type, f.x, f.y, 28);
+        ctx.restore();
+      }
+    }
+
+    // +0.5초 / -3.0초 / FEVER 팝업
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.y -= 36 * dt;
+      p.alpha -= dt * 1.3;
+      if (p.alpha <= 0) {
+        popups.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, Math.max(0, p.alpha));
+        ctx.font = "900 17px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#ffffff";
+        ctx.strokeText(p.text, p.x, p.y);
+        ctx.fillStyle = p.col;
+        ctx.fillText(p.text, p.x, p.y);
         ctx.restore();
       }
     }
@@ -1218,8 +1405,12 @@ function createJumpRunnerGame(mountEl, hooks) {
       doJump();
     }
   };
-  canvas.addEventListener("pointerdown", onDown);
+  mountEl.addEventListener("pointerdown", onDown);
   window.addEventListener("keydown", onKeyDown);
+
+  function findSpawnObstacleNearby(x, padX) {
+    return obstacles.find(o => Math.abs(o.x - x) < padX) || null;
+  }
 
   function frame(now) {
     if (stopped) return;
@@ -1243,29 +1434,70 @@ function createJumpRunnerGame(mountEl, hooks) {
       player.jumpsLeft = 2;
     }
 
-    // 토관 / 몬스터 스폰
+    // 토관 / 몬스터 스폰 (토관 높이 하향: 30~50px + 서로 간격 확보)
     spawnObsTimer -= dt;
     if (spawnObsTimer <= 0) {
-      spawnObsTimer = Math.max(0.75, 1.48 - (speed - 240) * 0.0022) + Math.random() * 0.45;
-      const isEnemy = Math.random() < 0.42;
-      obstacles.push(
-        isEnemy
-          ? { kind: "goomba", x: W + 30, y: GROUND_Y - 22, w: 36, h: 36, dead: false }
-          : { kind: "pipe", x: W + 30, h: 46 + Math.random() * 38, w: 46 }
-      );
+      const spawnX = W + 32;
+      if (findSpawnObstacleNearby(spawnX, 95)) {
+        spawnObsTimer = 0.25;
+      } else {
+        spawnObsTimer = Math.max(0.78, 1.48 - (speed - 240) * 0.0022) + Math.random() * 0.45;
+        const isEnemy = Math.random() < 0.42;
+        obstacles.push(
+          isEnemy
+            ? { kind: "goomba", x: spawnX, y: GROUND_Y - 22, w: 36, h: 36, dead: false }
+            : { kind: "pipe", x: spawnX, h: 30 + Math.random() * 20, w: 42 }
+        );
+      }
     }
 
-    spawnCoinTimer -= dt;
-    if (spawnCoinTimer <= 0) {
-      spawnCoinTimer = 0.85 + Math.random() * 0.7;
-      const high = Math.random() < 0.5;
-      coins.push({ x: W + 24, y: high ? GROUND_Y - 140 : GROUND_Y - 58 });
-    }
-
+    // ? 물음표 블록 스폰 (기존 장애물·코인·?블록과 겹치지 않는 X/Y만 허용)
     spawnQBlockTimer -= dt;
     if (spawnQBlockTimer <= 0) {
-      spawnQBlockTimer = 4.2 + Math.random() * 2.5;
-      qBlocks.push({ x: W + 30, y: GROUND_Y - 138, hit: false });
+      const qx = W + 32;
+      const qy = GROUND_Y - 138;
+      const conflictObs = findSpawnObstacleNearby(qx, 62);
+      const conflictQ = qBlocks.some(qb => Math.abs(qb.x - qx) < 92);
+      const conflictCoin = coins.some(c => Math.abs(c.x - qx) < 52 && Math.abs(c.y - qy) < 42);
+      if (conflictObs || conflictQ || conflictCoin) {
+        spawnQBlockTimer = 0.45;
+      } else {
+        spawnQBlockTimer = 4.2 + Math.random() * 2.5;
+        qBlocks.push({ x: qx, y: qy, hit: false });
+      }
+    }
+
+    // 코인 스폰 (토관/몬스터/?블록/다른 코인과 절대 겹치지 않게 배치)
+    spawnCoinTimer -= dt;
+    if (spawnCoinTimer <= 0) {
+      const cx = W + 30;
+      const nearCoin = coins.some(c => Math.abs(c.x - cx) < 38);
+      if (nearCoin) {
+        spawnCoinTimer = 0.25;
+      } else {
+        const nearObs = findSpawnObstacleNearby(cx, 66);
+        const nearQ = qBlocks.find(qb => Math.abs(qb.x - cx) < 54);
+        let cy = null;
+        if (nearObs) {
+          // 장애물 위는 높은 점프 궤적 아치로만 배치 (물음표 블록과 겹치면 건너뜀)
+          const arcY = nearObs.kind === "pipe" ? Math.min(GROUND_Y - 118, GROUND_Y - nearObs.h - 68) : GROUND_Y - 122;
+          if (!qBlocks.some(qb => Math.abs(qb.x - cx) < 52 && Math.abs(qb.y - arcY) < 40)) {
+            cy = arcY;
+          }
+        } else if (nearQ) {
+          // ?블록 주변엔 낮은 레인으로만 코인 배치
+          cy = GROUND_Y - 52;
+        } else {
+          cy = Math.random() < 0.5 ? GROUND_Y - 128 : GROUND_Y - 54;
+        }
+
+        if (cy !== null) {
+          spawnCoinTimer = 0.85 + Math.random() * 0.7;
+          coins.push({ x: cx, y: cy });
+        } else {
+          spawnCoinTimer = 0.28;
+        }
+      }
     }
 
     // 1) 마리오풍 하늘 + 구름 + 초록 언덕 + 벽돌 바닥 배경
@@ -1377,8 +1609,8 @@ function createJumpRunnerGame(mountEl, hooks) {
 
         if (
           invulnSec <= 0 &&
-          Math.abs(player.x - o.x) < o.w * 0.4 + 16 &&
-          player.y + 22 > pyTop + 4
+          Math.abs(player.x - o.x) < o.w * 0.34 + 12 &&
+          player.y + 18 > pyTop + 7
         ) {
           hearts -= 1;
           invulnSec = 1.05;
@@ -1450,244 +1682,561 @@ function createJumpRunnerGame(mountEl, hooks) {
     destroy: () => {
       stopped = true;
       if (rafId) cancelAnimationFrame(rafId);
-      canvas.removeEventListener("pointerdown", onDown);
+      mountEl.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKeyDown);
     }
   };
 }
 
 // ============================================================================
-// [게임 6] 정리고수 (color_sort) — 색깔 블록 3칸 정리 퍼즐
+// [게임 6] 정리고수 (color_sort) — 액퍼 『엄마의 삼단정리』 3열 블록 정리 콤보!
 // ============================================================================
 function createColorSortGame(mountEl, hooks) {
-  const BLOCKS = [
-    { id: "red", bg: "#ef4444", sym: "♥" },
-    { id: "blue", bg: "#3b82f6", sym: "●" },
-    { id: "yellow", bg: "#facc15", sym: "★" },
-    { id: "green", bg: "#22c55e", sym: "◆" },
-    { id: "purple", bg: "#a855f7", sym: "▲" },
-    { id: "cyan", bg: "#06b6d4", sym: "✚" }
+  const W = 420;
+  const H = 540;
+  const COLORS = [
+    { id: "red", bg: "#ef4444", cheek: "#fda4af", face: "cat" },
+    { id: "blue", bg: "#3b82f6", cheek: "#93c5fd", face: "bear" },
+    { id: "yellow", bg: "#facc15", cheek: "#fef08a", face: "smile" },
+    { id: "green", bg: "#22c55e", cheek: "#86efac", face: "frog" },
+    { id: "purple", bg: "#a855f7", cheek: "#e9d5ff", face: "wink" }
   ];
+  const COLOR_MAP = Object.fromEntries(COLORS.map(c => [c.id, c]));
+
+  const BOARD_TOP = 104;
+  const COL_W = 122;
+  const COL_GAP = 8;
+  const BOARD_X = (W - (COL_W * 3 + COL_GAP * 2)) / 2; // 19
+  const BLOCK_H = 33;
+  const ROW_PITCH = 38;
+  const DANGER_ROWS = 9; // 0..8 안전, 9번째(10개째) 넘으면 위험선 초과 게임오버
+  const DANGER_Y = BOARD_TOP + DANGER_ROWS * ROW_PITCH + 2; // 448
 
   mountEl.innerHTML = `
-    <div class="arcade-csort-shell">
-      <div class="arcade-csort-toprow">
-        <span id="arcCSortHint" class="arcade-csort-hint">같은 색깔 블록 3개를 아래칸에 모아 터뜨리세요!</span>
-        <button type="button" id="arcCSortShuffleBtn" class="btn btn-gold" style="padding:5px 10px; font-size:0.74rem; white-space:nowrap;">🔀 섞기 (2)</button>
-      </div>
-      <div id="arcCSortShelves" class="arcade-csort-shelves"></div>
-      <div class="arcade-csort-tray-wrap">
-        <div class="arcade-csort-tray-label">📦 정리 트레이 (6칸 차면 종료!)</div>
-        <div id="arcCSortTray" class="arcade-csort-tray"></div>
+    <div class="arcade-csort-canvas-shell">
+      <canvas id="arcCSortCanvas" class="arcade-game-canvas" width="${W}" height="${H}"></canvas>
+      <div class="arcade-csort-actionbar">
+        <span class="arcade-touch-hint" style="text-align:left;">👆 줄을 눌러 끝 블록을 옮겨 3개 맞추기!</span>
+        <button type="button" id="arcCSortPushBtn" class="btn btn-gold arcade-csort-push-btn">⚡ 다음 줄 내리기</button>
       </div>
     </div>
   `;
 
-  const shelvesEl = document.getElementById("arcCSortShelves");
-  const trayEl = document.getElementById("arcCSortTray");
-  const shuffleBtn = document.getElementById("arcCSortShuffleBtn");
+  const canvas = document.getElementById("arcCSortCanvas");
+  const ctx = canvas.getContext("2d");
+  const pushBtn = document.getElementById("arcCSortPushBtn");
+  const playerOffscreen = createBakedMiniPlayerCanvas(108);
 
   let stopped = false;
+  let rafId = null;
+  let lastMs = performance.now();
+  let elapsedSec = 0;
   let score = 0;
   let combo = 0;
-  let stage = 1;
-  let timeLeft = 65.0;
-  let shufflesLeft = 2;
-  let bins = []; // [{ front: [id|null, id|null, id|null], back: [id|null, id|null, id|null] }]
-  let tray = [];
-  let tickTimer = null;
+  let comboWindow = 0;
+  let pushTimer = 0;
+  let rowAnimY = 0;
+
+  const cols = [[], [], []];
+  let held = null; // { fromCol, color, count }
+  let dragPickCol = -1;
+  const particles = [];
+  const popups = [];
+
+  function activeColorPoolSize() {
+    return score >= 1400 ? 5 : 4;
+  }
+
+  function randomColorId(excludeId = null) {
+    const n = activeColorPoolSize();
+    let pick = COLORS[Math.floor(Math.random() * n)].id;
+    if (excludeId && pick === excludeId) {
+      pick = COLORS[(COLORS.findIndex(c => c.id === pick) + 1 + Math.floor(Math.random() * (n - 1))) % n].id;
+    }
+    return pick;
+  }
+
+  function generateSafeRow(avoidTripleAtTop = true) {
+    const row = [];
+    for (let c = 0; c < 3; c++) {
+      let colId = randomColorId();
+      if (avoidTripleAtTop && cols[c].length >= 2 && cols[c][0] === colId && cols[c][1] === colId) {
+        colId = randomColorId(colId);
+      }
+      row.push(colId);
+    }
+    // 한 줄 3칸이 전부 똑같은 색으로 나오는 건 지양
+    if (row[0] === row[1] && row[1] === row[2]) {
+      row[2] = randomColorId(row[0]);
+    }
+    return row;
+  }
+
+  // 시작 시 4줄 세팅 (즉시 자동 터짐 없이 균형 있게)
+  for (let r = 0; r < 4; r++) {
+    const row = generateSafeRow(true);
+    for (let c = 0; c < 3; c++) cols[c].unshift(row[c]);
+  }
 
   function syncHud() {
+    const maxLen = Math.max(cols[0].length, cols[1].length, cols[2].length);
+    const lv = Math.min(9, 1 + Math.floor(elapsedSec / 18));
     hooks.onHud({
       score,
-      timeSec: Math.max(0, timeLeft),
-      extra: `STAGE ${stage}`
+      extra: maxLen >= 8 ? `⚠️ 위험! ${combo > 1 ? `· 🔥${combo} COMBO` : ""}` : combo >= 2 ? `🔥 ${combo} COMBO! · LV.${lv}` : `LV.${lv} · 3개 모으면 팡!`
     });
   }
 
-  function setupStage() {
-    const binCount = stage === 1 ? 4 : stage === 2 ? 6 : 8;
-    const colorCount = Math.min(6, 4 + Math.floor(stage / 2));
-    const tripletsCount = binCount * 2; // 앞 3칸 + 뒤 3칸 = 총 binCount * 6칸 (짝수 배수) -> 3의 배수 맞춰 채우기
-    const totalTriplets = Math.max(4, Math.floor((binCount * 5) / 3));
-    const pool = [];
-    for (let t = 0; t < totalTriplets; t++) {
-      const col = BLOCKS[t % colorCount];
-      pool.push(col.id, col.id, col.id);
-    }
-    pool.sort(() => Math.random() - 0.5);
-
-    bins = Array.from({ length: binCount }, () => ({ front: [null, null, null], back: [null, null, null] }));
-    let ptr = 0;
-    for (let b = 0; b < binCount; b++) {
-      for (let s = 0; s < 3; s++) {
-        if (ptr < pool.length) bins[b].front[s] = pool[ptr++];
-      }
-    }
-    for (let b = 0; b < binCount; b++) {
-      for (let s = 0; s < 3; s++) {
-        if (ptr < pool.length) bins[b].back[s] = pool[ptr++];
-      }
-    }
-    shufflesLeft = 2;
-    if (shuffleBtn) shuffleBtn.textContent = `🔀 섞기 (${shufflesLeft})`;
-    renderAll();
+  function colCenterX(ci) {
+    return BOARD_X + ci * (COL_W + COL_GAP) + COL_W / 2;
   }
 
-  function renderBlockHtml(colorId, attr) {
-    if (!colorId) return `<div class="arcade-cblock-empty"></div>`;
-    const meta = BLOCKS.find(x => x.id === colorId) || BLOCKS[0];
-    return `<button type="button" class="arcade-cblock" ${attr} style="background:${meta.bg}; color:${meta.id === "yellow" ? "#1e1b18" : "#ffffff"};">${meta.sym}</button>`;
+  function spawnBlockBurst(ci, rowIdx, colorId) {
+    const meta = COLOR_MAP[colorId] || COLORS[0];
+    const cx = colCenterX(ci);
+    const cy = BOARD_TOP + rowIdx * ROW_PITCH + BLOCK_H / 2;
+    for (let k = 0; k < 7; k++) {
+      const ang = (Math.PI * 2 * k) / 7 + Math.random() * 0.4;
+      const spd = 75 + Math.random() * 140;
+      particles.push({
+        x: cx + (Math.random() - 0.5) * 44,
+        y: cy,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 45,
+        r: 4 + Math.random() * 4,
+        col: meta.bg,
+        life: 0.55
+      });
+    }
   }
 
-  function renderAll() {
-    shelvesEl.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
-    shelvesEl.innerHTML = bins
-      .map(
-        (bin, bi) => `
-      <div class="arcade-csort-bin">
-        <div class="arcade-csort-back-row">
-          ${bin.back.map(id => (id ? `<span class="arcade-cblock-mini" style="background:${(BLOCKS.find(x => x.id === id) || BLOCKS[0]).bg};"></span>` : `<span class="arcade-cblock-mini is-empty"></span>`)).join("")}
-        </div>
-        <div class="arcade-csort-front-row">
-          ${bin.front.map((id, si) => renderBlockHtml(id, `data-bin="${bi}" data-slot="${si}"`)).join("")}
-        </div>
-      </div>
-    `
-      )
-      .join("");
-
-    const traySlots = [];
-    for (let i = 0; i < 6; i++) {
-      const id = tray[i] || null;
-      if (id) {
-        const meta = BLOCKS.find(x => x.id === id) || BLOCKS[0];
-        traySlots.push(`<div class="arcade-cblock is-in-tray" style="background:${meta.bg}; color:${meta.id === "yellow" ? "#1e1b18" : "#ffffff"};">${meta.sym}</div>`);
-      } else {
-        traySlots.push(`<div class="arcade-cblock-empty is-tray-slot"></div>`);
+  function resolveAllMatches() {
+    let anyPopped = true;
+    while (anyPopped) {
+      anyPopped = false;
+      for (let c = 0; c < 3; c++) {
+        const stack = cols[c];
+        if (stack.length < 3) continue;
+        const removeFlags = new Array(stack.length).fill(false);
+        const matchedRuns = [];
+        let i = 0;
+        while (i < stack.length) {
+          let j = i + 1;
+          while (j < stack.length && stack[j] === stack[i]) j++;
+          const runLen = j - i;
+          if (runLen >= 3) {
+            for (let k = i; k < j; k++) removeFlags[k] = true;
+            matchedRuns.push({ len: runLen, midRow: (i + j - 1) / 2 });
+            anyPopped = true;
+          }
+          i = j;
+        }
+        if (matchedRuns.length > 0) {
+          for (let r = 0; r < stack.length; r++) {
+            if (removeFlags[r]) spawnBlockBurst(c, r, stack[r]);
+          }
+          cols[c] = stack.filter((_, idx) => !removeFlags[idx]);
+          matchedRuns.forEach(run => {
+            combo += 1;
+            comboWindow = 2.9;
+            const pts = Math.round((110 + (run.len - 3) * 45) * (1 + Math.min(8, combo - 1) * 0.45));
+            score += pts;
+            ArcadeSfx.pop(Math.min(14, combo));
+            popups.push({
+              x: colCenterX(c),
+              y: BOARD_TOP + run.midRow * ROW_PITCH,
+              text: combo >= 2 ? `${combo} COMBO! +${pts}` : `+${pts}`,
+              col: combo >= 3 ? "#fde047" : "#ffffff",
+              alpha: 1.35
+            });
+          });
+        }
       }
     }
-    trayEl.innerHTML = traySlots.join("");
-    trayEl.classList.toggle("is-danger", tray.length >= 5);
   }
 
-  function onShelfClick(ev) {
-    if (stopped || timeLeft <= 0) return;
-    const btn = ev.target.closest("[data-bin][data-slot]");
-    if (!btn) return;
-    ArcadeSfx.unlock();
-    const bi = Number(btn.dataset.bin);
-    const si = Number(btn.dataset.slot);
-    const bin = bins[bi];
-    if (!bin || !bin.front[si]) return;
-
-    const pickedId = bin.front[si];
-    bin.front[si] = null;
-    // 뒷줄이 전부 있거나 해당 칸 뒤에 블록이 있으면 앞으로 당겨오기!
-    if (bin.back[si]) {
-      bin.front[si] = bin.back[si];
-      bin.back[si] = null;
-    }
-
-    // 트레이에서 같은 색 옆에 정렬 삽입
-    const lastIdx = tray.lastIndexOf(pickedId);
-    if (lastIdx !== -1) {
-      tray.splice(lastIdx + 1, 0, pickedId);
-    } else {
-      tray.push(pickedId);
-    }
-    ArcadeSfx.tone(540, 0.06, "triangle", 0.12);
-
-    // 3개 연속 매치 체크!
-    let matchedPop = false;
-    for (let i = 0; i <= tray.length - 3; i++) {
-      if (tray[i] && tray[i] === tray[i + 1] && tray[i] === tray[i + 2]) {
-        tray.splice(i, 3);
-        matchedPop = true;
-        combo += 1;
-        score += 95 + combo * 25;
-        ArcadeSfx.pop(combo);
-        break;
-      }
-    }
-    if (!matchedPop && tray.length >= 6) {
-      combo = 0;
-      renderAll();
+  function checkOverflowEnd() {
+    if (stopped) return true;
+    const overflow = cols.some(c => c.length > DANGER_ROWS);
+    if (overflow) {
+      held = null;
       stopped = true;
-      syncHud();
       ArcadeSfx.hit();
-      hooks.onFinish(score, "트레이가 가득 찼습니다!");
-      return;
-    }
-
-    // 모든 선반이 비었는지 확인
-    const remaining = bins.some(b => b.front.some(Boolean) || b.back.some(Boolean));
-    if (!remaining && tray.length === 0) {
-      score += 260;
-      timeLeft = Math.min(80, timeLeft + 7);
-      stage += 1;
-      ArcadeSfx.clear();
       syncHud();
-      setTimeout(() => {
-        if (!stopped) setupStage();
-      }, 360);
-      return;
+      hooks.onFinish(score, "블록이 바닥 위험선을 넘었습니다!");
+      return true;
     }
-
-    renderAll();
-    syncHud();
+    return false;
   }
 
-  function onShuffle() {
-    if (stopped || shufflesLeft <= 0) return;
-    ArcadeSfx.unlock();
-    shufflesLeft -= 1;
-    if (shuffleBtn) shuffleBtn.textContent = `🔀 섞기 (${shufflesLeft})`;
-    const flat = [];
-    bins.forEach(b => {
-      b.front.forEach((v, idx) => { if (v) { flat.push(v); b.front[idx] = null; } });
-      b.back.forEach((v, idx) => { if (v) { flat.push(v); b.back[idx] = null; } });
-    });
-    flat.sort(() => Math.random() - 0.5);
-    let p = 0;
-    bins.forEach(b => {
-      for (let i = 0; i < 3; i++) if (p < flat.length) b.front[i] = flat[p++];
-    });
-    bins.forEach(b => {
-      for (let i = 0; i < 3; i++) if (p < flat.length) b.back[i] = flat[p++];
-    });
-    ArcadeSfx.pop(2);
-    renderAll();
-  }
-
-  shelvesEl.addEventListener("click", onShelfClick);
-  if (shuffleBtn) shuffleBtn.addEventListener("click", onShuffle);
-
-  setupStage();
-  let lastMs = performance.now();
-  tickTimer = setInterval(() => {
+  function pushNewRow(fromUser = false) {
     if (stopped) return;
-    const now = performance.now();
-    timeLeft -= (now - lastMs) / 1000;
-    lastMs = now;
-    if (timeLeft <= 0) {
-      timeLeft = 0;
-      stopped = true;
-      clearInterval(tickTimer);
-      syncHud();
-      hooks.onFinish(score, "시간 종료! 정리고수 완료");
+    ArcadeSfx.unlock();
+    pushTimer = 0;
+    rowAnimY = -ROW_PITCH;
+    const row = generateSafeRow(false);
+    for (let c = 0; c < 3; c++) cols[c].unshift(row[c]);
+    if (fromUser) {
+      score += 20;
+      ArcadeSfx.tone(660, 0.06, "triangle", 0.09);
+      popups.push({ x: W / 2, y: 112, text: "⚡ +20", col: "#38bdf8", alpha: 0.9 });
+    } else {
+      ArcadeSfx.tone(240, 0.07, "triangle", 0.08);
+    }
+    resolveAllMatches();
+    checkOverflowEnd();
+    syncHud();
+  }
+
+  function pickUpFromCol(ci) {
+    const stack = cols[ci];
+    if (!stack || stack.length === 0) return false;
+    const color = stack[stack.length - 1];
+    let count = 1;
+    while (stack.length - 1 - count >= 0 && stack[stack.length - 1 - count] === color) {
+      count++;
+    }
+    stack.splice(stack.length - count, count);
+    held = { fromCol: ci, color, count };
+    ArcadeSfx.tone(540, 0.05, "triangle", 0.11);
+    return true;
+  }
+
+  function dropToCol(ci) {
+    if (!held) return;
+    const { fromCol, color, count } = held;
+    held = null;
+    for (let k = 0; k < count; k++) cols[ci].push(color);
+    ArcadeSfx.tone(440, 0.05, "triangle", 0.1);
+    if (ci !== fromCol) {
+      resolveAllMatches();
+    }
+    checkOverflowEnd();
+    syncHud();
+  }
+
+  function mapCanvasCoords(ev) {
+    return _arcMapCanvasPoint(canvas, W, H, ev);
+  }
+
+  function colFromX(x) {
+    if (x < BOARD_X + COL_W + COL_GAP / 2) return 0;
+    if (x < BOARD_X + (COL_W + COL_GAP) * 2 - COL_GAP / 2) return 1;
+    return 2;
+  }
+
+  const onCanvasDown = ev => {
+    if (stopped) return;
+    if (ev.pointerType !== "mouse" && typeof ev.preventDefault === "function") ev.preventDefault();
+    ArcadeSfx.unlock();
+    const pt = mapCanvasCoords(ev);
+    if (pt.y < BOARD_TOP && pt.x < 176) {
+      pushNewRow(true);
       return;
     }
+    const ci = colFromX(pt.x);
+    if (!held) {
+      if (pickUpFromCol(ci)) dragPickCol = ci;
+    } else {
+      dragPickCol = -1;
+      dropToCol(ci);
+    }
+  };
+
+  const onWindowUp = ev => {
+    if (stopped || dragPickCol === -1 || !held) {
+      dragPickCol = -1;
+      return;
+    }
+    const pt = mapCanvasCoords(ev);
+    const upCol = colFromX(pt.x);
+    const pickedFrom = dragPickCol;
+    dragPickCol = -1;
+    if (upCol !== pickedFrom) {
+      dropToCol(upCol);
+    }
+  };
+
+  const onPushClick = () => pushNewRow(true);
+
+  const onKeyDown = ev => {
+    if (stopped) return;
+    if (ev.key === "1" || ev.key === "a" || ev.key === "A" || ev.key === "ArrowLeft") {
+      if (!held) pickUpFromCol(0); else dropToCol(0);
+    } else if (ev.key === "2" || ev.key === "s" || ev.key === "S" || ev.key === "ArrowDown") {
+      if (!held) pickUpFromCol(1); else dropToCol(1);
+    } else if (ev.key === "3" || ev.key === "d" || ev.key === "D" || ev.key === "ArrowRight") {
+      if (!held) pickUpFromCol(2); else dropToCol(2);
+    } else if (ev.key === " ") {
+      ev.preventDefault();
+      pushNewRow(true);
+    }
+  };
+
+  canvas.addEventListener("pointerdown", onCanvasDown);
+  window.addEventListener("pointerup", onWindowUp);
+  if (pushBtn) pushBtn.addEventListener("click", onPushClick);
+  window.addEventListener("keydown", onKeyDown);
+
+  function drawFaceBlock(x, y, w, h, colorId, isHeldBlock = false, dangerGlow = false) {
+    const meta = COLOR_MAP[colorId] || COLORS[0];
+    ctx.save();
+    _arcFillRoundRect(
+      ctx,
+      x,
+      y,
+      w,
+      h,
+      9,
+      meta.bg,
+      dangerGlow ? "#ef4444" : isHeldBlock ? "#fde047" : "#1e1b18",
+      isHeldBlock ? 4 : 3
+    );
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(x + 8, y + 3, w - 16, 4);
+
+    const cx = x + w / 2;
+    const cy = y + h / 2 + 1;
+    // 볼터치
+    ctx.fillStyle = meta.cheek;
+    ctx.beginPath();
+    ctx.ellipse(cx - 24, cy + 3, 5.5, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 24, cy + 3, 5.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 눈
+    ctx.fillStyle = "#1e1b18";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    if (meta.face === "wink") {
+      ctx.beginPath();
+      ctx.moveTo(cx - 18, cy - 4); ctx.lineTo(cx - 12, cy - 1); ctx.lineTo(cx - 18, cy + 2);
+      ctx.moveTo(cx + 18, cy - 4); ctx.lineTo(cx + 12, cy - 1); ctx.lineTo(cx + 18, cy + 2);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx - 14, cy - 2, 3.2, 0, Math.PI * 2);
+      ctx.arc(cx + 14, cy - 2, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      if (meta.face === "bear") {
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(cx - 15, cy - 3, 1.1, 0, Math.PI * 2); ctx.arc(cx + 13, cy - 3, 1.1, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // 입 표정
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 2.2;
+    if (meta.face === "cat") {
+      ctx.beginPath();
+      ctx.arc(cx - 3.5, cy + 2, 3.5, 0, Math.PI);
+      ctx.arc(cx + 3.5, cy + 2, 3.5, 0, Math.PI);
+      ctx.stroke();
+    } else if (meta.face === "bear") {
+      _arcFillRoundRect(ctx, cx - 10, cy - 1, 20, 8, 4, "#ffffff", "#1e1b18", 2);
+      ctx.beginPath(); ctx.moveTo(cx - 4, cy - 1); ctx.lineTo(cx - 4, cy + 7); ctx.moveTo(cx + 4, cy - 1); ctx.lineTo(cx + 4, cy + 7); ctx.stroke();
+    } else if (meta.face === "frog") {
+      _arcFillRoundRect(ctx, cx - 5, cy - 1, 10, 7, 4, "#fb7185", "#1e1b18", 2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx, cy + 1, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function frame(now) {
+    if (stopped) return;
+    const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
+    lastMs = now;
+    elapsedSec += dt;
+
+    if (comboWindow > 0) {
+      comboWindow -= dt;
+      if (comboWindow <= 0) combo = 0;
+    }
+    if (rowAnimY < 0) {
+      rowAnimY = Math.min(0, rowAnimY + 280 * dt);
+    }
+
+    const pushInterval = Math.max(3.6, 7.4 - elapsedSec * 0.028);
+    pushTimer += dt;
+    if (pushTimer >= pushInterval) {
+      pushNewRow(false);
+      if (stopped) return;
+    }
+
+    // 1) 상단 하늘 + 아바타 + 폭탄 게이지 + 점수 말풍선
+    const skyG = ctx.createLinearGradient(0, 0, 0, 96);
+    skyG.addColorStop(0, "#38bdf8");
+    skyG.addColorStop(1, "#e0f2fe");
+    ctx.fillStyle = skyG;
+    ctx.fillRect(0, 0, W, 96);
+
+    // 풀밭 & 울타리 경계
+    ctx.fillStyle = "#22c55e";
+    ctx.fillRect(0, 82, W, 16);
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(0, 82); ctx.lineTo(W, 82); ctx.moveTo(0, 98); ctx.lineTo(W, 98); ctx.stroke();
+
+    // 중앙 내 캐릭터 + 작은 빗자루
+    const bob = Math.sin(elapsedSec * 5.2) * 2.5;
+    ctx.save();
+    ctx.translate(W / 2, 54 + bob);
+    ctx.strokeStyle = "#92400e";
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-20, 12); ctx.lineTo(-42, -6); ctx.stroke();
+    ctx.fillStyle = "#4ade80";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-42, -6); ctx.lineTo(-54, -14); ctx.lineTo(-48, -2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.drawImage(playerOffscreen, -28, -32, 56, 56);
+    ctx.restore();
+
+    // 좌상단 폭탄 시간 게이지 (클릭 가능)
+    const fuseRatio = Math.max(0, Math.min(1, pushTimer / pushInterval));
+    _arcFillRoundRect(ctx, 12, 24, 142, 34, 12, "#1e1b18", "#1e1b18", 2.5);
+    if (fuseRatio > 0) {
+      const fCol = fuseRatio > 0.78 ? "#ef4444" : fuseRatio > 0.45 ? "#f59e0b" : "#22c55e";
+      _arcFillRoundRect(ctx, 16, 28, Math.max(10, Math.round(134 * fuseRatio)), 26, 9, fCol, null, 0);
+    }
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#1e1b18";
+    ctx.lineWidth = 3;
+    ctx.font = "900 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.strokeText("💣 탭: 즉시 줄 등장!", 83, 41);
+    ctx.fillText("💣 탭: 즉시 줄 등장!", 83, 41);
+
+    // 우상단 콤보/점수 말풍선
+    _arcFillRoundRect(ctx, W - 154, 18, 142, 46, 16, "#271206", "#1e1b18", 3);
+    ctx.fillStyle = "#fde047";
+    ctx.font = "900 11px sans-serif";
+    ctx.fillText(combo >= 2 ? `🔥 ${combo} COMBO!` : "✨ 3단 정리!", W - 83, 32);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 16px sans-serif";
+    ctx.fillText(`${score.toLocaleString()}점`, W - 83, 50);
+
+    // 2) 어두운 흙 배경 보드 + 3개 세로 레인
+    const soilG = ctx.createLinearGradient(0, 98, 0, H);
+    soilG.addColorStop(0, "#451a03");
+    soilG.addColorStop(1, "#271206");
+    ctx.fillStyle = soilG;
+    ctx.fillRect(0, 98, W, H - 98);
+
+    // 3개 레인 가이드 & 들려진 블록 대상 강조
+    for (let c = 0; c < 3; c++) {
+      const rx = BOARD_X + c * (COL_W + COL_GAP);
+      const isDangerCol = cols[c].length >= DANGER_ROWS - 1;
+      const isSourceCol = held && held.fromCol === c;
+      ctx.fillStyle = isDangerCol && Math.floor(elapsedSec * 6) % 2 === 0
+        ? "rgba(239, 68, 68, 0.2)"
+        : held && !isSourceCol
+        ? "rgba(250, 204, 21, 0.14)"
+        : "rgba(255, 255, 255, 0.05)";
+      _arcFillRoundRect(ctx, rx, BOARD_TOP - 2, COL_W, DANGER_Y - BOARD_TOP + 2, 10, ctx.fillStyle, held && !isSourceCol ? "rgba(250, 204, 21, 0.55)" : "rgba(255,255,255,0.12)", 2);
+
+      const stack = cols[c];
+      for (let r = 0; r < stack.length; r++) {
+        const bx = rx + 4;
+        const by = BOARD_TOP + r * ROW_PITCH + rowAnimY;
+        const warnGlow = r >= DANGER_ROWS - 1;
+        drawFaceBlock(bx, by, COL_W - 8, BLOCK_H, stack[r], false, warnGlow);
+      }
+    }
+
+    // 위험 경계선 (y = DANGER_Y)
+    ctx.save();
+    ctx.strokeStyle = "#ef4444";
+    ctx.setLineDash([10, 6]);
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(12, DANGER_Y); ctx.lineTo(W - 12, DANGER_Y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+    ctx.font = "900 10px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("⚠️ 위험선 (넘으면 종료)", W - 18, DANGER_Y - 7);
+    ctx.restore();
+
+    // 현재 집어 들고 있는 블록 (하단 프리뷰 존: y = 456..534)
+    if (held) {
+      const hx = BOARD_X + held.fromCol * (COL_W + COL_GAP) + 4;
+      const baseHy = DANGER_Y + 12 + Math.sin(elapsedSec * 9) * 3;
+      const previewCount = Math.min(2, held.count);
+      for (let k = 0; k < previewCount; k++) {
+        drawFaceBlock(hx, baseHy + k * 28, COL_W - 8, 26, held.color, true, false);
+      }
+      ctx.fillStyle = "#fde047";
+      ctx.font = "900 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(`👆 옮길 줄을 선택! (${held.count}개)`, W / 2, H - 14);
+    } else {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.font = "800 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("원하는 줄을 눌러 맨 아래 블록을 집어 옮기세요!", W / 2, H - 18);
+    }
+
+    // 폭발 파티클
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 320 * dt;
+      p.life -= dt;
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2));
+        ctx.fillStyle = p.col;
+        ctx.strokeStyle = "#1e1b18";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 콤보 점수 팝업
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.y -= 34 * dt;
+      p.alpha -= dt * 1.25;
+      if (p.alpha <= 0) {
+        popups.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+        ctx.font = "900 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#1e1b18";
+        ctx.strokeText(p.text, p.x, p.y);
+        ctx.fillStyle = p.col;
+        ctx.fillText(p.text, p.x, p.y);
+        ctx.restore();
+      }
+    }
+
     syncHud();
-  }, 150);
+    rafId = requestAnimationFrame(frame);
+  }
+
+  syncHud();
+  rafId = requestAnimationFrame(frame);
 
   return {
     getScore: () => score,
     destroy: () => {
       stopped = true;
-      if (tickTimer) clearInterval(tickTimer);
-      shelvesEl.removeEventListener("click", onShelfClick);
-      if (shuffleBtn) shuffleBtn.removeEventListener("click", onShuffle);
+      if (rafId) cancelAnimationFrame(rafId);
+      canvas.removeEventListener("pointerdown", onCanvasDown);
+      window.removeEventListener("pointerup", onWindowUp);
+      if (pushBtn) pushBtn.removeEventListener("click", onPushClick);
+      window.removeEventListener("keydown", onKeyDown);
     }
   };
 }
@@ -1700,12 +2249,17 @@ function createBrickBreakerGame(mountEl, hooks) {
   const H = 540;
 
   mountEl.innerHTML = `
-    <div class="arcade-canvas-wrap">
+    <div class="arcade-canvas-wrap has-slide-pad">
       <canvas id="arcBrickCanvas" class="arcade-game-canvas" width="${W}" height="${H}"></canvas>
-      <div class="arcade-touch-hint">👆 패들을 좌우 드래그(또는 ◀▶ 키)해 알록달록 벽돌을 부수세요!</div>
+      <div id="arcBrickSlidePad" class="arcade-slide-pad">
+        <span>◀</span>
+        <span>여기를 좌우로 문질러도 이동해요!</span>
+        <span>▶</span>
+      </div>
     </div>
   `;
   const canvas = document.getElementById("arcBrickCanvas");
+  const slidePadEl = document.getElementById("arcBrickSlidePad");
   const ctx = canvas.getContext("2d");
 
   const ROW_COLORS = [
@@ -1778,31 +2332,18 @@ function createBrickBreakerGame(mountEl, hooks) {
     });
   }
 
-  const pointerX = ev => {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-    return Math.max(paddle.w / 2 + 6, Math.min(W - paddle.w / 2 - 6, ((clientX - rect.left) / Math.max(1, rect.width)) * W));
-  };
-
-  let dragging = false;
-  const onDown = ev => { dragging = true; targetPadX = pointerX(ev); ArcadeSfx.unlock(); };
-  const onMove = ev => { if (dragging || ev.pointerType === "mouse") targetPadX = pointerX(ev); };
-  const onUp = () => { dragging = false; };
-  const onKeyDown = ev => {
-    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") keys.left = true;
-    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") keys.right = true;
-  };
-  const onKeyUp = ev => {
-    if (ev.key === "ArrowLeft" || ev.key === "a" || ev.key === "A") keys.left = false;
-    if (ev.key === "ArrowRight" || ev.key === "d" || ev.key === "D") keys.right = false;
-  };
-
-  canvas.addEventListener("pointerdown", onDown);
-  canvas.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onUp);
-  window.addEventListener("pointercancel", onUp);
-  window.addEventListener("keydown", onKeyDown);
-  window.addEventListener("keyup", onKeyUp);
+  const unbindSlide = _arcBindSlideControl({
+    mountEl,
+    canvas,
+    slidePadEl,
+    logicalW: W,
+    marginX: 38,
+    allowMouseHover: true,
+    onX: nx => {
+      targetPadX = Math.max(paddle.w / 2 + 6, Math.min(W - paddle.w / 2 - 6, nx));
+    },
+    onKeyState: (dir, isDown) => { keys[dir] = isDown; }
+  });
 
   function frame(now) {
     if (stopped) return;
@@ -1985,12 +2526,668 @@ function createBrickBreakerGame(mountEl, hooks) {
     destroy: () => {
       stopped = true;
       if (rafId) cancelAnimationFrame(rafId);
-      canvas.removeEventListener("pointerdown", onDown);
-      canvas.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
+      unbindSlide();
+    }
+  };
+}
+
+// ============================================================================
+// [게임 8] 음표팡팡 (note_pang) — 캔디크러시 스타일 7×7 스왑 3매치 퍼즐
+// ============================================================================
+function createNotePangGame(mountEl, hooks) {
+  const W = 420;
+  const H = 456;
+  const GRID = 7;
+  const CELL = 52;
+  const PAD_X = (W - GRID * CELL) / 2; // 28
+  const BOARD_Y = 58;
+
+  const TILES = [
+    { color: 0, bg: "#ef4444", sym: "♪", txtCol: "#ffffff" },
+    { color: 1, bg: "#f97316", sym: "★", txtCol: "#ffffff" },
+    { color: 2, bg: "#facc15", sym: "♫", txtCol: "#1e1b18" },
+    { color: 3, bg: "#22c55e", sym: "♣", txtCol: "#ffffff" },
+    { color: 4, bg: "#38bdf8", sym: "♬", txtCol: "#1e1b18" },
+    { color: 5, bg: "#a855f7", sym: "♥", txtCol: "#ffffff" }
+  ];
+
+  mountEl.innerHTML = `
+    <div class="arcade-canvas-wrap">
+      <canvas id="arcPangCanvas" class="arcade-game-canvas" width="${W}" height="${H}"></canvas>
+      <div class="arcade-touch-hint">👆 인접한 두 음표를 스와이프하거나 두 번 눌러 3개 이상 맞추세요!</div>
+    </div>
+  `;
+
+  const canvas = document.getElementById("arcPangCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let stopped = false;
+  let rafId = null;
+  let lastMs = performance.now();
+  let score = 0;
+  let timeLeft = 60.0;
+  let wave = 0;
+  let phase = "idle"; // 'idle' | 'swap' | 'bounce' | 'fall'
+  let phaseTimer = 0;
+  let selected = null;
+  let dragAnchor = null;
+  let activeSwap = null; // { r1, c1, r2, c2, progress }
+
+  const grid = Array.from({ length: GRID }, () => Array(GRID).fill(null));
+  const particles = [];
+  const popups = [];
+
+  function makeCell(color, special = null, yOff = 0) {
+    return { color, special, yOff };
+  }
+
+  function hasMatchAt(r, c, color) {
+    if (c >= 2 && grid[r][c - 1]?.color === color && grid[r][c - 2]?.color === color) return true;
+    if (r >= 2 && grid[r - 1][c]?.color === color && grid[r - 2][c]?.color === color) return true;
+    return false;
+  }
+
+  function findMatchClusters() {
+    const hMatched = Array.from({ length: GRID }, () => Array(GRID).fill(false));
+    const vMatched = Array.from({ length: GRID }, () => Array(GRID).fill(false));
+
+    for (let r = 0; r < GRID; r++) {
+      let c = 0;
+      while (c < GRID) {
+        const col = grid[r][c]?.color;
+        if (col === undefined || grid[r][c]?.special === "rainbow") { c++; continue; }
+        let k = c + 1;
+        while (k < GRID && grid[r][k] && grid[r][k].special !== "rainbow" && grid[r][k].color === col) k++;
+        if (k - c >= 3) {
+          for (let x = c; x < k; x++) hMatched[r][x] = true;
+        }
+        c = k;
+      }
+    }
+
+    for (let c = 0; c < GRID; c++) {
+      let r = 0;
+      while (r < GRID) {
+        const col = grid[r][c]?.color;
+        if (col === undefined || grid[r][c]?.special === "rainbow") { r++; continue; }
+        let k = r + 1;
+        while (k < GRID && grid[k][c] && grid[k][c].special !== "rainbow" && grid[k][c].color === col) k++;
+        if (k - r >= 3) {
+          for (let y = r; y < k; y++) vMatched[y][c] = true;
+        }
+        r = k;
+      }
+    }
+
+    const visited = Array.from({ length: GRID }, () => Array(GRID).fill(false));
+    const clusters = [];
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        if ((!hMatched[r][c] && !vMatched[r][c]) || visited[r][c]) continue;
+        const targetColor = grid[r][c].color;
+        const cells = [];
+        let hasH = false;
+        let hasV = false;
+        const q = [{ r, c }];
+        visited[r][c] = true;
+        while (q.length > 0) {
+          const cur = q.shift();
+          cells.push(cur);
+          if (hMatched[cur.r][cur.c]) hasH = true;
+          if (vMatched[cur.r][cur.c]) hasV = true;
+          const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          for (const [dr, dc] of dirs) {
+            const nr = cur.r + dr;
+            const nc = cur.c + dc;
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID || visited[nr][nc]) continue;
+            if ((hMatched[nr][nc] || vMatched[nr][nc]) && grid[nr][nc]?.color === targetColor) {
+              visited[nr][nc] = true;
+              q.push({ r: nr, c: nc });
+            }
+          }
+        }
+        clusters.push({ cells, color: targetColor, isCross: hasH && hasV, hasH, hasV });
+      }
+    }
+    return clusters;
+  }
+
+  function swapCells(r1, c1, r2, c2) {
+    const tmp = grid[r1][c1];
+    grid[r1][c1] = grid[r2][c2];
+    grid[r2][c2] = tmp;
+  }
+
+  function hasAnyValidMove() {
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        if (grid[r][c]?.special === "rainbow") return true;
+        const neighbors = [[r, c + 1], [r + 1, c]];
+        for (const [nr, nc] of neighbors) {
+          if (nr >= GRID || nc >= GRID) continue;
+          if (grid[nr][nc]?.special === "rainbow") return true;
+          if (grid[r][c]?.color === grid[nr][nc]?.color) continue;
+          swapCells(r, c, nr, nc);
+          const ok = findMatchClusters().length > 0;
+          swapCells(r, c, nr, nc);
+          if (ok) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function fillFreshBoard() {
+    for (let attempt = 0; attempt < 25; attempt++) {
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          let col = Math.floor(Math.random() * TILES.length);
+          let tries = 0;
+          while (hasMatchAt(r, c, col) && tries < 12) {
+            col = (col + 1) % TILES.length;
+            tries++;
+          }
+          grid[r][c] = makeCell(col, null, 0);
+        }
+      }
+      if (findMatchClusters().length === 0 && hasAnyValidMove()) return;
+    }
+    // 보장 폴백: 좌상단 근처에 확정 1수 배치
+    const fc = grid[0][0].color;
+    grid[0][1] = makeCell(fc, null, 0);
+    grid[1][2] = makeCell(fc, null, 0);
+  }
+
+  function reshuffleExistingBoard() {
+    const pool = [];
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        if (grid[r][c]) pool.push(grid[r][c]);
+      }
+    }
+    for (let attempt = 0; attempt < 25; attempt++) {
+      pool.sort(() => Math.random() - 0.5);
+      let idx = 0;
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          grid[r][c] = pool[idx++];
+          grid[r][c].yOff = -16;
+        }
+      }
+      if (findMatchClusters().length === 0 && hasAnyValidMove()) {
+        popups.push({ x: W / 2, y: BOARD_Y + 160, text: "🔀 자동 섞기!", col: "#0f766e", alpha: 1.3 });
+        return;
+      }
+    }
+    fillFreshBoard();
+    popups.push({ x: W / 2, y: BOARD_Y + 160, text: "🔀 새 판 생성!", col: "#0f766e", alpha: 1.3 });
+  }
+
+  fillFreshBoard();
+
+  function syncHud() {
+    hooks.onHud({
+      score,
+      timeSec: Math.max(0, timeLeft),
+      extra: wave >= 2 ? `🔥 ${wave}연쇄!` : "3개 이상 매치!"
+    });
+  }
+
+  function spawnPangParticles(r, c, colorIdx) {
+    const meta = TILES[colorIdx] || TILES[0];
+    const cx = PAD_X + c * CELL + CELL / 2;
+    const cy = BOARD_Y + r * CELL + CELL / 2;
+    for (let k = 0; k < 5; k++) {
+      const a = (Math.PI * 2 * k) / 5 + Math.random() * 0.6;
+      const s = 60 + Math.random() * 120;
+      particles.push({ x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s, r: 4, col: meta.bg, life: 0.42 });
+    }
+  }
+
+  function applyClearAndGravity(baseClearCoords, newSpecials, basePts) {
+    const key = (r, c) => `${r},${c}`;
+    const visited = new Set();
+    const queue = [];
+
+    baseClearCoords.forEach(({ r, c }) => {
+      const k = key(r, c);
+      if (!visited.has(k)) {
+        visited.add(k);
+        queue.push({ r, c });
+      }
+    });
+
+    while (queue.length > 0) {
+      const { r, c } = queue.shift();
+      const cell = grid[r][c];
+      if (!cell) continue;
+      if (cell.special === "lineH") {
+        for (let cc = 0; cc < GRID; cc++) {
+          const nk = key(r, cc);
+          if (!visited.has(nk)) { visited.add(nk); queue.push({ r, c: cc }); }
+        }
+      } else if (cell.special === "lineV") {
+        for (let rr = 0; rr < GRID; rr++) {
+          const nk = key(rr, c);
+          if (!visited.has(nk)) { visited.add(nk); queue.push({ r: rr, c }); }
+        }
+      } else if (cell.special === "rainbow") {
+        // 보드에서 가장 많은 색상 제거
+        const counts = new Array(TILES.length).fill(0);
+        for (let rr = 0; rr < GRID; rr++) {
+          for (let cc = 0; cc < GRID; cc++) {
+            const ct = grid[rr][cc];
+            if (ct && ct.special !== "rainbow") counts[ct.color]++;
+          }
+        }
+        const bestCol = counts.indexOf(Math.max(...counts));
+        for (let rr = 0; rr < GRID; rr++) {
+          for (let cc = 0; cc < GRID; cc++) {
+            if (grid[rr][cc]?.color === bestCol) {
+              const nk = key(rr, cc);
+              if (!visited.has(nk)) { visited.add(nk); queue.push({ r: rr, c: cc }); }
+            }
+          }
+        }
+      }
+    }
+
+    const extraBlasted = Math.max(0, visited.size - baseClearCoords.length);
+    const mult = 1 + Math.min(6, Math.max(0, wave - 1)) * 0.45;
+    const wavePts = Math.round((basePts + extraBlasted * 35) * mult) + (wave > 1 ? wave * 45 : 0);
+    score += wavePts;
+    ArcadeSfx.pop(Math.min(14, wave * 2));
+
+    let sumX = 0;
+    let sumY = 0;
+    let n = 0;
+    visited.forEach(k => {
+      const [rr, cc] = k.split(",").map(Number);
+      const cell = grid[rr][cc];
+      if (cell) spawnPangParticles(rr, cc, cell.color);
+      grid[rr][cc] = null;
+      sumX += PAD_X + cc * CELL + CELL / 2;
+      sumY += BOARD_Y + rr * CELL + CELL / 2;
+      n++;
+    });
+
+    newSpecials.forEach(sp => {
+      grid[sp.r][sp.c] = makeCell(sp.color, sp.special, 0);
+    });
+
+    if (n > 0) {
+      popups.push({
+        x: Math.max(85, Math.min(W - 85, sumX / n)),
+        y: Math.max(BOARD_Y + 30, sumY / n),
+        text: wave > 1 ? `🔥 ${wave}연쇄! +${wavePts}` : `+${wavePts}`,
+        col: wave >= 3 ? "#f59e0b" : "#1e1b18",
+        alpha: 1.25
+      });
+    }
+
+    // 위에서 아래로 중력 낙하 + 상단 신규 채우기
+    for (let c = 0; c < GRID; c++) {
+      let writeR = GRID - 1;
+      for (let r = GRID - 1; r >= 0; r--) {
+        if (grid[r][c]) {
+          const cell = grid[r][c];
+          if (writeR !== r) {
+            cell.yOff = (r - writeR) * CELL;
+            grid[writeR][c] = cell;
+            grid[r][c] = null;
+          }
+          writeR--;
+        }
+      }
+      const emptyCount = writeR + 1;
+      for (let r = writeR; r >= 0; r--) {
+        const colIdx = Math.floor(Math.random() * TILES.length);
+        grid[r][c] = makeCell(colIdx, null, -emptyCount * CELL);
+      }
+    }
+
+    phase = "fall";
+    phaseTimer = 0;
+    syncHud();
+  }
+
+  function resolveCurrentBoardMatches(swappedFocus = []) {
+    const clusters = findMatchClusters();
+    if (clusters.length === 0) {
+      wave = 0;
+      phase = "idle";
+      if (!hasAnyValidMove()) reshuffleExistingBoard();
+      syncHud();
+      return false;
+    }
+
+    wave += 1;
+    const clearList = [];
+    const newSpecials = [];
+    let pts = 0;
+
+    clusters.forEach(cl => {
+      const len = cl.cells.length;
+      if (len >= 5 || cl.isCross) pts += 300;
+      else if (len === 4) pts += 180;
+      else pts += 90;
+
+      cl.cells.forEach(pt => clearList.push(pt));
+
+      if (len >= 5 || cl.isCross) {
+        const anchor = cl.cells.find(p => swappedFocus.some(s => s.r === p.r && s.c === p.c)) || cl.cells[Math.floor(len / 2)];
+        newSpecials.push({ r: anchor.r, c: anchor.c, color: cl.color, special: "rainbow" });
+      } else if (len === 4) {
+        const anchor = cl.cells.find(p => swappedFocus.some(s => s.r === p.r && s.c === p.c)) || cl.cells[1];
+        newSpecials.push({ r: anchor.r, c: anchor.c, color: cl.color, special: cl.hasH ? "lineV" : "lineH" });
+      }
+    });
+
+    applyClearAndGravity(clearList, newSpecials, pts);
+    return true;
+  }
+
+  function trySwap(a, b) {
+    if (phase !== "idle" || stopped) return;
+    if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) return;
+    selected = null;
+    dragAnchor = null;
+    activeSwap = { r1: a.r, c1: a.c, r2: b.r, c2: b.c, progress: 0 };
+    swapCells(a.r, a.c, b.r, b.c);
+
+    const cell1 = grid[a.r][a.c];
+    const cell2 = grid[b.r][b.c];
+    const isRainbowSwap = cell1?.special === "rainbow" || cell2?.special === "rainbow";
+
+    if (!isRainbowSwap && findMatchClusters().length === 0) {
+      // 불발 시 살짝 바운스 후 원복
+      phase = "bounce";
+      phaseTimer = 0.14;
+      ArcadeSfx.wrong();
+    } else {
+      phase = "swap";
+      phaseTimer = 0.11;
+    }
+  }
+
+  function finishRainbowSwap(a, b) {
+    wave = 1;
+    const c1 = grid[a.r][a.c];
+    const c2 = grid[b.r][b.c];
+    const clearList = [];
+    if (c1?.special === "rainbow" && c2?.special === "rainbow") {
+      for (let rr = 0; rr < GRID; rr++) {
+        for (let cc = 0; cc < GRID; cc++) clearList.push({ r: rr, c: cc });
+      }
+      applyClearAndGravity(clearList, [], 550);
+    } else {
+      const rbPos = c1?.special === "rainbow" ? a : b;
+      const otherCell = c1?.special === "rainbow" ? c2 : c1;
+      const targetColor = otherCell ? otherCell.color : 0;
+      if (grid[rbPos.r][rbPos.c]) grid[rbPos.r][rbPos.c].special = null;
+      clearList.push(rbPos);
+      for (let rr = 0; rr < GRID; rr++) {
+        for (let cc = 0; cc < GRID; cc++) {
+          if (grid[rr][cc]?.color === targetColor) clearList.push({ r: rr, c: cc });
+        }
+      }
+      applyClearAndGravity(clearList, [], 340);
+    }
+  }
+
+  function mapBoardPointer(ev) {
+    const pt = _arcMapCanvasPoint(canvas, W, H, ev);
+    return {
+      px: pt.x,
+      py: pt.y,
+      clientX: pt.clientX,
+      clientY: pt.clientY,
+      c: Math.floor((pt.x - PAD_X) / CELL),
+      r: Math.floor((pt.y - BOARD_Y) / CELL)
+    };
+  }
+
+  const onPointerDown = ev => {
+    if (stopped || phase !== "idle") return;
+    if (ev.pointerType !== "mouse" && typeof ev.preventDefault === "function") ev.preventDefault();
+    ArcadeSfx.unlock();
+    const pt = mapBoardPointer(ev);
+    if (pt.r < 0 || pt.r >= GRID || pt.c < 0 || pt.c >= GRID) {
+      selected = null;
+      return;
+    }
+    dragAnchor = { r: pt.r, c: pt.c, x: pt.clientX, y: pt.clientY, swapped: false };
+  };
+
+  const onPointerMove = ev => {
+    if (stopped || phase !== "idle" || !dragAnchor || dragAnchor.swapped) return;
+    const clientX = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
+    const clientY = ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY;
+    const dx = clientX - dragAnchor.x;
+    const dy = clientY - dragAnchor.y;
+    if (Math.hypot(dx, dy) < 16) return;
+    let nr = dragAnchor.r;
+    let nc = dragAnchor.c;
+    if (Math.abs(dx) > Math.abs(dy)) nc += dx > 0 ? 1 : -1;
+    else nr += dy > 0 ? 1 : -1;
+    if (nr >= 0 && nr < GRID && nc >= 0 && nc < GRID) {
+      const origin = { r: dragAnchor.r, c: dragAnchor.c };
+      dragAnchor.swapped = true;
+      trySwap(origin, { r: nr, c: nc });
+    }
+  };
+
+  const onPointerUp = () => {
+    if (!dragAnchor || stopped) { dragAnchor = null; return; }
+    if (!dragAnchor.swapped && phase === "idle") {
+      const tapped = { r: dragAnchor.r, c: dragAnchor.c };
+      if (!selected) {
+        selected = tapped;
+        ArcadeSfx.tone(520, 0.05, "sine", 0.08);
+      } else if (selected.r === tapped.r && selected.c === tapped.c) {
+        selected = null;
+      } else if (Math.abs(selected.r - tapped.r) + Math.abs(selected.c - tapped.c) === 1) {
+        trySwap(selected, tapped);
+      } else {
+        selected = tapped;
+        ArcadeSfx.tone(520, 0.05, "sine", 0.08);
+      }
+    }
+    dragAnchor = null;
+  };
+
+  canvas.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+
+  function drawTile(x, y, size, cell, isSel) {
+    const isRainbow = cell.special === "rainbow";
+    const meta = TILES[cell.color] || TILES[0];
+    const pad = 3;
+    const rx = x + pad;
+    const ry = y + pad;
+    const rw = size - pad * 2;
+    const bg = isRainbow ? "#1e1b4b" : meta.bg;
+
+    _arcFillRoundRect(ctx, rx, ry, rw, rw, 12, bg, isSel ? "#fde047" : "#1e1b18", isSel ? 4 : 3);
+    if (isRainbow) {
+      const cols = ["#ef4444", "#facc15", "#22c55e", "#38bdf8", "#a855f7"];
+      cols.forEach((rc, i) => {
+        ctx.fillStyle = rc;
+        ctx.beginPath();
+        ctx.arc(rx + rw / 2 + Math.cos((i * Math.PI * 2) / 5) * 10, ry + rw / 2 + Math.sin((i * Math.PI * 2) / 5) * 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 18px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("👑", rx + rw / 2, ry + rw / 2 + 1);
+      return;
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    _arcFillRoundRect(ctx, rx + 5, ry + 4, rw - 10, 6, 3, "rgba(255,255,255,0.3)", null, 0);
+
+    ctx.fillStyle = meta.txtCol;
+    ctx.font = "900 22px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(meta.sym, rx + rw / 2, ry + rw / 2 + 2);
+
+    if (cell.special === "lineH" || cell.special === "lineV") {
+      ctx.strokeStyle = "#fde047";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (cell.special === "lineH") {
+        ctx.moveTo(rx + 4, ry + rw / 2); ctx.lineTo(rx + rw - 4, ry + rw / 2);
+      } else {
+        ctx.moveTo(rx + rw / 2, ry + 4); ctx.lineTo(rx + rw / 2, ry + rw - 4);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function frame(now) {
+    if (stopped) return;
+    const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
+    lastMs = now;
+
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      stopped = true;
+      syncHud();
+      hooks.onFinish(score, "시간 종료! 음표팡팡 완료");
+      return;
+    }
+
+    if (phase === "swap") {
+      phaseTimer -= dt;
+      if (phaseTimer <= 0 && activeSwap) {
+        const s = activeSwap;
+        activeSwap = null;
+        const c1 = grid[s.r1][s.c1];
+        const c2 = grid[s.r2][s.c2];
+        if (c1?.special === "rainbow" || c2?.special === "rainbow") {
+          finishRainbowSwap({ r: s.r1, c: s.c1 }, { r: s.r2, c: s.c2 });
+        } else {
+          resolveCurrentBoardMatches([{ r: s.r1, c: s.c1 }, { r: s.r2, c: s.c2 }]);
+        }
+      }
+    } else if (phase === "bounce") {
+      phaseTimer -= dt;
+      if (phaseTimer <= 0 && activeSwap) {
+        swapCells(activeSwap.r1, activeSwap.c1, activeSwap.r2, activeSwap.c2);
+        activeSwap = null;
+        phase = "idle";
+      }
+    } else if (phase === "fall") {
+      let anyFalling = false;
+      const dropSpd = CELL * 14 * dt;
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          const cell = grid[r][c];
+          if (cell && cell.yOff < 0) {
+            cell.yOff = Math.min(0, cell.yOff + dropSpd);
+            if (cell.yOff < 0) anyFalling = true;
+          }
+        }
+      }
+      if (!anyFalling) {
+        resolveCurrentBoardMatches([]);
+      }
+    }
+
+    // 배경 & 상단 배너
+    const bgG = ctx.createLinearGradient(0, 0, 0, H);
+    bgG.addColorStop(0, "#ccfbf1");
+    bgG.addColorStop(1, "#fef9c3");
+    ctx.fillStyle = bgG;
+    ctx.fillRect(0, 0, W, H);
+
+    _arcFillRoundRect(ctx, 18, 10, W - 36, 36, 12, "#ffffff", "#1e1b18", 3);
+    ctx.fillStyle = "#0f766e";
+    ctx.font = "900 13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(wave >= 2 ? `🔥 ${wave}연쇄 콤보 폭발중!!` : "🎵 4개=번개줄 · 5개/십자=무지개왕관!", W / 2, 29);
+
+    // 7×7 보드 프레임
+    _arcFillRoundRect(ctx, PAD_X - 8, BOARD_Y - 8, GRID * CELL + 16, GRID * CELL + 16, 16, "#134e4a", "#1e1b18", 3.5);
+
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const bgSlot = (r + c) % 2 === 0 ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)";
+        ctx.fillStyle = bgSlot;
+        ctx.fillRect(PAD_X + c * CELL, BOARD_Y + r * CELL, CELL, CELL);
+      }
+    }
+
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const cell = grid[r][c];
+        if (!cell) continue;
+        const isSel = selected && selected.r === r && selected.c === c;
+        drawTile(PAD_X + c * CELL, BOARD_Y + r * CELL + (cell.yOff || 0), CELL, cell, isSel);
+      }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2.4));
+        ctx.fillStyle = p.col;
+        ctx.strokeStyle = "#1e1b18";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.y -= 32 * dt;
+      p.alpha -= dt * 1.3;
+      if (p.alpha <= 0) {
+        popups.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+        ctx.font = "900 17px sans-serif";
+        ctx.textAlign = "center";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#ffffff";
+        ctx.strokeText(p.text, p.x, p.y);
+        ctx.fillStyle = p.col;
+        ctx.fillText(p.text, p.x, p.y);
+        ctx.restore();
+      }
+    }
+
+    syncHud();
+    rafId = requestAnimationFrame(frame);
+  }
+
+  syncHud();
+  rafId = requestAnimationFrame(frame);
+
+  return {
+    getScore: () => score,
+    destroy: () => {
+      stopped = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
     }
   };
 }
@@ -2002,5 +3199,6 @@ const ARCADE_MINI_GAME_FACTORIES = {
   melody_memory: createMelodyMemoryGame,
   jump_runner: createJumpRunnerGame,
   color_sort: createColorSortGame,
-  brick_breaker: createBrickBreakerGame
+  brick_breaker: createBrickBreakerGame,
+  note_pang: createNotePangGame
 };
