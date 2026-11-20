@@ -546,7 +546,30 @@ function performCleanAppExit() {
 
 window.openAdminBackendPage = function () {
   if (typeof closeModal === "function") closeModal("settingsModal");
-  location.replace("admin.html?v=23.0");
+  location.replace("admin.html?v=24.3");
+};
+
+const PATCH_NOTES_LATEST_VERSION = "v24.3";
+const PATCH_NOTES_SEEN_STORAGE_KEY = "mk_seen_patch_version";
+
+window.syncPatchNotesNotiDot = function () {
+  const dot = document.getElementById("patchNotesNotiDot");
+  if (!dot) return;
+  let seenVer = "";
+  try {
+    seenVer = localStorage.getItem(PATCH_NOTES_SEEN_STORAGE_KEY) || "";
+  } catch (e) {}
+  dot.classList.toggle("hidden", seenVer === PATCH_NOTES_LATEST_VERSION);
+};
+
+window.openPatchNotesModal = function () {
+  try {
+    localStorage.setItem(PATCH_NOTES_SEEN_STORAGE_KEY, PATCH_NOTES_LATEST_VERSION);
+  } catch (e) {}
+  window.syncPatchNotesNotiDot();
+  if (typeof openModal === "function") {
+    openModal("patchNotesModal");
+  }
 };
 
 window.processInAppBackStep = function (fromOnestore = false) {
@@ -1358,6 +1381,7 @@ window.switchScreen = function (targetId, opts = {}) {
     relocateCoupangAdBanner();
     if (typeof updateHomeAdBannerPlatform === "function") updateHomeAdBannerPlatform();
     if (typeof syncHomeV2BadgesUI === "function") syncHomeV2BadgesUI();
+    if (typeof syncPatchNotesNotiDot === "function") syncPatchNotesNotiDot();
     if (typeof syncHomeOnlineUsersBtn === "function") syncHomeOnlineUsersBtn();
   }
   if (typeof syncGlobalOnlineActivity === "function") {
@@ -1521,9 +1545,10 @@ function initEvents() {
 
   safeOn("headerMyProfileTrigger", "click", openMyProfileModal);
   safeOn("headerCdBtn", "click", openShopModal);
-  safeOn("openPatchBtn", "click", () => openModal("patchNotesModal"));
+  safeOn("openPatchBtn", "click", openPatchNotesModal);
   safeOn("openSettingsBtn", "click", () => openModal("settingsModal"));
   safeOn("setupBackHomeBtn", "click", showHome);
+  syncPatchNotesNotiDot();
 
   safeOn("volumeSlider", "input", e => {
     state.audioEl.volume = Number(e.target.value);

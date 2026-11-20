@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=24.2" />
+  <link rel="stylesheet" href="style.css?v=24.3" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -234,6 +234,25 @@
       🔔<span id="dmNotiBadgeCount" class="noti-count-badge">0</span>
     </button>
 
+    <!-- [V3.1] 실시간 대결 요청 / 방 초대 상단 토스트 (20초 카운트다운 게이지 바) -->
+    <div id="battleInviteToast" class="battle-invite-toast hidden" role="alert" aria-live="polite">
+      <div class="battle-invite-toast-main">
+        <canvas id="battleInviteAvatarCanvas" class="battle-invite-toast-av kakao-avatar-sq" width="480" height="480"></canvas>
+        <div class="battle-invite-toast-text">
+          <div id="battleInviteToastTitle" class="battle-invite-toast-title">⚔️ 대결 요청이 도착했습니다!</div>
+          <div id="battleInviteToastSub" class="battle-invite-toast-sub">1:1 음악 퀴즈 대결</div>
+        </div>
+        <span id="battleInviteTimerSecLabel" class="battle-invite-sec-pill">20초</span>
+      </div>
+      <div class="battle-invite-timer-track">
+        <div id="battleInviteTimerBarFill" class="battle-invite-timer-fill" style="width:100%;"></div>
+      </div>
+      <div class="battle-invite-toast-actions">
+        <button type="button" id="battleInviteDeclineBtn" class="btn battle-invite-btn-decline" onclick="respondToBattleInvite(false)">✕ 거절</button>
+        <button type="button" id="battleInviteAcceptBtn" class="btn btn-gold battle-invite-btn-accept" onclick="respondToBattleInvite(true)">⚔️ 수락하기</button>
+      </div>
+    </div>
+
     <!-- ==================== 1. 메인 홈 화면 (타이틀 · 캐릭터 · 경험치 · 4×2 퀵그리드 · 2×3 도크) ==================== -->
     <main id="homeScreen" class="screen-view hidden">
       <div class="home-hero">
@@ -277,9 +296,10 @@
             <span class="hq-ico" id="homeSoundIcon">🔊</span>
             <span class="hq-lbl">음소거</span>
           </button>
-          <button type="button" class="home-quick-btn" onclick="openModal('patchNotesModal')" title="업데이트 내역">
+          <button type="button" class="home-quick-btn" id="homePatchBtn" onclick="openPatchNotesModal()" title="업데이트 내역">
             <span class="hq-ico">📢</span>
             <span class="hq-lbl">업데이트</span>
+            <span id="patchNotesNotiDot" class="v2-red-dot hidden"></span>
           </button>
           <button type="button" class="home-quick-btn" id="homeDmNotiBtn" onclick="openDmNotiModal()" title="도착한 1:1 메시지 확인">
             <span class="hq-ico">🔔</span>
@@ -481,9 +501,8 @@
         </div>
 
         <div class="arcade-lobby-scroll">
-          <!-- 상단 중앙 아저씨 NPC 환전소 부스 + 양옆 네온 기둥 -->
+          <!-- 상단 중앙 아저씨 NPC 환전소 부스 -->
           <div class="arcade-booth-stage">
-            <div class="arcade-booth-pillar is-left">🕹️</div>
             <div class="arcade-npc-booth" onclick="openArcadeExchangeModal()" style="cursor:pointer;">
               <div class="arcade-npc-visual-row">
                 <canvas id="arcadeNpcCanvas" class="arcade-npc-canvas" width="260" height="190"></canvas>
@@ -494,11 +513,9 @@
                 </div>
               </div>
             </div>
-            <div class="arcade-booth-pillar is-right">👾</div>
           </div>
 
           <!-- 양옆 대칭 8종 오락기 (오락기 상단 이름표 표시) -->
-          <div class="arcade-aisle-label">👾 8종의 오락기를 눌러 시작! (1판 = 🎟️ 1개 · 참가 🪙1 / C 🪙3 / A 🪙6 / S 🪙10)</div>
           <div id="arcadeCabinetsGrid" class="arcade-cabinets-grid"></div>
         </div>
       </div>
@@ -871,34 +888,15 @@
         <!-- 선택된 게임 모드/연대/단계/아이템전 배지 바 -->
         <div id="battleRoomConfigBar" style="display:flex; justify-content:center; gap:5px; flex-wrap:wrap; flex-shrink:0;"></div>
 
-        <!-- [V2.0] 방장 전용 대기방 설정 실시간 변경 패널 -->
-        <div id="battleHostConfigEditor" class="hidden" style="display:flex; gap:4px; flex-wrap:wrap; justify-content:center; background:var(--bg-subtle); padding:6px; border-radius:10px; border:1.5px solid var(--game-border); flex-shrink:0;">
-          <select id="roomEditDecade" class="room-edit-select" onchange="updateBattleRoomSettingsByHost()">
-            <option value="ALL">전연대</option>
-            <option value="1990s">1990s</option>
-            <option value="2000s">2000s</option>
-            <option value="2010s">2010s</option>
-            <option value="2020s">2020s</option>
-          </select>
-          <select id="roomEditMode" class="room-edit-select" onchange="updateBattleRoomSettingsByHost()">
-            <option value="behind">비하인드</option>
-            <option value="lyrics">가사</option>
-            <option value="onesec">1초듣기</option>
-          </select>
-          <select id="roomEditStage" class="room-edit-select" onchange="updateBattleRoomSettingsByHost()">
-            <option value="1">1단계(노래)</option>
-            <option value="2">2단계(가수)</option>
-            <option value="3">3단계(모두)</option>
-          </select>
-          <select id="roomEditItemMode" class="room-edit-select" onchange="updateBattleRoomSettingsByHost()">
-            <option value="notem">🚫 노템전</option>
-            <option value="item">🎒 아이템전</option>
-          </select>
+        <!-- [V3.1] 방장 방설정 디자인 모달 버튼 & 대기방 초대하기 버튼 -->
+        <div id="battleHostConfigEditor" class="action-row" style="gap:6px; flex-shrink:0;">
+          <button type="button" id="battleHostSettingsBtn" class="btn hidden" onclick="openRoomSettingsModal()" style="flex:1; padding:7px 8px; font-size:0.78rem;">⚙️ 방 설정 변경</button>
+          <button type="button" id="battleRoomInviteBtn" class="btn btn-primary" onclick="openBattleInviteModal()" style="flex:1.15; padding:7px 8px; font-size:0.78rem;">📩 대결 초대하기</button>
         </div>
 
-        <!-- 방 내부 와이드 스테이지 맵 (방에 들어온 유저들의 캐릭터가 보이고 바닥 터치 시 이동) -->
+        <!-- 방 내부 와이드 스테이지 맵 (방에 들어온 유저들의 캐릭터가 1:1 정배율로 크게 표시되고 바닥 터치 시 이동) -->
         <div class="room-stage-wrap">
-          <canvas id="roomStageCanvas" width="460" height="145" style="width:100%; height:145px; display:block;"></canvas>
+          <canvas id="roomStageCanvas" class="room-stage-canvas"></canvas>
         </div>
 
         <!-- 참가자 실시간 점수판 -->
@@ -1099,12 +1097,11 @@
         <div class="kakao-chat-header">
           <div style="display:flex; align-items:center; gap:9px;">
             <button class="header-btn" onclick="returnFromDmChatScreen()" style="padding:6px 10px;">⬅ 뒤로</button>
-            <canvas id="dmPeerAvatarCanvas" class="kakao-avatar-sq" width="480" height="480" style="width:36px; height:36px; border-radius:12px;"></canvas>
-            <strong id="dmPeerNickTitle" style="font-size:1rem; font-weight:900; color:#1e1b18;">친구</strong>
+            <canvas id="dmPeerAvatarCanvas" class="kakao-avatar-sq avatar-clickable-trigger" width="480" height="480" style="width:36px; height:36px; border-radius:12px;" onclick="inspectOtherUser(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="프로필 보기"></canvas>
+            <strong id="dmPeerNickTitle" style="font-size:1rem; font-weight:900; color:#1e1b18; cursor:pointer;" onclick="inspectOtherUser(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="프로필 보기">친구</strong>
           </div>
           <div style="display:flex; gap:5px;">
             <button class="header-btn" onclick="loadCurrentDmConversation()" title="새로고침">🔄</button>
-            <button class="header-btn" onclick="inspectOtherUser(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="프로필 보기">🪪</button>
             <button class="header-btn" onclick="openReportBlockDialog(document.getElementById('dmTargetId').value, document.getElementById('dmTargetNick').value)" title="신고 및 차단" style="color:#be123c;">🚨</button>
           </div>
         </div>
@@ -1380,9 +1377,10 @@
         </div>
       </div>
       <p id="inspectBio" style="font-size:0.85rem; color:var(--text-sub); background:var(--bg-subtle); padding:9px 10px; border-radius:10px; border:1.5px solid #e2e8f0; margin-bottom:12px; text-align:center;"></p>
-      <div class="action-row" id="inspectActionRow" style="flex-wrap:wrap;">
+      <div class="action-row" id="inspectActionRow" style="flex-wrap:wrap; gap:6px;">
         <button class="btn btn-primary" id="inspectFriendBtn" style="flex:1;" onclick="sendFriendRequestByNick(document.getElementById('inspectNick').textContent)">➕ 친구 신청</button>
         <button class="btn btn-accent" id="inspectDmBtn" style="flex:1;" onclick="prepareDmTo(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">💬 1:1 채팅</button>
+        <button class="btn btn-gold" id="inspectBattleBtn" style="flex:1;" onclick="sendBattleInviteFromProfile()">⚔️ 대결 요청</button>
         <button class="btn" id="inspectReportBlockBtn" style="flex:0.95; color:#be123c; background:#fff1f2; border-color:#f43f5e;" onclick="openReportBlockDialog(document.getElementById('inspectTargetId').value, document.getElementById('inspectNick').textContent)">🚨 신고/차단</button>
       </div>
     </div>
@@ -1462,55 +1460,40 @@
         <button class="header-btn" onclick="closeModal('patchNotesModal')">닫기 ✕</button>
       </div>
       <div class="judge-note-box" style="max-height:390px;">
-        <p style="font-weight:900; color:#be123c; margin-bottom:5px; font-size:0.92rem;">✨ V2.2 최신 업데이트 (2026.11)</p>
+        <p style="font-weight:900; color:#be123c; margin-bottom:5px; font-size:0.94rem;">🔥 V3.1 최신 업데이트 (2026.11)</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>🎁 운영자 선물 · 보상 우편함</strong>: 관리자가 지급한 점검·이벤트 보상(CD·EXP·아이템·코스튬)을 실시간 도착 팝업과 <strong>🔔 알림함</strong>에서 사유와 함께 바로 수령할 수 있습니다.</li>
+          <li><strong>⚔️ 실시간 대결 요청 · 방 초대 시스템</strong>: 친구 목록·실시간 접속자·프로필·대기방에서 바로 <strong>대결 요청 / 초대</strong>를 보낼 수 있으며, 상단 토스트(20초 제한 바)에서 즉시 수락·거절할 수 있습니다. (수락 시 1:1 방 자동 생성 · 입장!)</li>
+          <li><strong>🖼️ 대기방 캐릭터 &amp; 디자인 방 설정 개편</strong>: 대기방 캐릭터가 상점과 동일한 비율로 훨씬 크고 선명하게 표시되며, 방 설정 변경이 깔끔한 전용 디자인 팝업으로 변경되었습니다.</li>
+          <li><strong>💬 프로필 클릭 통합 &amp; DM 대화 삭제</strong>: 친구목록·대화목록·채팅방·접속자 목록에서 별도 버튼 대신 <strong>프로필 사진/닉네임 터치</strong>로 바로 프로필을 열 수 있고, 대화 목록에서 원치 않는 대화방을 내 목록에서 지울 수 있습니다.</li>
+          <li><strong>🔔 알림 반짝임 &amp; 🎣 낚시터 시인성 개선</strong>: 새 알림 도착 시 알림 버튼이 반짝이며 강조되고, 낚시터 좌측 하단 보유 CD·경험치 글씨 크기 및 투명도가 개선되었습니다. (상점 보유 템 장착 오류 해결 포함)</li>
+        </ul>
+
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:5px; font-size:0.92rem;">🕹️ V3.0 황금오락실 &amp; 캐릭터 이펙트 대개편</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
+          <li><strong>🏘️ 놀러가기 &amp; 🕹️ 황금오락실</strong>: 홈의 <strong>놀러가기</strong>에서 낚시터와 황금오락실을 선택할 수 있으며, NPC 환전소(500 CD = 🎟️ 동전 1개)에서 동전을 바꿔 <strong>8종 미니게임</strong>(별피하기·니꺼내꺼·짝맞추기·기억하기·점프점프·정리고수·뿌셔뿌셔·음표팡팡)을 즐길 수 있습니다.</li>
+          <li><strong>🪙 황금주화 &amp; 주간 랭킹 보상</strong>: 오락실 플레이 결과(참가 1 / C 3 / A 6 / S 10)와 매주 월요일 주간 랭킹 TOP 3 보상으로 <strong>황금주화</strong>를 획득할 수 있습니다.</li>
+          <li><strong>✨ 캐릭터 이펙트 18종 &amp; 신규 파츠 70종</strong>: 황금주화로 구매하는 화려한 오라·날씨·파티클 이펙트 18종과 동물 탈·헬멧 등 신규 아바타 파츠 약 70종이 추가되었습니다.</li>
+          <li><strong>🛍️ 5단 상점 &amp; 수량 구매</strong>: 패션 / ETC / 아이템 / 낚시 / 변경권 5대 분류로 개편되고, 소모품·미끼는 1~99개까지 한 번에 선택 구매할 수 있습니다.</li>
+        </ul>
+
+        <p style="font-weight:900; color:#be123c; margin-bottom:5px; font-size:0.92rem;">✨ V2.2 운영자 선물 &amp; 출첵 리뉴얼</p>
+        <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
+          <li><strong>🎁 운영자 선물 · 보상 우편함</strong>: 관리자가 지급한 점검·이벤트 보상(CD·EXP·동전·황금주화·아이템·이펙트)을 실시간 도착 팝업과 <strong>🔔 알림함</strong>에서 바로 수령할 수 있습니다.</li>
           <li><strong>📅 28일 출석체크 보드판 리뉴얼</strong>: 일일 출석 진행 바와 스페셜 카드를 추가하고, <strong>14일차(⚡ 더블어택)</strong>와 <strong>28일차(🧚 요정날개 S+)</strong> 보상을 화려한 대형 배너로 강조했습니다.</li>
-          <li><strong>🎉 오늘의 랜덤 선물상자 연출 강화</strong>: 개봉 전 두근거리는 흔들림·빛줄기·폭발 파티클과 함께 보상이 튀어나오는 오픈 효과를 추가했습니다.</li>
-          <li><strong>🎣 낚시터 잠수중 표시</strong>: 낚시터 우측 접속자 목록에서 잠수 중인 유저 닉네임 옆에 하늘색 <strong>(잠수중)</strong> 표시를 추가했습니다.</li>
+          <li><strong>🎉 오늘의 랜덤 선물상자 &amp; 💬 DM 이모티콘</strong>: 선물상자 오픈 연출 강화 및 DM 방에 왕이모티콘 16종·미니 이모지·대화 목록 탭이 추가되었습니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#0284c7; margin-bottom:5px; font-size:0.9rem;">🌐 V2.1 실시간 소셜 &amp; 낚시터 안정화</p>
         <ul style="padding-left:18px; margin-bottom:12px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>👥 실시간 접속 · 낚시 잠수 목록</strong>: 홈 좌측 상단에서 전체 유저 수(접속/잠수 구분)와 활동 상태(1:1·4인 대전, 퀴즈 도전중, 낚시중, 낚시 잠수중)를 확인하고 친구 추가·DM·프로필 보기를 바로 실행할 수 있습니다.</li>
-          <li><strong>🩵 친구 상태 실시간 색깔 구분</strong>: 친구 목록에서 실시간 접속(🟢 초록불)과 낚시 잠수(🩵 하늘색불)를 한눈에 구별하고 현재 활동 배지를 표시합니다.</li>
-          <li><strong>🔄 백그라운드 잠수 자동 정산</strong>: 폰 홈 버튼 전환 중 OS가 페이지를 재로딩해도 잠수 경과 시간(최대 6시간)과 EXP·CD가 누락 없이 자동 정산되며 복귀 안내가 표시됩니다.</li>
-          <li><strong>📱 모바일 키보드 &amp; 원스토어 최적화</strong>: 낚시터/채팅 입력 시 화면 밀림 방지, 원스토어 H5 상단 여백 정리, 포그라운드 복귀 실시간 연결 자동 복구를 적용했습니다.</li>
+          <li><strong>👥 실시간 접속 · 낚시 잠수 목록</strong>: 홈 좌측 상단에서 전체 접속/잠수 유저 수와 현재 활동을 확인하고 친구 추가·DM·대결 요청을 보낼 수 있습니다.</li>
+          <li><strong>🩵 친구 상태 실시간 색깔 구분</strong>: 친구 목록에서 실시간 접속(🟢 초록불)과 낚시 잠수(🩵 하늘색불)를 한눈에 구별할 수 있습니다.</li>
+          <li><strong>🔄 백그라운드 잠수 자동 정산</strong>: 폰 전환 중에도 잠수 경과 시간(최대 6시간)과 EXP·CD가 자동 정산되며, 모바일 키보드 및 원스토어 화면 여백이 최적화되었습니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#2563eb; margin-bottom:6px; font-size:0.9rem;">🎉 V2.0 대규모 리뉴얼</p>
-
-        <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🏠 메인 화면 &amp; UI 전면 개편</p>
-        <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>4×2 퀵메뉴 &amp; 2×3 메인 버튼</strong>: 가이드, 음소거, 업데이트, 알림, 이벤트, 일일 무료CD, 랜덤 선물상자, 출석체크를 한눈에 보기 쉽게 배치했습니다.</li>
-          <li><strong>상단 종료 버튼 추가</strong>: 우측 상단 전원 아이콘을 눌러 언제든 깔끔하게 앱을 종료할 수 있습니다.</li>
-        </ul>
-
-        <p style="font-weight:900; color:#ea580c; margin-bottom:4px;">🎮 플레이 허브 &amp; 무한도전 모드 신설</p>
-        <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>플레이 허브</strong>: 싱글 플레이, 멀티 플레이, 무한도전을 한곳에서 선택할 수 있습니다.</li>
-          <li><strong>무한도전 서바이벌</strong>: 하트 5개로 최대한 많은 곡을 이어 맞히는 신규 도전 모드입니다. (30·50·70·100개 이상 정답 시 EXP·CD +10%~+50% 구간 보너스)</li>
-          <li><strong>노템 · 퍼펙트 보너스</strong>: 아이템 미사용(+10%), 10·20·50문제 100% 퍼펙트 클리어(+10%) 보너스가 최종 EXP와 CD에 합산·중첩 지급됩니다.</li>
-        </ul>
-
-        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎒 가방 &amp; 신규 게임 아이템 6종 출시</p>
-        <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>전용 가방 화면</strong>: 3×2 장착 슬롯과 3×3 인벤토리에서 보유한 아이템을 확인하고 미리 장착할 수 있습니다.</li>
-          <li><strong>신규 아이템 6종</strong>: 🎧 3초 듣기(해당 문제 재재생 무료), 🔤 초성힌트, ⏳ 모래시계(+10초), 💖 하트요정, 🪽 부활날개, ⚡ 더블어택(싱글 점수·보상 2배 / 멀티 최종 보상 2배)이 추가되었습니다.</li>
-          <li><strong>멀티 아이템전 지원</strong>: 방 만들기에서 노템전 / 아이템전을 선택할 수 있으며, 방장은 대기실에서 방 설정을 바로 변경할 수 있습니다.</li>
-        </ul>
-
-        <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">👗 상점 리뉴얼 &amp; 날개 · 소모성 미끼</p>
-        <ul style="padding-left:18px; margin-bottom:10px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>4단 카테고리 개편</strong>: 패션 / 아이템 / 낚시 / 변경권으로 깔끔하게 나누고, 상점에서 광고 시청 무료CD(1일 3회 +200 CD)를 받을 수 있습니다.</li>
-          <li><strong>신규 날개 4종 &amp; 30분 미끼</strong>: 캐릭터 뒤에 달리는 날개 코스튬 4종과 30분간 CD 보상을 높여주는 소모성 미끼 4종이 추가되었습니다.</li>
-        </ul>
-
-        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 낚시터 · 매일 혜택 · 랭킹 개선</p>
         <ul style="padding-left:18px; margin-bottom:6px; font-size:0.82rem; line-height:1.55;">
-          <li><strong>낚시터 HUD &amp; 2배 버프</strong>: 보유 CD·EXP 확인, 접속자 목록 스크롤, 광고 시청 <strong>30분 CD 2배 버프</strong>가 추가되었습니다.</li>
-          <li><strong>매일 혜택 4종</strong>: 일일 무료 +100 CD, 오늘의 랜덤 선물상자, 28일 출석체크 보드, 실시간 이벤트 팝업을 즐겨보세요.</li>
-          <li><strong>랭킹 보상 &amp; 음원 안정화</strong>: 점수 기준 TOP 3 최초 진입/순위 갱신 시 배율 보상(3위×2 · 2위×3 · 1위×5)이 지급되며, 448곡 음원 미리듣기 인식률을 대폭 개선했습니다.</li>
+          <li><strong>🏠 홈 4×2 퀵메뉴 &amp; 2×3 메인 도크</strong>: 가이드, 음소거, 업데이트, 알림, 이벤트, 일일 무료CD, 선물상자, 출첵을 한눈에 배치했습니다.</li>
+          <li><strong>🎮 무한도전 · 가방 · 아이템 6종</strong>: 하트 5개 서바이벌 모드, 가방 6슬롯 사전 장착, 노템·퍼펙트·구간 보너스 중첩, 낚시터 미끼·2배 버프, TOP 3 랭킹 배율 보상이 도입되었습니다.</li>
         </ul>
       </div>
     </div>
@@ -1728,36 +1711,36 @@
       <div class="judge-note-box" style="max-height:380px; font-size:0.84rem; line-height:1.6;">
         <p style="font-weight:900; color:var(--primary-dark); margin-bottom:4px;">🎯 1. 싱글 플레이 &amp; 🔥 무한도전</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
-          <li><strong>출제 연대</strong>: 전 연대 또는 1990s ~ 2020s 중 원하는 시대를 선택하세요.</li>
-          <li><strong>문제 모드</strong>: <strong>📖 비하인드</strong>(사연), <strong>📝 가사</strong>(하이라이트), <strong>⚡ 1초 듣기</strong>(음원 1초)!</li>
-          <li><strong>난이도 단계</strong>: 1단계(노래) / 2단계(가수) / 3단계(가수+노래 모두, +20점 보너스)</li>
-          <li><strong>특수 옵션</strong>: ⏱️ 타임어택(15초 제한, 점수 ×2배) / 🔥 찐팬 하드모드</li>
-          <li><strong>무한도전</strong>: 하트 5개로 최대한 많은 곡을 이어 맞히는 서바이벌 모드입니다. (정답 30+·50+·70+·100+개 달성 시 EXP·CD +10%~+50% 구간 보너스!)</li>
+          <li><strong>출제 연대 &amp; 문제 모드</strong>: 전 연대 또는 1990s~2020s 중 선택해 <strong>📖 비하인드</strong>, <strong>📝 가사</strong>, <strong>⚡ 1초 듣기</strong> 퀴즈를 즐기세요.</li>
+          <li><strong>난이도 &amp; 옵션</strong>: 1단계(노래) / 2단계(가수) / 3단계(가수+노래, +20점), ⏱️ 타임어택(15초 제한·점수 ×2배), 🔥 찐팬 하드모드 지원!</li>
+          <li><strong>무한도전</strong>: 하트 5개로 이어 맞히는 서바이벌 모드 (30+·50+·70+·100+개 달성 시 EXP·CD +10%~+50% 구간 보너스).</li>
+          <li><strong>보너스 중첩</strong>: 아이템 미사용(<strong>노템 +10%</strong>) + 10·20·50문제 <strong>퍼펙트(+10%)</strong> + 구간 보너스는 랭킹 TOP 3 배율과도 중첩됩니다!</li>
         </ul>
 
-        <p style="font-weight:900; color:#b45309; margin-bottom:4px;">⚔️ 2. 멀티 플레이 (실시간 1:1 · 4인 대전)</p>
+        <p style="font-weight:900; color:#b45309; margin-bottom:4px;">⚔️ 2. 실시간 멀티 대결 &amp; 초대 (1:1 · 4인)</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
-          <li>방 만들기 시 연대·모드·단계와 함께 <strong>🚫 노템전 / 🎒 아이템전</strong>을 고를 수 있으며, 방장은 대기실에서도 옵션을 바로 수정할 수 있습니다.</li>
-          <li>캐릭터를 터치해 이동하고 말풍선 대화를 나눈 뒤 스튜디오에서 실시간으로 대결하세요!</li>
+          <li><strong>대결 요청 &amp; 방 초대</strong>: 친구 목록·실시간 접속자·프로필·대기방에서 바로 대결 요청/초대를 보낼 수 있습니다. (상단 토스트 20초 내 수락·거절! 단, 잠수중이나 게임 중인 유저에게는 발송되지 않습니다.)</li>
+          <li><strong>방장 설정 &amp; 아이템전</strong>: 방장은 대기방 <strong>⚙️ 방 설정 변경</strong>으로 연대·모드·단계·노템/아이템전을 언제든 바꿀 수 있습니다.</li>
         </ul>
 
-        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">🎒 3. 가방 · 상점 · 게임 아이템</p>
+        <p style="font-weight:900; color:#9333ea; margin-bottom:4px;">🕹️ 3. 놀러가기 · 황금오락실 &amp; ✨ 이펙트</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
-          <li><strong>가방</strong>에서 보유한 아이템을 <strong>최대 6개까지 사전 장착</strong>하고, 게임 화면 상단 바에서 즉시 사용할 수 있습니다.</li>
-          <li><strong>아이템 안내</strong>: 🎧 3초 듣기 · 🔤 초성힌트 · ⏳ 모래시계(+10초) · 💖 하트요정 · 🪽 부활날개(무한도전 전용) · ⚡ 더블어택(싱글 점수·보상 2배 / 멀티 최종 보상 2배)</li>
-          <li>아이템 미사용(<strong>노템 +10%</strong>)과 일반 모드 <strong>100% 퍼펙트(+10%)</strong>·무한도전 구간 보너스는 합산되어 랭킹 TOP 3 배율과도 중첩됩니다!</li>
+          <li><strong>오락실 동전 &amp; 8종 미니게임</strong>: 환전소에서 <strong>500 CD = 🎟️ 동전 1개</strong>로 교환해 별피하기·니꺼내꺼·짝맞추기·기억하기·점프점프·정리고수·뿌셔뿌셔·음표팡팡에 도전하세요.</li>
+          <li><strong>🪙 황금주화 &amp; 주간 랭킹</strong>: 판당 등급(참가 1 / C 3 / A 6 / S 10)과 매주 월요일 00시(KST) 마감 주간 랭킹 TOP 3(+30/+20/+10 🪙)로 황금주화를 모을 수 있습니다.</li>
+          <li><strong>✨ 캐릭터 이펙트</strong>: 모은 황금주화로 상점 <strong>[ETC &gt; 이펙트]</strong>에서 화려한 오라·날씨·파티클 효과를 구매할 수 있어요.</li>
         </ul>
 
-        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 4. 소셜 낚시터 &amp; 매일 혜택</p>
+        <p style="font-weight:900; color:#7c3aed; margin-bottom:4px;">👗 4. 상점 5대 분류 &amp; 🎒 가방 아이템</p>
         <ul style="padding-left:18px; margin-bottom:10px;">
-          <li><strong>낚시터</strong>: 통합 서버에서 실시간 채팅을 나누며 방치 보상(매일 오전 06:00 초기화)을 받습니다. 상점 [낚시] 탭의 낚싯대(EXP)·30분 미끼(CD)·광고 2배 버프로 보상을 크게 올릴 수 있어요.</li>
-          <li><strong>홈 퀵메뉴</strong>: 매일 <strong>일일 무료CD (+100 CD)</strong>, <strong>랜덤 선물상자</strong>, <strong>28일 출석체크</strong>, <strong>진행 중 이벤트</strong> 혜택을 꼭 챙기세요!</li>
+          <li><strong>상점 5단 메뉴</strong>: <strong>패션</strong>(얼굴·헤어·모자·옷) / <strong>ETC</strong>(소품·날개·배경·이펙트) / <strong>아이템</strong> / <strong>낚시</strong> / <strong>변경권</strong>에서 꾸미기 파츠와 소모품(1~99개 수량구매)을 구매하세요.</li>
+          <li><strong>가방 6슬롯</strong>: 🎧 3초 듣기 · 🔤 초성힌트 · ⏳ 모래시계(+10초) · 💖 하트요정 · 🪽 부활날개 · ⚡ 더블어택을 최대 6칸까지 사전 장착합니다.</li>
         </ul>
 
-        <p style="font-weight:900; color:#0284c7; margin-bottom:4px;">🏆 5. 레벨 · 타이틀 · 랭킹 TOP 3 보너스</p>
+        <p style="font-weight:900; color:#16a34a; margin-bottom:4px;">🎣 5. 소셜 낚시터 · 친구/DM · 매일 혜택 &amp; 랭킹</p>
         <ul style="padding-left:18px; margin-bottom:4px;">
-          <li>플레이와 낚시터에서 <strong>💿 CD 코인</strong>과 <strong>✨ EXP</strong>를 모아 Lv.1~Lv.20 타이틀을 달성하세요.</li>
-          <li>각 모드 점수제 랭킹에서 <strong>본인 최고 기록을 갱신(+1점↑)하며 TOP 3 진입 시 경험치·CD ×5배(1위) / ×3배(2위) / ×2배(3위)</strong> 보너스가 지급됩니다!</li>
+          <li><strong>소셜 낚시터</strong>: 실시간 채팅과 함께 방치 보상(매일 오전 06:00 초기화)을 받으며, 낚싯대(EXP)·30분 미끼(CD)·광고 2배 버프로 효율을 높일 수 있어요.</li>
+          <li><strong>친구 · DM · 접속 유저</strong>: 프로필 사진이나 닉네임을 누르면 상세 프로필을 볼 수 있고, 채팅창 이모티콘/대화 목록 삭제, 접속자 확인이 가능합니다.</li>
+          <li><strong>매일 혜택 &amp; TOP 3 배율</strong>: 일일 무료CD(+100), 랜덤 선물상자, 28일 출석체크(14일 더블어택 · 28일 요정날개), 운영자 선물함(🔔)을 놓치지 마세요. 각 모드 최고 기록 경신 TOP 3 진입 시 <strong>×5배(1위) / ×3배(2위) / ×2배(3위)</strong> 보너스가 지급됩니다!</li>
         </ul>
       </div>
       <button class="btn btn-primary btn-lg" onclick="closeModal('howToPlayModal')" style="padding:11px;">확인 (닫기)</button>
@@ -1937,7 +1920,7 @@
         </div>
       </div>
       <p style="font-size:0.75rem; color:var(--text-sub); margin-bottom:8px; line-height:1.4;">
-        🟢 실시간 접속 / 🩵 낚시 잠수 유저의 현재 활동을 확인하고 ➕ 친구추가, 💬 1:1 DM, 🪪 프로필 보기를 할 수 있어요!
+        🟢 실시간 접속 / 🩵 낚시 잠수 유저의 활동을 확인하고 닉네임·사진을 눌러 프로필을 보거나 ➕ 친구추가 · 💬 1:1 DM · ⚔️ 대결 요청을 보낼 수 있어요!
       </p>
       <div id="onlineUsersModalList" class="history-scroll-box" style="max-height:360px;"></div>
     </div>
@@ -2039,6 +2022,92 @@
     </div>
   </div>
 
+  <!-- ==================== [V3.1 모달 K] 대기방 설정 변경 디자인 모달 (시스템 드롭다운 대체) ==================== -->
+  <div id="roomSettingsModal" class="modal-backdrop hidden" style="z-index:2270;">
+    <div class="modal-content" style="max-width:420px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:1.02rem; font-weight:900;">⚙️ 대전 방 설정 변경</h3>
+        <button type="button" class="header-btn" onclick="closeModal('roomSettingsModal')">닫기 ✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+        <div>
+          <div class="section-label"><span>📅 출제 연대</span></div>
+          <div class="option-grid cols-3">
+            <div class="option-chip" data-edit-room-decade="ALL" onclick="selectEditRoomConfig('decade', 'ALL')"><span class="chip-title">전연대</span></div>
+            <div class="option-chip" data-edit-room-decade="1990s" onclick="selectEditRoomConfig('decade', '1990s')"><span class="chip-title">1990s</span></div>
+            <div class="option-chip" data-edit-room-decade="2000s" onclick="selectEditRoomConfig('decade', '2000s')"><span class="chip-title">2000s</span></div>
+            <div class="option-chip" data-edit-room-decade="2010s" onclick="selectEditRoomConfig('decade', '2010s')"><span class="chip-title">2010s</span></div>
+            <div class="option-chip" data-edit-room-decade="2020s" onclick="selectEditRoomConfig('decade', '2020s')"><span class="chip-title">2020s</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label"><span>🎵 게임 모드</span></div>
+          <div class="option-grid cols-3">
+            <div class="option-chip" data-edit-room-mode="behind" onclick="selectEditRoomConfig('mode', 'behind')"><span class="chip-title">📖 비하인드</span></div>
+            <div class="option-chip" data-edit-room-mode="lyrics" onclick="selectEditRoomConfig('mode', 'lyrics')"><span class="chip-title">📝 가사</span></div>
+            <div class="option-chip" data-edit-room-mode="onesec" onclick="selectEditRoomConfig('mode', 'onesec')"><span class="chip-title">⚡ 1초듣기</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label"><span>🔥 정답 단계</span></div>
+          <div class="option-grid cols-3">
+            <div class="option-chip" data-edit-room-stage="1" onclick="selectEditRoomConfig('stage', 1)">
+              <span class="chip-title">1단계</span>
+              <span class="chip-desc">노래 맞히기</span>
+            </div>
+            <div class="option-chip" data-edit-room-stage="2" onclick="selectEditRoomConfig('stage', 2)">
+              <span class="chip-title">2단계</span>
+              <span class="chip-desc">가수 맞히기</span>
+            </div>
+            <div class="option-chip" data-edit-room-stage="3" onclick="selectEditRoomConfig('stage', 3)">
+              <span class="chip-title">3단계</span>
+              <span class="chip-desc">가수+노래</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label"><span>🎒 아이템 사용 여부</span></div>
+          <div class="option-grid cols-2">
+            <div class="option-chip" data-edit-room-itemMode="notem" onclick="selectEditRoomConfig('itemMode', 'notem')">
+              <span class="chip-title">🚫 노템전</span>
+              <span class="chip-desc">순수 실력 대결</span>
+            </div>
+            <div class="option-chip" data-edit-room-itemMode="item" onclick="selectEditRoomConfig('itemMode', 'item')">
+              <span class="chip-title">🎒 아이템전</span>
+              <span class="chip-desc">공용 3종 사용 가능</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button type="button" class="btn" onclick="closeModal('roomSettingsModal')" style="flex:0.85;">취소</button>
+        <button type="button" class="btn btn-gold" onclick="applyRoomSettingsModal()" style="flex:1.55; padding:11px;">✅ 설정 적용하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== [V3.1 모달 L] 대결 초대하기 / 상대 선택 모달 (접속자 · 친구) ==================== -->
+  <div id="battleInviteModal" class="modal-backdrop hidden" style="z-index:2275;">
+    <div class="modal-content" style="max-width:420px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 id="battleInviteModalTitle" style="font-size:1rem; font-weight:900;">📩 대결 초대하기</h3>
+        <div style="display:flex; gap:5px;">
+          <button type="button" class="header-btn" onclick="renderBattleInviteModalList(true)" title="새로고침">🔄</button>
+          <button type="button" class="header-btn" onclick="closeModal('battleInviteModal')">닫기 ✕</button>
+        </div>
+      </div>
+      <p style="font-size:0.75rem; color:var(--text-sub); margin-bottom:8px; line-height:1.4;">
+        현재 접속 중인 유저나 친구를 선택해 대결 초대를 보낼 수 있어요.<br/>
+        <span style="color:#0284c7; font-weight:800;">※ 💤 낚시 잠수중 · 🎮 게임 진행 중인 유저는 초대할 수 없습니다.</span>
+      </p>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <button type="button" id="battleInviteTabOnline" class="rank-chip active" onclick="switchBattleInviteTab('online')" style="flex:1;">👥 현 접속자</button>
+        <button type="button" id="battleInviteTabFriends" class="rank-chip" onclick="switchBattleInviteTab('friends')" style="flex:1;">💛 내 친구</button>
+      </div>
+      <div id="battleInviteModalList" class="history-scroll-box" style="max-height:330px;"></div>
+    </div>
+  </div>
+
   <!-- ==================== [커스텀 시스템 팝업 모달] ==================== -->
   <div id="customDialogModal" class="modal-backdrop hidden" style="z-index:2500;">
     <div class="modal-content" style="max-width:360px; text-align:center; padding:18px;">
@@ -2085,14 +2154,14 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=24.2"></script>
-  <script defer src="pixel_avatar_v3.js?v=24.2"></script>
-  <script defer src="pixel_avatar.js?v=24.2"></script>
-  <script defer src="online.js?v=24.2"></script>
-  <script defer src="fishing.js?v=24.2"></script>
-  <script defer src="arcade_games.js?v=24.2"></script>
-  <script defer src="arcade.js?v=24.2"></script>
-  <script defer src="app.js?v=24.2"></script>
+  <script defer src="data.js?v=24.3"></script>
+  <script defer src="pixel_avatar_v3.js?v=24.3"></script>
+  <script defer src="pixel_avatar.js?v=24.3"></script>
+  <script defer src="online.js?v=24.3"></script>
+  <script defer src="fishing.js?v=24.3"></script>
+  <script defer src="arcade_games.js?v=24.3"></script>
+  <script defer src="arcade.js?v=24.3"></script>
+  <script defer src="app.js?v=24.3"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");
