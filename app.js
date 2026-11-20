@@ -1388,6 +1388,12 @@ window.switchScreen = function (targetId, opts = {}) {
   // 숨겨져 있던 캔버스가 표시된 직후 실제 CSS 크기에 맞춘 1:1 정배율 렌더링 & 홈 모서리 버튼 정렬!
   requestAnimationFrame(() => {
     if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
+    if (targetId === "shopScreen" && typeof updateShopPreviewCanvas === "function") {
+      updateShopPreviewCanvas();
+    } else if (targetId === "bagScreen" && typeof renderPixelAvatar === "function" && typeof userState !== "undefined") {
+      const avCv = document.getElementById("bagAvatarCanvas");
+      if (avCv) renderPixelAvatar(avCv, userState.avatarConfig);
+    }
     syncHomeCornerFloatingButtons();
   });
 
@@ -1404,6 +1410,65 @@ window.showLoginScreen = function (opts = {}) {
 window.showHome = function (opts = {}) {
   updateHeaderUserUI();
   switchScreen("homeScreen", opts);
+};
+
+let _bootWarmupPromise = null;
+window.runBootWarmupToHome = async function (opts = {}) {
+  if (_bootWarmupPromise) return _bootWarmupPromise;
+  _bootWarmupPromise = (async () => {
+    const durationMs = Math.max(350, Number(opts.durationMs) || 650);
+    const overlay = document.getElementById("bootWarmupOverlay");
+    const avatarCv = document.getElementById("bootWarmupAvatar");
+    const barFill = document.getElementById("bootWarmupBarFill");
+    const cfg =
+      typeof userState !== "undefined" && userState.avatarConfig
+        ? userState.avatarConfig
+        : typeof DEFAULT_AVATAR_CONFIG !== "undefined"
+        ? DEFAULT_AVATAR_CONFIG
+        : null;
+
+    try {
+      if (overlay) overlay.classList.remove("hidden");
+      if (barFill) barFill.style.width = "18%";
+      if (avatarCv && cfg && typeof renderPixelAvatar === "function") {
+        renderPixelAvatar(avatarCv, cfg, { transparentBg: true, skipEffectLoop: true });
+      }
+
+      if (typeof AvatarRenderEngine !== "undefined" && typeof AvatarRenderEngine.warmupAvatar === "function" && cfg) {
+        AvatarRenderEngine.warmupAvatar(cfg);
+      }
+      if (barFill) barFill.style.width = "52%";
+
+      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, Math.round(durationMs * 0.45))));
+      if (typeof unlockQuizAudio === "function") {
+        try { unlockQuizAudio(); } catch (e) {}
+      }
+      if (barFill) barFill.style.width = "82%";
+
+      if (typeof claimMyArcadeWeeklyRewardsSilent === "function") {
+        try { await claimMyArcadeWeeklyRewardsSilent(); } catch (e) {}
+      }
+
+      await new Promise(resolve => setTimeout(resolve, Math.round(durationMs * 0.45)));
+      if (barFill) barFill.style.width = "100%";
+      if (typeof showHome === "function") {
+        showHome({ replaceHistory: opts.replaceHistory !== false });
+      }
+    } catch (e) {
+      if (typeof showHome === "function") {
+        showHome({ replaceHistory: opts.replaceHistory !== false });
+      }
+    } finally {
+      if (overlay) {
+        setTimeout(() => {
+          overlay.classList.add("hidden");
+          if (barFill) barFill.style.width = "0%";
+        }, 90);
+      }
+      _bootWarmupPromise = null;
+    }
+  })();
+  return _bootWarmupPromise;
 };
 
 window.showSetup = function () {

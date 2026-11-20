@@ -77,6 +77,7 @@ function getPublicFishingAvatarConfig(rawCfg = null) {
       outfit: clean.outfit,
       acc: clean.acc,
       wing: clean.wing || "none",
+      effect: clean.effect || "none",
       fishingRod: clean.fishingRod || "none",
       fishingBait: clean.fishingBait || "none"
     };
@@ -788,6 +789,10 @@ function syncFishingPlayersDOM() {
   // 나간 유저 DOM 정리
   fishingState.playerNodeMap.forEach((node, key) => {
     if (!activeKeys.has(key)) {
+      if (typeof AvatarRenderEngine !== "undefined") {
+        const oldCv = node.querySelector(".fishing-player-canvas");
+        if (oldCv) AvatarRenderEngine.unregisterCanvas(oldCv);
+      }
       node.remove();
       fishingState.playerNodeMap.delete(key);
       fishingState.playerAvatarKeys.delete(key);
@@ -838,7 +843,7 @@ function syncFishingPlayersDOM() {
       fishingState.playerAvatarKeys.set(p.key, cfgSig);
       const cv = node.querySelector(".fishing-player-canvas");
       if (cv && typeof renderPixelAvatar === "function") {
-        renderPixelAvatar(cv, cfg, { transparentBg: true, matchCssAspect: false });
+        renderPixelAvatar(cv, cfg, { transparentBg: true, matchCssAspect: false, maxEffectParticles: 6 });
       }
     }
   });

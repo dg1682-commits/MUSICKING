@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=21.4" />
+  <link rel="stylesheet" href="style.css?v=22.0" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -429,9 +429,13 @@
           <canvas id="shopBgCanvas" class="shop-bg-canvas" width="760" height="420"></canvas>
           <div class="apf-shop-topbar">
             <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기">⬅</button>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" id="shopFreeCdAdBtn" class="btn btn-gold" onclick="claimShopFreeCdAd()" style="padding:5px 9px; font-size:0.72rem; border-radius:999px;">📺 무료CD +200 (0/3)</button>
-              <div class="cd-pill">
+            <div style="display:flex; align-items:center; gap:5px; flex-wrap:nowrap;">
+              <button type="button" id="shopFreeCdAdBtn" class="btn btn-gold" onclick="claimShopFreeCdAd()" style="padding:5px 8px; font-size:0.7rem; border-radius:999px; white-space:nowrap;">📺 무료CD +200 (0/3)</button>
+              <div class="cd-pill golden-coin-pill" title="황금주화 (오락실 주간보상)">
+                <span>🪙</span>
+                <strong id="shopGoldenBalance">0</strong>
+              </div>
+              <div class="cd-pill" title="보유 CD">
                 <span>💿</span>
                 <strong id="shopCdBalance">100</strong>
               </div>
@@ -476,21 +480,25 @@
           </div>
         </div>
 
-        <!-- [V2.0] 상점 4대 대분류 탭 + 소분류 서브탭 -->
+        <!-- [V3.0] 상점 5대 대분류 탭 + 소분류 서브탭 -->
         <div class="shop-group-bar">
           <button type="button" class="shop-group-btn active" data-shop-group="fashion" onclick="switchShopMainGroup('fashion')">👗 패션</button>
+          <button type="button" class="shop-group-btn" data-shop-group="etc" onclick="switchShopMainGroup('etc')">✨ ETC</button>
           <button type="button" class="shop-group-btn" data-shop-group="item" onclick="switchShopMainGroup('item')">🎒 아이템</button>
           <button type="button" class="shop-group-btn" data-shop-group="feature" onclick="switchShopMainGroup('feature')">🎣 낚시</button>
           <button type="button" class="shop-group-btn" data-shop-group="special" onclick="switchShopMainGroup('special')">🎫 변경권</button>
         </div>
-        <div id="shopSubTabsFashion" class="apf-tab-bar" style="grid-template-columns: repeat(7, 1fr);">
-          <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="tab-ico">🏞️</span><span>배경</span></div>
+        <div id="shopSubTabsFashion" class="apf-tab-bar" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>얼굴</span></div>
           <div class="apf-tab active" data-shop-cat="hair" onclick="renderShopCategory('hair')"><span class="tab-ico">💇</span><span>헤어</span></div>
           <div class="apf-tab" data-shop-cat="hat" onclick="renderShopCategory('hat')"><span class="tab-ico">🎧</span><span>모자</span></div>
-          <div class="apf-tab" data-shop-cat="face" onclick="renderShopCategory('face')"><span class="tab-ico">👓</span><span>얼굴</span></div>
-          <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="tab-ico">👕</span><span>의상</span></div>
-          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="tab-ico">🎸</span><span>악기</span></div>
+          <div class="apf-tab" data-shop-cat="outfit" onclick="renderShopCategory('outfit')"><span class="tab-ico">👕</span><span>옷</span></div>
+        </div>
+        <div id="shopSubTabsEtc" class="apf-tab-bar hidden" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="apf-tab" data-shop-cat="acc" onclick="renderShopCategory('acc')"><span class="tab-ico">🎒</span><span>소품</span></div>
           <div class="apf-tab" data-shop-cat="wing" onclick="renderShopCategory('wing')"><span class="tab-ico">🪽</span><span>날개</span></div>
+          <div class="apf-tab" data-shop-cat="bg" onclick="renderShopCategory('bg')"><span class="tab-ico">🏞️</span><span>배경</span></div>
+          <div class="apf-tab" data-shop-cat="effect" onclick="renderShopCategory('effect')"><span class="tab-ico">✨</span><span>이펙트</span></div>
         </div>
         <div id="shopSubTabsFeature" class="apf-tab-bar hidden" style="grid-template-columns: repeat(2, 1fr);">
           <div class="apf-tab" data-shop-cat="fishing_rod" onclick="renderShopCategory('fishing_rod')"><span class="tab-ico">🎣</span><span>낚싯대 (영구)</span></div>
@@ -1103,6 +1111,18 @@
         </div>
       </div>
       <div class="fishing-loading-sub">잠시만 기다려 주세요</div>
+    </div>
+
+    <!-- [V3.0] 로그인/자동로그인 -> 메인 진입 시 파츠·이펙트·사운드 사전 워밍업 로딩 오버레이 -->
+    <div id="bootWarmupOverlay" class="fishing-loading-overlay boot-warmup-overlay hidden">
+      <div id="bootWarmupTitle" class="fishing-loading-title">✨ 음악왕 준비중..</div>
+      <div class="fishing-loading-center">
+        <canvas id="bootWarmupAvatar" class="fishing-loading-avatar" width="480" height="480"></canvas>
+        <div class="fishing-loading-bar-track">
+          <div id="bootWarmupBarFill" class="fishing-loading-bar-fill"></div>
+        </div>
+      </div>
+      <div id="bootWarmupSub" class="fishing-loading-sub">캐릭터 파츠·이펙트·사운드를 불러오는 중</div>
     </div>
 
     <!-- 우측 하단 둥둥 떠있는 사운드 ON/OFF 플로팅 버튼 (홈 화면에서는 카드 우측 하단 모서리에 정렬) -->
@@ -1858,11 +1878,12 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=21.4"></script>
-  <script defer src="pixel_avatar.js?v=21.4"></script>
-  <script defer src="online.js?v=21.4"></script>
-  <script defer src="fishing.js?v=21.4"></script>
-  <script defer src="app.js?v=21.4"></script>
+  <script defer src="data.js?v=22.0"></script>
+  <script defer src="pixel_avatar_v3.js?v=22.0"></script>
+  <script defer src="pixel_avatar.js?v=22.0"></script>
+  <script defer src="online.js?v=22.0"></script>
+  <script defer src="fishing.js?v=22.0"></script>
+  <script defer src="app.js?v=22.0"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

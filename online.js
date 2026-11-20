@@ -118,6 +118,9 @@ const userState = {
   nickname: "게스트도전자",
   bio: "안녕하세요! 음악왕 도전자입니다.",
   cdCoins: 100,
+  arcadeCoins: 0,
+  goldenCoins: 0,
+  ownedEffects: [],
   exp: 0,
   claimedTopRanks: {},
   battleStats: normalizeBattleStats(DEFAULT_BATTLE_STATS),
@@ -253,6 +256,9 @@ function resetUserStateToFreshDefaults() {
   userState.nickname = "게스트도전자";
   userState.bio = "안녕하세요! 음악왕 도전자입니다.";
   userState.cdCoins = 100;
+  userState.arcadeCoins = 0;
+  userState.goldenCoins = 0;
+  userState.ownedEffects = [];
   userState.exp = 0;
   userState.claimedTopRanks = {};
   userState.battleStats = normalizeBattleStats(DEFAULT_BATTLE_STATS);
@@ -749,11 +755,20 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
       ? { ...rawCfg._dailyState }
       : createFreshDailyState();
   userState.v2BaitMigrated = Boolean(rawCfg._v2BaitMigrated);
-  userState.avatarConfig = sanitizeAvatarConfigShape(rawCfg);
+  const mig = typeof migrateLegacyHairHatIds === "function" ? migrateLegacyHairHatIds(rawCfg) : { cfg: rawCfg, migrated: false };
+  userState.avatarConfig = sanitizeAvatarConfigShape(mig.cfg);
   userState.ownedItems = Array.isArray(prof?.owned_items)
     ? [...prof.owned_items]
     : ["meadow", "default", "none", "basic", "mic_silver"];
+  userState.arcadeCoins = Math.max(0, Number(prof?.arcade_coins) || 0);
+  userState.goldenCoins = Math.max(0, Number(prof?.golden_coins) || 0);
+  userState.ownedEffects = Array.isArray(prof?.owned_effects) ? [...prof.owned_effects] : [];
+  if (userState.avatarConfig.effect && userState.avatarConfig.effect !== "none" && !userState.ownedEffects.includes(userState.avatarConfig.effect)) {
+    userState.avatarConfig.effect = "none";
+  }
   userState.isLoggedIn = true;
+
+  let needsProfileSync = Boolean(mig.migrated);
 
   // [V2.0] 기존 영구 미끼 보유 유저 -> 황금 떡밥(bait_s) 소모품 2개 자동 전환
   if (!userState.v2BaitMigrated) {
@@ -767,6 +782,9 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
       userState.avatarConfig.fishingBait = "bait_s";
     }
     userState.v2BaitMigrated = true;
+    needsProfileSync = true;
+  }
+  if (needsProfileSync) {
     setTimeout(() => { try { syncProfileToServer(); } catch (e) {} }, 250);
   }
   ensureV2DailyState();
@@ -832,7 +850,11 @@ async function restoreSupabaseSession() {
             userState.fishingLive = { active: false, leftAt: Date.now() };
             syncProfileToServer();
           }
-          if (typeof showHome === "function") showHome({ replaceHistory: true });
+          if (typeof runBootWarmupToHome === "function") {
+            await runBootWarmupToHome({ replaceHistory: true, durationMs: 650 });
+          } else if (typeof showHome === "function") {
+            showHome({ replaceHistory: true });
+          }
         }
       }
     }
@@ -1025,7 +1047,11 @@ window.handleAuthSubmit = async function (mode) {
       updateHeaderUserUI();
       if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
       if (typeof startGlobalOnlinePresence === "function") startGlobalOnlinePresence();
-      showHome({ replaceHistory: true });
+      if (typeof runBootWarmupToHome === "function") {
+        await runBootWarmupToHome({ replaceHistory: true, durationMs: 650 });
+      } else {
+        showHome({ replaceHistory: true });
+      }
       if (typeof armAppBackGuard === "function") armAppBackGuard(true);
       gameAlert(`환영합니다, [${nickInput}]님!\n웰컴 보너스 💿 100 CD가 지급되었습니다!`, "🎉 가입 완료");
     } else {
@@ -1059,7 +1085,11 @@ window.handleAuthSubmit = async function (mode) {
       updateHeaderUserUI();
       if (typeof startGlobalDmNotiListener === "function") startGlobalDmNotiListener();
       if (typeof startGlobalOnlinePresence === "function") startGlobalOnlinePresence();
-      showHome({ replaceHistory: true });
+      if (typeof runBootWarmupToHome === "function") {
+        await runBootWarmupToHome({ replaceHistory: true, durationMs: 650 });
+      } else {
+        showHome({ replaceHistory: true });
+      }
       if (typeof armAppBackGuard === "function") armAppBackGuard(true);
     }
   } catch (err) {
@@ -1560,11 +1590,16 @@ window.openShopModal = function (initialCat = null) {
   syncShopMainTabsUI(targetCat);
   renderShopCategory(targetCat);
   updateShopPreviewCanvas();
+  requestAnimationFrame(() => {
+    const scr = document.getElementById("shopScreen");
+    if (scr && !scr.classList.contains("hidden")) updateShopPreviewCanvas();
+  });
   if (typeof updateShopFreeCdAdButton === "function") updateShopFreeCdAdButton();
 };
 
 const SHOP_GROUP_MAP = {
-  fashion: ["bg", "hair", "hat", "face", "outfit", "acc", "wing"],
+  fashion: ["face", "hair", "hat", "outfit"],
+  etc: ["acc", "wing", "bg", "effect"],
   item: ["game_item"],
   feature: ["fishing_rod", "fishing_bait"],
   special: ["special"]
@@ -1583,8 +1618,10 @@ function syncShopMainTabsUI(cat) {
     btn.classList.toggle("active", btn.getAttribute("data-shop-group") === grp);
   });
   const fashionSub = document.getElementById("shopSubTabsFashion");
+  const etcSub = document.getElementById("shopSubTabsEtc");
   const featureSub = document.getElementById("shopSubTabsFeature");
   if (fashionSub) fashionSub.classList.toggle("hidden", grp !== "fashion");
+  if (etcSub) etcSub.classList.toggle("hidden", grp !== "etc");
   if (featureSub) featureSub.classList.toggle("hidden", grp !== "feature");
 }
 
@@ -1596,8 +1633,12 @@ window.switchShopMainGroup = function (grp) {
   const list = nextCat === "game_item"
     ? (typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [])
     : (AVATAR_SHOP_ITEMS[nextCat] || []);
-  if (list[0]) {
-    previewShopItem(nextCat, list[0].id);
+  const cfgId = nextCat !== "game_item" && nextCat !== "special"
+    ? shopPreviewState.config[getShopCatConfigKey(nextCat)]
+    : null;
+  const targetItem = (cfgId && list.find(x => x.id === cfgId)) || list[0];
+  if (targetItem) {
+    previewShopItem(nextCat, targetItem.id);
   }
 };
 
@@ -1608,7 +1649,7 @@ function getShopCatConfigKey(cat) {
 function getEquippableShopCatsList() {
   return typeof EQUIPPABLE_SHOP_CATS !== "undefined"
     ? EQUIPPABLE_SHOP_CATS
-    : ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "fishing_rod", "fishing_bait"];
+    : ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "effect", "fishing_rod", "fishing_bait"];
 }
 
 function getConsumableCount(id) {
@@ -1722,6 +1763,8 @@ function updateShopPreviewCanvas() {
 
   const cdSpan = document.getElementById("shopCdBalance");
   if (cdSpan) cdSpan.textContent = `${userState.cdCoins}`;
+  const goldSpan = document.getElementById("shopGoldenBalance");
+  if (goldSpan) goldSpan.textContent = `${userState.goldenCoins || 0}`;
 
   const titleEl = document.getElementById("shopBoardTitle");
   const priceBadgeEl = document.getElementById("shopBoardPriceBadge");
@@ -1789,6 +1832,19 @@ function updateShopPreviewCanvas() {
     return;
   }
 
+  if (sel.cat === "effect") {
+    const ownedEff =
+      sel.id === "none" ||
+      (Array.isArray(userState.ownedEffects) && userState.ownedEffects.includes(sel.id));
+    if (!ownedEff) {
+      if (priceBadgeEl) priceBadgeEl.textContent = `🪙 ${sel.price.toLocaleString()} 황금주화`;
+      confirmBtn.textContent = `🪙 황금주화 ${sel.price} 구매`;
+      confirmBtn.className = "btn btn-gold";
+      confirmBtn.onclick = () => purchaseAvatarEffectWithGoldenCoins(sel);
+      return;
+    }
+  }
+
   if (sel.purchasable === false && !userState.ownedItems.includes(sel.id)) {
     if (priceBadgeEl) priceBadgeEl.textContent = "🎁 28일 출석 한정판";
     confirmBtn.textContent = "🔒 구매 불가 (출석 보상)";
@@ -1853,11 +1909,78 @@ function updateShopPreviewCanvas() {
 
 window.resetShopPreview = function () {
   shopPreviewState.config = { ...userState.avatarConfig };
-  const curHair = getItemById("hair", userState.avatarConfig.hair);
-  shopPreviewState.selectedItem = { cat: "hair", ...curHair };
-  renderShopCategory(shopPreviewState.selectedCat);
+  const curCat = shopPreviewState.selectedCat || "hair";
+  if (curCat !== "special" && curCat !== "game_item") {
+    const curItem = getItemById(curCat, userState.avatarConfig[getShopCatConfigKey(curCat)] || "default");
+    shopPreviewState.selectedItem = { cat: curCat, ...curItem };
+  } else {
+    const curHair = getItemById("hair", userState.avatarConfig.hair);
+    shopPreviewState.selectedItem = { cat: "hair", ...curHair };
+  }
+  renderShopCategory(curCat);
   updateShopPreviewCanvas();
 };
+
+async function purchaseAvatarEffectWithGoldenCoins(sel) {
+  if (!sel || !sel.id || sel.id === "none") return;
+  if (!userState.isLoggedIn || !sbClient || !userState.id) {
+    gameAlert("로그인이 필요한 기능입니다!");
+    return;
+  }
+  const curCoins = Math.max(0, Number(userState.goldenCoins) || 0);
+  if (curCoins < sel.price) {
+    gameAlert(
+      `🪙 황금주화가 부족합니다!\n(보유: ${curCoins.toLocaleString()}개 / 필요: ${sel.price.toLocaleString()}개)\n놀러가기 > 오락실 주간 랭킹 보상으로 황금주화를 획득할 수 있어요!`,
+      "🪙 황금주화 부족"
+    );
+    return;
+  }
+  gameConfirm(
+    `[${sel.name}] 이펙트를 🪙 ${sel.price.toLocaleString()} 황금주화로 구매하고 장착할까요?`,
+    async () => {
+      try {
+        const { error } = await sbClient.rpc("buy_avatar_effect", {
+          p_effect_id: sel.id,
+          p_equip: true
+        });
+        if (error) {
+          gameAlert(`이펙트 구매 중 오류가 발생했습니다.\n(${error.message || "서버 오류"})`);
+          return;
+        }
+        const { data: freshProf } = await sbClient
+          .from("profiles")
+          .select("golden_coins, owned_effects, avatar_config")
+          .eq("id", userState.id)
+          .maybeSingle();
+
+        if (freshProf) {
+          userState.goldenCoins = Math.max(0, Number(freshProf.golden_coins) || 0);
+          userState.ownedEffects = Array.isArray(freshProf.owned_effects)
+            ? [...freshProf.owned_effects]
+            : [sel.id];
+          userState.avatarConfig.effect = (freshProf.avatar_config && freshProf.avatar_config.effect) || sel.id;
+        } else {
+          userState.goldenCoins = Math.max(0, curCoins - sel.price);
+          if (!userState.ownedEffects.includes(sel.id)) userState.ownedEffects.push(sel.id);
+          userState.avatarConfig.effect = sel.id;
+        }
+        shopPreviewState.config.effect = userState.avatarConfig.effect;
+        if (typeof AvatarRenderEngine !== "undefined") {
+          AvatarRenderEngine.warmupAvatar(userState.avatarConfig);
+        }
+        renderShopCategory(shopPreviewState.selectedCat);
+        updateShopPreviewCanvas();
+        gameAlert(
+          `✨ [${sel.name}] 이펙트 구매 및 장착 완료!\n(보유 황금주화: 🪙 ${userState.goldenCoins.toLocaleString()}개)`,
+          "🛍️ 이펙트 획득"
+        );
+      } catch (err) {
+        gameAlert("서버 통신 중 오류가 발생했습니다.");
+      }
+    },
+    "🪙 이펙트 구매"
+  );
+}
 
 async function saveCurrentPreviewLook() {
   for (const cat of getEquippableShopCatsList()) {
@@ -1865,6 +1988,15 @@ async function saveCurrentPreviewLook() {
     const id = shopPreviewState.config[cfgKey];
     if (!id || id === "none") continue;
     const item = getItemById(cat, id);
+    if (cat === "effect") {
+      if (!Array.isArray(userState.ownedEffects) || !userState.ownedEffects.includes(id)) {
+        gameAlert(
+          `[${item ? item.name : id}] 이펙트는 황금주화로 먼저 구매해야 장착할 수 있습니다!\n[✨ ETC > ✨ 이펙트] 탭에서 황금주화로 구매해 주세요.`
+        );
+        return;
+      }
+      continue;
+    }
     if (item && (item.purchasable === false || item.price > 0) && !userState.ownedItems.includes(id)) {
       gameAlert(
         item.purchasable === false
@@ -1880,6 +2012,9 @@ async function saveCurrentPreviewLook() {
     gender: (userState.avatarConfig && userState.avatarConfig.gender) || "male"
   };
   shopPreviewState.config.gender = userState.avatarConfig.gender;
+  if (typeof AvatarRenderEngine !== "undefined") {
+    AvatarRenderEngine.warmupAvatar(userState.avatarConfig);
+  }
   await syncProfileToServer();
   renderShopCategory(shopPreviewState.selectedCat);
   updateShopPreviewCanvas();
@@ -1892,8 +2027,9 @@ const SHOP_CAT_LABELS = {
   hat: "모자",
   face: "얼굴",
   outfit: "의상",
-  acc: "악기",
+  acc: "소품",
   wing: "날개",
+  effect: "이펙트",
   game_item: "아이템",
   fishing_rod: "낚싯대",
   fishing_bait: "미끼"
@@ -1902,7 +2038,7 @@ const SHOP_CAT_LABELS = {
 function getUnownedPreviewItems() {
   const list = [];
   for (const cat of getEquippableShopCatsList()) {
-    if (cat === "fishing_bait") continue;
+    if (cat === "fishing_bait" || cat === "effect") continue;
     const cfgKey = getShopCatConfigKey(cat);
     const id = shopPreviewState.config[cfgKey];
     if (!id || id === "none") continue;
@@ -1927,6 +2063,12 @@ function sanitizeAvatarConfigToOwned(previewCfg) {
     }
     if (cat === "fishing_bait") {
       if (getConsumableCount(id) > 0) safe[cfgKey] = id;
+      continue;
+    }
+    if (cat === "effect") {
+      if (Array.isArray(userState.ownedEffects) && userState.ownedEffects.includes(id)) {
+        safe.effect = id;
+      }
       continue;
     }
     const item = getItemById(cat, id);
@@ -1988,10 +2130,18 @@ window.confirmMultiBuyShopItems = async function () {
 };
 
 async function purchaseAndEquipPreviewItem(sel) {
+  if (sel && sel.cat === "effect") {
+    const ownedEff = sel.id === "none" || (Array.isArray(userState.ownedEffects) && userState.ownedEffects.includes(sel.id));
+    if (!ownedEff) {
+      await purchaseAvatarEffectWithGoldenCoins(sel);
+      return;
+    }
+  }
   const unownedList = getUnownedPreviewItems();
   if (
     sel &&
     sel.id &&
+    sel.cat !== "effect" &&
     sel.price > 0 &&
     !userState.ownedItems.includes(sel.id) &&
     !unownedList.some(x => x.cat === sel.cat && x.id === sel.id)
@@ -2259,6 +2409,7 @@ window.renderShopCategory = function (cat) {
   const cfgKey = getShopCatConfigKey(cat);
   const isFishingGearCat = cat === "fishing_rod" || cat === "fishing_bait";
   const isGameItemCat = cat === "game_item";
+  const isEffectCat = cat === "effect";
   const items = isGameItemCat
     ? (typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [])
     : (AVATAR_SHOP_ITEMS[cat] || []);
@@ -2269,12 +2420,18 @@ window.renderShopCategory = function (cat) {
       const isConsumable = cat === "fishing_bait" || isGameItemCat;
       const owned = isConsumable
         ? cnt > 0
+        : isEffectCat
+        ? item.id === "none" || (Array.isArray(userState.ownedEffects) && userState.ownedEffects.includes(item.id))
         : (item.purchasable !== false && item.price === 0) || userState.ownedItems.includes(item.id);
       const isEquipped =
-        isFishingGearCat &&
-        userState.avatarConfig &&
-        userState.avatarConfig[cfgKey] === item.id &&
-        (cat !== "fishing_bait" || cnt > 0);
+        (isFishingGearCat &&
+          userState.avatarConfig &&
+          userState.avatarConfig[cfgKey] === item.id &&
+          (cat !== "fishing_bait" || cnt > 0)) ||
+        (isEffectCat &&
+          item.id !== "none" &&
+          userState.avatarConfig &&
+          (userState.avatarConfig.effect || "none") === item.id);
       const previewing =
         cat === "special" || isGameItemCat
           ? shopPreviewState.selectedItem?.id === item.id
@@ -2284,6 +2441,12 @@ window.renderShopCategory = function (cat) {
       const priceText =
         cat === "special" || isGameItemCat
           ? `💿${item.price.toLocaleString()}`
+          : isEffectCat
+          ? isEquipped
+            ? "착용중"
+            : owned
+            ? "보유"
+            : `🪙${item.price.toLocaleString()}`
           : item.purchasable === false && !owned
           ? "출석한정"
           : isEquipped
@@ -2307,7 +2470,7 @@ window.renderShopCategory = function (cat) {
 
       return `
       <div class="apf-tile ${owned && cat !== "special" && !isGameItemCat ? "owned-tile" : ""} ${previewing ? "preview-selected" : ""}" onclick="previewShopItem('${cat}', '${item.id}')">
-        <span class="apf-tile-price ${isEquipped ? "is-equipped" : owned && cat !== "special" && !isGameItemCat ? "is-owned" : ""}">${priceText}</span>
+        <span class="apf-tile-price ${isEquipped ? "is-equipped" : owned && cat !== "special" && !isGameItemCat ? "is-owned" : isEffectCat && !owned ? "is-golden" : ""}">${priceText}</span>
         ${previewing ? `<div class="apf-tile-check">✔</div>` : `<div class="apf-tile-grade ${gradeClass}">${grade}</div>`}
         ${isGameItemCat
           ? `<div style="font-size:2rem; line-height:52px; height:52px; margin-top:7px;">${iconEmoji}</div>`
@@ -2356,7 +2519,13 @@ window.openMyProfileModal = async function () {
   }
   openModal("profileModal");
   const cv = document.getElementById("profileAvatarCanvas");
-  if (cv) renderPixelAvatar(cv, userState.avatarConfig);
+  if (cv) {
+    renderPixelAvatar(cv, userState.avatarConfig);
+    requestAnimationFrame(() => {
+      const m = document.getElementById("profileModal");
+      if (m && !m.classList.contains("hidden")) renderPixelAvatar(cv, userState.avatarConfig);
+    });
+  }
 
   document.getElementById("profileNickDisplay").textContent = userState.nickname;
   document.getElementById("profileCdDisplay").textContent = `💿 ${userState.cdCoins.toLocaleString()} CD`;
@@ -2469,7 +2638,13 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
         document.getElementById("inspectCdDisplay").textContent = `💿 ${(data.cd_coins ?? 0).toLocaleString()} CD`;
         const rawCfg = data.avatar_config || DEFAULT_AVATAR_CONFIG;
         const cv = document.getElementById("inspectAvatarCanvas");
-        if (cv) renderPixelAvatar(cv, rawCfg);
+        if (cv) {
+          renderPixelAvatar(cv, rawCfg);
+          requestAnimationFrame(() => {
+            const m = document.getElementById("userInspectModal");
+            if (m && !m.classList.contains("hidden")) renderPixelAvatar(cv, rawCfg);
+          });
+        }
 
         const targetExp = Number(rawCfg._exp) || 0;
         if (typeof getLevelInfo === "function") {
@@ -4347,7 +4522,11 @@ function startRoomStageCanvasLoop() {
     roomPlayers.forEach((rp, idx) => {
       const live = plazaState.roomPlayersMap.get(rp.id) || {};
       const cfg = live.avatarConfig || rp.avatarConfig || DEFAULT_AVATAR_CONFIG;
-      renderPixelAvatar(offscreen, cfg, { transparentBg: true });
+      renderPixelAvatar(offscreen, cfg, {
+        transparentBg: true,
+        skipEffectLoop: true,
+        staticEffectPhase: performance.now() / 1000
+      });
 
       const defaultX = 80 + idx * 95;
       const drawX = live.x || defaultX;
@@ -5200,6 +5379,12 @@ window.openBagScreen = function () {
   ensureV2DailyState();
   switchScreen("bagScreen");
   renderBagScreen();
+  requestAnimationFrame(() => {
+    const avCv = document.getElementById("bagAvatarCanvas");
+    if (avCv && typeof renderPixelAvatar === "function") {
+      renderPixelAvatar(avCv, userState.avatarConfig);
+    }
+  });
 };
 
 window.renderBagScreen = function () {

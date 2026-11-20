@@ -69,7 +69,7 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 14;
+const SHOP_CATALOG_VERSION = 15;
 
 const GAME_ITEMS_CATALOG = [
   {
@@ -163,25 +163,25 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "default", name: "바가지 머리", price: 0, grade: "C", desc: "깔끔하게 둥글린 옆라인과 윤기 나는\n귀여운 시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
     { id: "blonde", name: "샤이닝 금발", price: 500, grade: "C", desc: "6:4 아이돌 가르마와 부드러운 레이어드\n금발 머릿결이 눈부신 센터 스타일", color: "#facc15", style: "idol_blonde" },
     { id: "bald", name: "반짝 민머리", price: 1100, grade: "B", desc: "햇빛 받으면 눈이 부실 정도로\n매끈반짝 별빛 광택의 시원한 민머리", color: "#fffdf9", style: "bald" },
-    { id: "monkey_hood", name: "몽키 모자", price: 1600, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 후드", color: "#6b3410", style: "monkey" },
-    { id: "sprout_hat", name: "초록 새싹모자", price: 2100, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 스타일", color: "#4ade80", style: "sprout" },
     { id: "mint_comma", name: "민트 쉼표머리", price: 2700, grade: "B", desc: "이마 위로 둥글게 말려 내려오는\nC자 쉼표 앞머리의 상큼 민트초코 헤어", color: "#2dd4bf", style: "comma" },
     { id: "pink_twin", name: "핑크 양갈래", price: 3100, grade: "A", desc: "하트 가르마 앞머리에 별빛 머리끈으로\n통통 튀게 묶은 과즙미 핑크 양갈래", color: "#f472b6", style: "pink_twin" },
     { id: "pigtails", name: "상큼 양갈래", price: 3500, grade: "A", desc: "부드러운 M자 앞머리와 빨간 리본으로\n풍성하게 내린 다크 브라운 웨이브 양갈래", color: "#451a03", style: "brown_twin" },
     { id: "ponytail", name: "하이 포니테일", price: 3900, grade: "A", desc: "사선 앞머리와 함께 높게 묶어 올려\n경쾌하게 찰랑이는 하이 포니테일", color: "#1e293b", style: "ponytail" },
     { id: "rock_red", name: "불꽃 샤기컷", price: 4200, grade: "A", desc: "타오르는 불꽃처럼 사방으로 뻗친\n거친 스파이크와 레드 투톤 샤기컷", color: "#ef4444", style: "spiky" },
-    { id: "octo_hat", name: "문어 모자", price: 4600, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c", style: "octo" },
     { id: "buns", name: "동글 만두머리", price: 5000, grade: "A", desc: "꽈배기 결이 살아있는 동글 경단 두 개에\n진주 비녀가 꽂힌 앙증맞은 만두머리", color: "#3f2e21", style: "buns" },
     { id: "braids", name: "발랄 삐삐머리", price: 5400, grade: "A", desc: "한올 한올 정교하게 땋아 올린\n개성 만점 발랄한 양쪽 삐삐머리", color: "#92400e", style: "braids" },
     { id: "silver_perm", name: "실버 프로듀서", price: 5800, grade: "A", desc: "풍성한 S컬 웨이브 펌이 몽글몽글\n살아있는 세련된 백금발 프로듀서 헤어", color: "#cbd5e1", style: "perm" },
+    { id: "punk_mohawk", name: "펑키스타일", price: 6600, grade: "S", color: "#ec4899", style: "punk_mohawk", desc: "뾰족뾰족 강렬한 네온 스파이크가\n솟구친 락 펑키 헤어 스타일" },
     { id: "violet_twin", name: "보라빛 요정트윈", price: 8500, grade: "S", desc: "요정 날개 머리핀과 영롱한 퍼플\n그라데이션이 빛나는 몽환적 요정 양갈래", color: "#a855f7", style: "violet_twin" }
   ],
   hat: [
     { id: "none", name: "모자 벗기", price: 0, grade: "C", desc: "아무 모자도 쓰지 않은\n시원하고 깔끔한 기본 상태" },
     { id: "headset", name: "프로 헤드셋", price: 1100, grade: "B", desc: "메탈 밴드와 쿠션 패드가 정밀한\n블루투스 스튜디오 프로 헤드셋", color: "#0ea5e9" },
     { id: "bucket_hat", name: "힙합 버킷햇", price: 1400, grade: "B", desc: "스티치와 레드 포인트 로고 패치가 달린\n90년대 감성 블랙 힙합 버킷햇", color: "#1e293b" },
+    { id: "monkey_hood", name: "몽키 모자", price: 1600, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 모자", color: "#6b3410" },
     { id: "acorn_hat", name: "도토리 모자", price: 1700, grade: "B", desc: "격자 무늬 도토리 갓과 나무 꼭지가\n귀여운 가을 숲속 도토리 베레모", color: "#854d0e" },
     { id: "propeller_cap", name: "프로펠러 모자", price: 2000, grade: "B", desc: "꼭대기 하늘색 프로펠러가 빙글빙글!\n개구쟁이 알록달록 패널 캡", color: "#ef4444" },
+    { id: "sprout_hat", name: "초록 새싹모자", price: 2100, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 모자", color: "#4ade80" },
     { id: "big_ribbon", name: "왕리본 머리핀", price: 2400, grade: "B", desc: "주름 디테일과 화사한 핑크 광택이\n사랑스러운 초대형 빅 리본 머리핀", color: "#f43f5e" },
     { id: "bunny_band", name: "토끼귀 머리띠", price: 2800, grade: "B", desc: "부드러운 안쪽 속귀까지 정교한\n쫑긋쫑긋 핑크 토끼귀 머리띠", color: "#fb7185" },
     { id: "cat_ear", name: "고양이 헤드폰", price: 3100, grade: "A", desc: "LED 핑크 삼각 귀와 푹신한 이어컵이\n돋보이는 인기 만점 고양이 헤드폰", color: "#f43f5e" },
@@ -189,11 +189,11 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "cloud_hat", name: "구름모자", price: 3700, grade: "A", desc: "두둥실 하늘에서 따온 듯 몽글몽글하고\n포근한 구름 모양 모자", color: "#f8fafc" },
     { id: "party_hat", name: "파티모자", price: 4000, grade: "A", desc: "알록달록 땡땡이 패턴과 꼭대기\n보송보송 폼폼이 달린 축하 고깔모자", color: "#f43f5e" },
     { id: "angel", name: "천사의 링", price: 4400, grade: "A", desc: "머리 위에서 은은한 아우라로 빛나는\n순백·황금빛 천사의 헤일로", color: "#facc15" },
+    { id: "octo_hat", name: "문어 모자", price: 4600, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c" },
     { id: "bear_hood", name: "곰돌이 모자", price: 4800, grade: "A", desc: "포근한 속귀와 앙증맞은 주둥이 코,\n스티치까지 사랑스러운 곰돌이 모자", color: "#92400e" },
     { id: "devil_horn", name: "꼬마 악마뿔", price: 5100, grade: "A", desc: "강렬한 곡선 뿔과 마디 음영이 돋보이는\n락 스피릿 붉은 악마 뿔 머리띠", color: "#e11d48" },
     { id: "sun_hat", name: "태양모자", price: 5400, grade: "A", desc: "사방으로 눈부신 황금빛 햇살이\n반짝반짝 빛나는 태양 크라운 모자", color: "#f59e0b" },
     { id: "star_hat", name: "별 모자", price: 5800, grade: "A", desc: "밤하늘 별빛 비니 위에 커다란\n황금 왕별이 반짝이는 스페셜 모자", color: "#eab308" },
-    { id: "punk_mohawk", name: "펑키스타일", price: 6600, grade: "S", desc: "뾰족뾰족 강렬한 네온 스파이크와\n스터드 밴드가 솟구친 락 펑키 스타일", color: "#ec4899" },
     { id: "tree_hat", name: "트리 모자", price: 7500, grade: "S", desc: "반짝이는 오너먼트와 꼭대기 황금 별이\n장식된 홀리데이 크리스마스 트리 모자", color: "#16a34a" },
     { id: "royal_crown", name: "보석 왕관", price: 8800, grade: "S", desc: "뾰족한 끝마다 영롱한 사파이어·루비가\n반짝이는 클래식 골드 왕관", color: "#fbbf24" },
     { id: "crown", name: "음악왕 왕관", price: 10000, grade: "S", desc: "가요계 모든 문제를 정복한 절대강자의\n루비·에메랄드 풀세팅 황금 왕관", color: "#f59e0b" }
@@ -362,8 +362,24 @@ const BASE_AVATAR_SHOP_ITEMS = {
       consumable: true,
       desc: "20,000 CD를 사용하여 기본 캐릭터 성별을\n(남자 ↔ 여자) 즉시 전환합니다."
     }
+  ],
+  effect: typeof V3_EFFECT_ITEMS !== "undefined" ? [...V3_EFFECT_ITEMS] : [
+    { id: "none", name: "이펙트 없음", price: 0, grade: "C", purchasable: false, layer: "none", desc: "기본 상태" }
   ]
 };
+
+if (typeof V3_NEW_SHOP_PARTS !== "undefined") {
+  Object.keys(V3_NEW_SHOP_PARTS).forEach(cat => {
+    if (!Array.isArray(BASE_AVATAR_SHOP_ITEMS[cat])) return;
+    const existingIds = new Set(BASE_AVATAR_SHOP_ITEMS[cat].map(x => x.id));
+    V3_NEW_SHOP_PARTS[cat].forEach(item => {
+      if (item && item.id && !existingIds.has(item.id)) {
+        BASE_AVATAR_SHOP_ITEMS[cat].push({ ...item });
+        existingIds.add(item.id);
+      }
+    });
+  });
+}
 
 let AVATAR_SHOP_ITEMS = JSON.parse(JSON.stringify(BASE_AVATAR_SHOP_ITEMS));
 
@@ -375,11 +391,12 @@ const AVATAR_CONFIG_KEY_BY_CAT = {
   outfit: "outfit",
   acc: "acc",
   wing: "wing",
+  effect: "effect",
   fishing_rod: "fishingRod",
   fishing_bait: "fishingBait"
 };
 
-const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "fishing_rod", "fishing_bait"];
+const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "effect", "fishing_rod", "fishing_bait"];
 
 const DEFAULT_AVATAR_CONFIG = {
   gender: "male",
@@ -390,14 +407,41 @@ const DEFAULT_AVATAR_CONFIG = {
   outfit: "basic",
   acc: "mic_silver",
   wing: "none",
+  effect: "none",
   fishingRod: "none",
   fishingBait: "none"
 };
 
+const V3_MOVED_TO_HAT_IDS = new Set(["monkey_hood", "sprout_hat", "octo_hat"]);
+const V3_MOVED_TO_HAIR_IDS = new Set(["punk_mohawk"]);
+
+function migrateLegacyHairHatIds(rawCfg) {
+  const cfg = { ...(rawCfg || {}) };
+  let migrated = false;
+  if (cfg.hat && V3_MOVED_TO_HAIR_IDS.has(cfg.hat)) {
+    const movedId = cfg.hat;
+    if (!cfg.hair || cfg.hair === "default") {
+      cfg.hair = movedId;
+    }
+    cfg.hat = "none";
+    migrated = true;
+  }
+  if (cfg.hair && V3_MOVED_TO_HAT_IDS.has(cfg.hair)) {
+    const movedId = cfg.hair;
+    if (!cfg.hat || cfg.hat === "none") {
+      cfg.hat = movedId;
+    }
+    cfg.hair = "default";
+    migrated = true;
+  }
+  return { cfg, migrated };
+}
+
 function sanitizeAvatarConfigShape(config) {
-  const cfg = { ...DEFAULT_AVATAR_CONFIG, ...(config || {}) };
+  const { cfg: migratedCfg } = migrateLegacyHairHatIds(config);
+  const cfg = { ...DEFAULT_AVATAR_CONFIG, ...migratedCfg };
   if (cfg.face === "singing") cfg.face = "default";
-  ["bg", "hair", "hat", "face", "outfit", "acc", "wing"].forEach(cat => {
+  ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "effect"].forEach(cat => {
     const list = AVATAR_SHOP_ITEMS[cat] || [];
     if (list.length > 0 && !list.some(item => item.id === cfg[cat])) {
       cfg[cat] = DEFAULT_AVATAR_CONFIG[cat] || list[0].id;
@@ -420,12 +464,15 @@ function applyServerShopCatalog(customCatalog, catalogVersion = 0) {
     return;
   }
   Object.keys(BASE_AVATAR_SHOP_ITEMS).forEach(cat => {
+    if (cat === "effect") return;
     const baseList = BASE_AVATAR_SHOP_ITEMS[cat] || [];
     const srvList = Array.isArray(customCatalog[cat]) ? customCatalog[cat] : [];
     const mergedMap = new Map(baseList.map(i => [i.id, { ...i }]));
     srvList.forEach(si => {
       if (!si || !si.id) return;
       if (cat === "face" && si.id === "singing") return;
+      if (cat === "hair" && V3_MOVED_TO_HAT_IDS.has(si.id)) return;
+      if (cat === "hat" && V3_MOVED_TO_HAIR_IDS.has(si.id)) return;
       mergedMap.set(si.id, { ...(mergedMap.get(si.id) || {}), ...si });
     });
     AVATAR_SHOP_ITEMS[cat] = Array.from(mergedMap.values());
@@ -440,6 +487,11 @@ function applyServerShopCatalog(customCatalog, catalogVersion = 0) {
 }
 
 function getItemById(category, id) {
+  if (category === "effect") {
+    return typeof getEffectItemById === "function"
+      ? getEffectItemById(id)
+      : (AVATAR_SHOP_ITEMS.effect || [])[0] || { id: "none", name: "이펙트 없음", price: 0, grade: "C", desc: "" };
+  }
   if (category === "fishing_rod" && (!id || id === "none")) {
     return { id: "none", name: "미착용", price: 0, grade: "C", expMultiplier: 1.0, desc: "낚싯대가 장착되어 있지 않습니다." };
   }
@@ -534,6 +586,7 @@ function drawSparkle(ctx, cx, cy, r = 10, fill = "#ffffff") {
 // ============================================================================
 function drawDetailedInstrument(ctx, accItem, cx, cy, scale = 1) {
   if (!accItem || accItem.id === "none") return;
+  if (typeof drawV3Prop === "function" && drawV3Prop(ctx, accItem, cx, cy, scale)) return;
   const outline = "#1e1b18";
   ctx.save();
   ctx.translate(cx, cy);
@@ -876,6 +929,7 @@ function drawDetailedInstrument(ctx, accItem, cx, cy, scale = 1) {
 // 1. 와이드 파노라마 배경 렌더러 (12종 전종 풀 일러스트 — 홈/상점/아이콘 공용!)
 // ============================================================================
 function renderApfWideBackground(ctx, W, H, bgItem, opts = {}) {
+  if (typeof drawV3Background === "function" && drawV3Background(ctx, W, H, bgItem, opts)) return;
   const id = (bgItem && bgItem.id) || "meadow";
   const c = (bgItem && bgItem.colors) || ["#5ec8f8", "#aee4ff", "#76d32d", "#4d9e12"];
   const isThumb = !!opts.isThumb;
@@ -1217,6 +1271,7 @@ function renderApfWideBackground(ctx, W, H, bgItem, opts = {}) {
 // 고디테일 헤어 렌더러 (15종 개별 일러스트 — 뒷머리 / 앞머리 분리!)
 // ============================================================================
 function drawHairBack(ctx, hairItem) {
+  if (typeof drawV3HairBack === "function" && drawV3HairBack(ctx, hairItem)) return;
   const outline = "#1e1b18";
   const st = hairItem.style || "bowl";
   const hc = hairItem.color || "#27272a";
@@ -1321,6 +1376,7 @@ function drawHairBack(ctx, hairItem) {
 }
 
 function drawHairFront(ctx, hairItem) {
+  if (typeof drawV3HairFront === "function" && drawV3HairFront(ctx, hairItem)) return;
   const outline = "#1e1b18";
   const st = hairItem.style || "bowl";
   const hc = hairItem.color || "#27272a";
@@ -1462,6 +1518,7 @@ function drawHairFront(ctx, hairItem) {
 // 고디테일 의상 렌더러 (15종 전종 — 소매/카라/단추/드레스/멜빵/슈트/신발 공용!)
 // ============================================================================
 function drawDetailedOutfit(ctx, outfitItem, isFemale = false, opts = {}) {
+  if (typeof drawV3Outfit === "function" && drawV3Outfit(ctx, outfitItem, isFemale, opts)) return;
   const id = (outfitItem && outfitItem.id) || "basic";
   const main = (outfitItem && outfitItem.main) || "#ef4444";
   const sub = (outfitItem && outfitItem.sub) || "#ffffff";
@@ -1694,6 +1751,7 @@ function drawDetailedOutfit(ctx, outfitItem, isFemale = false, opts = {}) {
 // 고디테일 얼굴/표정/안경/수염/가면 렌더러 (19종 전종 캐릭터/썸네일 공용!)
 // ============================================================================
 function drawDetailedFace(ctx, faceItem) {
+  if (typeof drawV3Face === "function" && drawV3Face(ctx, faceItem)) return;
   const id = (faceItem && faceItem.id) || "default";
   const outline = "#1e1b18";
 
@@ -1930,6 +1988,7 @@ function drawDetailedFace(ctx, faceItem) {
 // ============================================================================
 function drawDetailedHat(ctx, hatItem) {
   if (!hatItem || hatItem.id === "none") return;
+  if (typeof drawV3Hat === "function" && drawV3Hat(ctx, hatItem)) return;
   const id = hatItem.id;
   const outline = "#1e1b18";
 
@@ -2097,6 +2156,7 @@ function drawDetailedHat(ctx, hatItem) {
 // ============================================================================
 function drawDetailedWing(ctx, wingItem) {
   if (!wingItem || wingItem.id === "none") return;
+  if (typeof drawV3Wing === "function" && drawV3Wing(ctx, wingItem)) return;
   const id = wingItem.id;
   const outline = "#1e1b18";
   ctx.save();
@@ -2216,6 +2276,98 @@ function drawDetailedWing(ctx, wingItem) {
 // ============================================================================
 // 2. 동글동글 만두형 귀요미 캐릭터 렌더러 (최소 480px 고해상도 · 1:1 정배율!)
 // ============================================================================
+function drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options = {}) {
+  const isFemale = cfg.gender === "female";
+  const hairItem = getItemById("hair", cfg.hair);
+  const hatItem = getItemById("hat", cfg.hat);
+  const faceItem = getItemById("face", cfg.face);
+  const outfitItem = getItemById("outfit", cfg.outfit);
+  const accItem = getItemById("acc", cfg.acc);
+  const wingItem = getItemById("wing", cfg.wing);
+
+  const charSize = Math.min(W, H) * 0.94;
+  const offsetX = options.charCenterX !== undefined ? options.charCenterX - charSize / 2 : (W - charSize) / 2;
+  const offsetY = (H - charSize) / 2 + (options.charOffsetY || 14);
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(charSize / 480, charSize / 480);
+
+  const outline = "#1e1b18";
+  const faceWhite = "#fffdf9";
+  const coversFace = !!(hatItem && hatItem.coversFace);
+  const isMonkeyHat = hatItem?.id === "monkey_hood" || hairItem?.style === "monkey";
+
+  // 발밑 동그란 그림자
+  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+  ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 날개·동물 친구들 (등 뒤 최후방 레이어)
+  drawDetailedWing(ctx, wingItem);
+
+  // 뒷머리 (풀페이스 탈/헬멧 또는 원숭이 모자 착용 시 삐져나오지 않게 생략)
+  if (!coversFace && !isMonkeyHat) {
+    drawHairBack(ctx, hairItem);
+  }
+
+  // 의상·다리·신발·소매·장갑
+  drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
+
+  if (!coversFace) {
+    // 양쪽 동글 귀
+    const earR = isMonkeyHat ? 46 : 34;
+    ctx.fillStyle = isMonkeyHat ? "#6b3410" : faceWhite;
+    ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
+    ctx.beginPath(); ctx.arc(105, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(375, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = isMonkeyHat ? "#fffdf9" : "#fda4af";
+    ctx.beginPath();
+    ctx.arc(105, 198, earR * 0.55, 0, Math.PI * 2);
+    ctx.arc(375, 198, earR * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    if (isMonkeyHat) {
+      ctx.strokeStyle = outline; ctx.lineWidth = 5.5; ctx.stroke();
+    }
+
+    // 만두형 동글 얼굴
+    fillRoundRect(ctx, 112, 92, 256, 190, 92, faceWhite, outline, 10);
+
+    // 앞머리 또는 원숭이 모자 얼굴 컷아웃
+    if (hatItem.id === "monkey_hood") {
+      drawDetailedHat(ctx, hatItem);
+    } else if (!isMonkeyHat) {
+      drawHairFront(ctx, hairItem);
+    }
+
+    if (isFemale && hatItem.id === "none") {
+      fillRoundRect(ctx, 312, 96, 52, 32, 12, "#f43f5e", outline, 7);
+      ctx.fillStyle = "#ffe4e6";
+      ctx.beginPath(); ctx.arc(338, 112, 7, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 볼터치
+    ctx.fillStyle = "#fda4af";
+    ctx.beginPath();
+    ctx.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 얼굴 표정·안경·수염·상처·개구리눈·선글라스
+    drawDetailedFace(ctx, faceItem);
+  }
+
+  // 모자·왕관·헤드셋·풀페이스 탈·헬멧 (원숭이 모자는 얼굴 아래층에서 선처리)
+  if (hatItem.id !== "monkey_hood") {
+    drawDetailedHat(ctx, hatItem);
+  }
+
+  // 정밀 악기·소품 렌더링 결합
+  drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
+
+  ctx.restore();
+}
+
 function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {}) {
   if (!canvas) return;
 
@@ -2234,99 +2386,69 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
       canvas.width = targetW;
       canvas.height = targetH;
     }
+  } else if (canvas.width < 120 || canvas.height < 120) {
+    canvas.width = Math.max(480, canvas.width || 480);
+    canvas.height = Math.max(480, canvas.height || 480);
+  }
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const cfg = sanitizeAvatarConfigShape(config);
+  const bgItem = getItemById("bg", cfg.bg);
+  const effectId = cfg.effect && cfg.effect !== "none" ? cfg.effect : "none";
+
+  if (typeof AvatarRenderEngine !== "undefined" && typeof drawV3EffectLayer === "function") {
+    const engineOpts = {
+      transparentBg: !!options.transparentBg,
+      charCenterX: options.charCenterX,
+      charOffsetY: options.charOffsetY
+    };
+    const bgOffscreen = !engineOpts.transparentBg
+      ? AvatarRenderEngine.getOrBakeStaticCanvas({ bg: cfg.bg }, W, H, { transparentBg: false }, (off) => {
+          const octx = off.getContext("2d");
+          octx.save();
+          octx.imageSmoothingEnabled = true;
+          octx.clearRect(0, 0, W, H);
+          renderApfWideBackground(octx, W, H, bgItem);
+          octx.restore();
+        })
+      : null;
+
+    const charOffscreen = AvatarRenderEngine.getOrBakeStaticCanvas(cfg, W, H, { ...engineOpts, transparentBg: true }, (off) => {
+      const octx = off.getContext("2d");
+      octx.save();
+      octx.imageSmoothingEnabled = true;
+      octx.clearRect(0, 0, W, H);
+      drawStaticAvatarCharacterLayer(octx, W, H, cfg, options);
+      octx.restore();
+    });
+
+    const entry = {
+      opts: engineOpts,
+      bgOffscreen,
+      charOffscreen,
+      effectId,
+      maxParticles: options.maxEffectParticles || 8
+    };
+
+    if (effectId !== "none" && !options.skipEffectLoop) {
+      AvatarRenderEngine.registerCanvas(canvas, entry);
+    } else {
+      AvatarRenderEngine.unregisterCanvas(canvas);
+      const phaseSec = options.staticEffectPhase !== undefined ? options.staticEffectPhase : 0.6;
+      AvatarRenderEngine.renderCompositeFrame(canvas, entry, phaseSec);
+    }
+    return;
   }
 
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
-
-  const cfg = sanitizeAvatarConfigShape(config);
-  const isFemale = cfg.gender === "female";
-
-  const bgItem = getItemById("bg", cfg.bg);
-  const hairItem = getItemById("hair", cfg.hair);
-  const hatItem = getItemById("hat", cfg.hat);
-  const faceItem = getItemById("face", cfg.face);
-  const outfitItem = getItemById("outfit", cfg.outfit);
-  const accItem = getItemById("acc", cfg.acc);
-  const wingItem = getItemById("wing", cfg.wing);
-
   if (!options.transparentBg) {
     renderApfWideBackground(ctx, W, H, bgItem);
   }
-
-  const charSize = Math.min(W, H) * 0.94;
-  const offsetX = options.charCenterX !== undefined ? options.charCenterX - charSize / 2 : (W - charSize) / 2;
-  const offsetY = (H - charSize) / 2 + (options.charOffsetY || 14);
-
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(charSize / 480, charSize / 480);
-
-  const outline = "#1e1b18";
-  const faceWhite = "#fffdf9";
-
-  // 발밑 동그란 그림자
-  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-  ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
-
-  // 날개 (등 뒤 최후방 레이어)
-  drawDetailedWing(ctx, wingItem);
-
-  // 뒷머리 (양갈래·삐삐머리·포니테일·샤기·퍼머)
-  drawHairBack(ctx, hairItem);
-
-  // 의상·다리·신발·소매·장갑
-  drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
-
-  // 양쪽 동글 귀
-  const isMonkey = hairItem.style === "monkey";
-  const earR = isMonkey ? 46 : 34;
-  ctx.fillStyle = isMonkey ? "#6b3410" : faceWhite;
-  ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
-  ctx.beginPath(); ctx.arc(105, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(375, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-  ctx.fillStyle = isMonkey ? "#fffdf9" : "#fda4af";
-  ctx.beginPath();
-  ctx.arc(105, 198, earR * 0.55, 0, Math.PI * 2);
-  ctx.arc(375, 198, earR * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-  if (isMonkey) {
-    ctx.strokeStyle = outline; ctx.lineWidth = 5.5; ctx.stroke();
-  }
-
-  // 만두형 동글 얼굴
-  fillRoundRect(ctx, 112, 92, 256, 190, 92, faceWhite, outline, 10);
-
-  // 앞머리 (15종 개별 일러스트)
-  drawHairFront(ctx, hairItem);
-
-  if (isFemale && hatItem.id === "none") {
-    fillRoundRect(ctx, 312, 96, 52, 32, 12, "#f43f5e", outline, 7);
-    ctx.fillStyle = "#ffe4e6";
-    ctx.beginPath(); ctx.arc(338, 112, 7, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // 볼터치
-  ctx.fillStyle = "#fda4af";
-  ctx.beginPath();
-  ctx.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
-  ctx.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 얼굴 표정·안경·수염·상처·개구리눈·가면 (19종)
-  drawDetailedFace(ctx, faceItem);
-
-  // 모자·왕관·헤드셋·펑키·트리·구름·태양·별·파티 (20종)
-  drawDetailedHat(ctx, hatItem);
-
-  // 정밀 악기 렌더링 결합! (20종)
-  drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
-
+  drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options);
   ctx.restore();
 }
 
@@ -2387,7 +2509,25 @@ function renderItemThumbnail(canvas, category, item) {
     if (item.id === "none") {
       ctx.strokeStyle = "#57534e"; ctx.lineWidth = 8;
       ctx.beginPath(); ctx.arc(120, 120, 44, 0, Math.PI * 2); ctx.moveTo(90, 90); ctx.lineTo(150, 150); ctx.stroke();
-    } else if (item.id === "headset" || item.id === "cat_ear") {
+    } else if (item.coversFace) {
+      ctx.save();
+      ctx.translate(120, 134);
+      ctx.scale(0.52, 0.52);
+      ctx.translate(-240, -172);
+      drawDetailedHat(ctx, item);
+      ctx.restore();
+    } else if (item.id === "monkey_hood") {
+      ctx.save();
+      ctx.translate(120, 128);
+      ctx.scale(0.55, 0.55);
+      ctx.translate(-240, -172);
+      ctx.fillStyle = "#6b3410"; ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
+      ctx.beginPath(); ctx.arc(105, 198, 46, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(375, 198, 46, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 112, 92, 256, 190, 92, "#fffdf9", outline, 10);
+      drawDetailedHat(ctx, item);
+      ctx.restore();
+    } else if (item.id === "headset" || item.id === "cat_ear" || item.id === "cupid_wings") {
       ctx.save();
       ctx.translate(120, 124);
       ctx.scale(0.56, 0.56);
@@ -2397,8 +2537,8 @@ function renderItemThumbnail(canvas, category, item) {
     } else {
       ctx.save();
       ctx.translate(120, 138);
-      ctx.scale(0.74, 0.74);
-      ctx.translate(-240, -68);
+      ctx.scale(0.72, 0.72);
+      ctx.translate(-240, -72);
       drawDetailedHat(ctx, item);
       ctx.restore();
     }
@@ -2409,10 +2549,14 @@ function renderItemThumbnail(canvas, category, item) {
     } else {
       ctx.save();
       ctx.translate(120, 124);
-      ctx.scale(0.56, 0.56);
+      ctx.scale(0.52, 0.52);
       ctx.translate(-240, -292);
       drawDetailedWing(ctx, item);
       ctx.restore();
+    }
+  } else if (category === "effect") {
+    if (typeof drawV3EffectThumbnail === "function") {
+      drawV3EffectThumbnail(ctx, item);
     }
   } else if (category === "outfit") {
     ctx.save();

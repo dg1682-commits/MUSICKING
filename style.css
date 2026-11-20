@@ -3505,26 +3505,48 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
 
 .shop-group-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 6px 8px 2px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px 6px 2px;
   background: #e0f2fe;
 }
 
 .shop-group-btn {
-  padding: 6px 4px;
+  padding: 6px 2px;
   border-radius: 9px;
   border: 2px solid #1e1b18;
   background: #ffffff;
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 900;
   color: #1e1b18;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .shop-group-btn.active {
   background: #facc15;
   box-shadow: 0 2px 0 #1e1b18;
+}
+
+.cd-pill.golden-coin-pill {
+  background: linear-gradient(135deg, #fef08a, #f59e0b);
+  color: #1e1b18;
+  border-color: #1e1b18;
+}
+
+.apf-tile-price.is-golden {
+  background: linear-gradient(135deg, #fef08a, #f59e0b);
+  color: #1e1b18;
+  border-color: #1e1b18;
+}
+
+.boot-warmup-overlay {
+  z-index: 9960;
+}
+
+.boot-warmup-overlay .fishing-loading-bar-fill {
+  background: linear-gradient(90deg, #38bdf8, #6366f1);
+  transition: width 0.22s ease;
 }
 
 .quick-items-bar {
