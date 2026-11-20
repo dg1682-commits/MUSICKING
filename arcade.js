@@ -125,6 +125,8 @@ const arcadeState = {
   activeGameId: null,
   activeStartedAt: 0,
   activeInstance: null,
+  bgmNeedsRestart: false,
+  isGameEnded: false,
   isStarting: false,
   isSubmitting: false,
   isTransitioning: false,
@@ -927,9 +929,12 @@ window.cleanupArcadeRuntime = function () {
   arcadeState.activeInstance = null;
   arcadeState.activeSessionId = null;
   arcadeState.activeGameId = null;
+  arcadeState.bgmNeedsRestart = false;
+  arcadeState.isGameEnded = false;
   arcadeState.isStarting = false;
   arcadeState.isSubmitting = false;
   arcadeState.lastHudSig = "";
+  if (typeof stopArcadeGameBgm === "function") stopArcadeGameBgm();
 };
 
 window.resetArcadeAccountState = function () {
@@ -1028,6 +1033,8 @@ window.playArcadeCabinet = async function (gameId, opts = {}) {
     arcadeState.activeGameId = gameId;
     arcadeState.activeStartedAt = performance.now();
     arcadeState.lastHudSig = "";
+    arcadeState.isGameEnded = false;
+    arcadeState.bgmNeedsRestart = true;
 
     const cutC = Number(data.cut_c ?? meta.cut_c);
     const cutA = Number(data.cut_a ?? meta.cut_a);
@@ -1121,6 +1128,9 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
   }
   arcadeState.activeInstance = null;
   arcadeState.activeSessionId = null;
+  arcadeState.bgmNeedsRestart = false;
+  arcadeState.isGameEnded = true;
+  if (typeof stopArcadeGameBgm === "function") stopArcadeGameBgm();
 
   // 서버 최소 1초 경과 검증 안전 대기 (혹시 조기 종료 시 0점 방지)
   if (elapsedMs < 1150) {

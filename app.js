@@ -470,25 +470,39 @@ window.armAppBackGuard = function (forceWithGesture = false) {
   } catch (e) {}
 };
 
+function getAllBgmAudios() {
+  return [
+    bgmState.mainAudio,
+    bgmState.shopAudio,
+    bgmState.fishAudio,
+    bgmState.arcadeLobbyAudio,
+    bgmState.arcadeGameAudio
+  ].filter(Boolean);
+}
+
+function pauseBgmAudios(exceptAudio = null) {
+  getAllBgmAudios().forEach(audio => {
+    if (audio === exceptAudio) return;
+    try {
+      audio.pause();
+    } catch (e) {}
+  });
+}
+
 function stopAllAppAudio(releaseSources = false) {
   stopAudio();
   stopTimeAttackTimer();
   try {
-    bgmState.mainAudio.pause();
-    bgmState.shopAudio.pause();
-    if (bgmState.fishAudio) bgmState.fishAudio.pause();
+    pauseBgmAudios(null);
     if (releaseSources) {
-      bgmState.mainAudio.currentTime = 0;
-      bgmState.shopAudio.currentTime = 0;
-      bgmState.mainAudio.removeAttribute("src");
-      bgmState.shopAudio.removeAttribute("src");
-      bgmState.mainAudio.load();
-      bgmState.shopAudio.load();
-      if (bgmState.fishAudio) {
-        bgmState.fishAudio.currentTime = 0;
-        bgmState.fishAudio.removeAttribute("src");
-        bgmState.fishAudio.load();
-      }
+      getAllBgmAudios().forEach(audio => {
+        try {
+          audio.currentTime = 0;
+          audio.removeAttribute("src");
+          audio.load();
+        } catch (e) {}
+      });
+      bgmState.arcadeGameSrc = "";
     }
     (bgmState.clickPool || []).forEach(a => {
       try {
@@ -1015,12 +1029,26 @@ window.confirmExitSingleGame = function () {
 // 배경음악(BGM) & 모든 버튼 클릭 효과음(bgm/click.wav) 컨트롤
 // ============================================================================
 const FISH_BGM_CANDIDATES = ["./bgm/fish.mp3?v=10.21", "./bgm/FISH.MP3?v=10.21", "./BGM/fish.mp3?v=10.21"];
+const ARCADE_LOBBY_BGM_SRC = "./bgm/arcade.mp3";
+const ARCADE_GAME_BGM_MAP = {
+  star_dodge: "./bgm/ar_1.mp3",
+  side_sort: "./bgm/ar_2.mp3",
+  animal_match: "./bgm/ar_3.mp3",
+  melody_memory: null, // 기억하기는 9패드 멜로디를 들어야 하므로 BGM 미재생
+  jump_runner: "./bgm/ar_5.mp3",
+  color_sort: "./bgm/ar_6.mp3",
+  brick_breaker: "./bgm/ar_7.mp3",
+  note_pang: "./bgm/ar_8.mp3"
+};
 
 const bgmState = {
   mainAudio: new Audio("./bgm/main.mp3"),
   shopAudio: new Audio("./bgm/shop.mp3"),
   fishAudio: new Audio(),
   fishAudioIdx: 0,
+  arcadeLobbyAudio: new Audio(),
+  arcadeGameAudio: new Audio(),
+  arcadeGameSrc: "",
   clickPool: Array.from({ length: 4 }, () => {
     const a = new Audio("./bgm/click.wav");
     a.volume = 0.45;
@@ -1037,6 +1065,12 @@ bgmState.shopAudio.volume = 0.22;
 bgmState.fishAudio.loop = true;
 bgmState.fishAudio.volume = 0.25;
 bgmState.fishAudio.preload = "none";
+bgmState.arcadeLobbyAudio.loop = true;
+bgmState.arcadeLobbyAudio.volume = 0.22;
+bgmState.arcadeLobbyAudio.preload = "none";
+bgmState.arcadeGameAudio.loop = true;
+bgmState.arcadeGameAudio.volume = 0.20;
+bgmState.arcadeGameAudio.preload = "none";
 
 function isAppAudioBlocked() {
   return Boolean(appExited || document.hidden || bgmState.muted || window.__onestorePaused || window.__onestoreRingerSilent);
@@ -1054,11 +1088,17 @@ bgmState.fishAudio.addEventListener("error", () => {
   }
 });
 
-bgmState.fishAudio.addEventListener("canplay", () => {
-  if (!isAppAudioBlocked() && bgmState.currentType === "fish" && bgmState.fishAudio.paused) {
-    bgmState.fishAudio.play().catch(() => {});
-  }
-});
+function bindLazyBgmCanPlay(audioEl, expectedType) {
+  audioEl.addEventListener("canplay", () => {
+    if (!isAppAudioBlocked() && bgmState.currentType === expectedType && audioEl.paused) {
+      audioEl.play().catch(() => {});
+    }
+  });
+}
+
+bindLazyBgmCanPlay(bgmState.fishAudio, "fish");
+bindLazyBgmCanPlay(bgmState.arcadeLobbyAudio, "arcade_lobby");
+bindLazyBgmCanPlay(bgmState.arcadeGameAudio, "arcade_game");
 
 function playFishingBgmSafely() {
   if (!bgmState.fishAudio || isAppAudioBlocked()) return;
@@ -1072,6 +1112,50 @@ function playFishingBgmSafely() {
     bgmState.fishAudio.play().catch(() => {});
   }
 }
+
+function playArcadeLobbyBgmSafely() {
+  if (!bgmState.arcadeLobbyAudio || isAppAudioBlocked()) return;
+  const hasSrc = Boolean(bgmState.arcadeLobbyAudio.getAttribute("src"));
+  if (!hasSrc || bgmState.arcadeLobbyAudio.error) {
+    bgmState.arcadeLobbyAudio.src = ARCADE_LOBBY_BGM_SRC;
+    bgmState.arcadeLobbyAudio.load();
+  }
+  if (bgmState.arcadeLobbyAudio.paused) {
+    bgmState.arcadeLobbyAudio.play().catch(() => {});
+  }
+}
+
+function playArcadeGameBgmSafely(gameId, restart = false) {
+  const src =
+    gameId && Object.prototype.hasOwnProperty.call(ARCADE_GAME_BGM_MAP, gameId)
+      ? ARCADE_GAME_BGM_MAP[gameId]
+      : null;
+  if (!bgmState.arcadeGameAudio || !src || isAppAudioBlocked()) return;
+  if (bgmState.arcadeGameSrc !== src || bgmState.arcadeGameAudio.error) {
+    bgmState.arcadeGameSrc = src;
+    bgmState.arcadeGameAudio.src = src;
+    bgmState.arcadeGameAudio.load();
+  } else if (restart) {
+    try {
+      bgmState.arcadeGameAudio.currentTime = 0;
+    } catch (e) {}
+  }
+  if (bgmState.arcadeGameAudio.paused) {
+    bgmState.arcadeGameAudio.play().catch(() => {});
+  }
+}
+
+window.stopArcadeGameBgm = function () {
+  if (bgmState.arcadeGameAudio) {
+    try {
+      bgmState.arcadeGameAudio.pause();
+      bgmState.arcadeGameAudio.currentTime = 0;
+    } catch (e) {}
+  }
+  if (bgmState.currentType === "arcade_game") {
+    bgmState.currentType = "none";
+  }
+};
 
 window.playClickSfx = function () {
   if (isAppAudioBlocked()) return;
@@ -1155,37 +1239,58 @@ function updateBgmForScreen(screenId) {
   syncFloatingSoundBtn(screenId);
 
   if (isAppAudioBlocked()) {
-    bgmState.mainAudio.pause();
-    bgmState.shopAudio.pause();
-    if (bgmState.fishAudio) bgmState.fishAudio.pause();
+    pauseBgmAudios(null);
     bgmState.currentType = "none";
     return;
   }
 
-  // 게임 진행 화면 & 결과 화면만 BGM 정지 (상점=shop.mp3, 낚시터=fish.mp3, 친구목록 포함 그 외 화면=main.mp3)
-  if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen", "arcadePlayScreen"].includes(screenId)) {
-    bgmState.mainAudio.pause();
-    bgmState.shopAudio.pause();
-    if (bgmState.fishAudio) bgmState.fishAudio.pause();
+  // 퀴즈 진행/판정/결과/온라인 대결 플레이 화면은 BGM 정지
+  if (["gameScreen", "judgeScreen", "resultScreen", "battlePlayScreen"].includes(screenId)) {
+    pauseBgmAudios(null);
     bgmState.currentType = "none";
+    return;
+  }
+
+  if (screenId === "arcadePlayScreen") {
+    const arcEnded = typeof arcadeState !== "undefined" && Boolean(arcadeState.isGameEnded);
+    const activeGameId = typeof arcadeState !== "undefined" ? arcadeState.activeGameId : null;
+    const gameBgmSrc =
+      !arcEnded && activeGameId && Object.prototype.hasOwnProperty.call(ARCADE_GAME_BGM_MAP, activeGameId)
+        ? ARCADE_GAME_BGM_MAP[activeGameId]
+        : null;
+    if (!gameBgmSrc) {
+      // 기억하기(melody_memory) 또는 결과 정산 모달 대기 상태에서는 BGM 무음
+      pauseBgmAudios(null);
+      bgmState.currentType = "none";
+      return;
+    }
+    pauseBgmAudios(bgmState.arcadeGameAudio);
+    bgmState.currentType = "arcade_game";
+    const shouldRestart = typeof arcadeState !== "undefined" && Boolean(arcadeState.bgmNeedsRestart);
+    if (typeof arcadeState !== "undefined") arcadeState.bgmNeedsRestart = false;
+    playArcadeGameBgmSafely(activeGameId, shouldRestart);
+    return;
+  }
+
+  if (screenId === "arcadeScreen") {
+    pauseBgmAudios(bgmState.arcadeLobbyAudio);
+    bgmState.currentType = "arcade_lobby";
+    playArcadeLobbyBgmSafely();
     return;
   }
 
   if (screenId === "shopScreen") {
-    bgmState.mainAudio.pause();
-    if (bgmState.fishAudio) bgmState.fishAudio.pause();
+    pauseBgmAudios(bgmState.shopAudio);
     bgmState.currentType = "shop";
     if (bgmState.shopAudio.paused) {
       bgmState.shopAudio.play().catch(() => {});
     }
   } else if (screenId === "fishingScreen") {
-    bgmState.mainAudio.pause();
-    bgmState.shopAudio.pause();
+    pauseBgmAudios(bgmState.fishAudio);
     bgmState.currentType = "fish";
     playFishingBgmSafely();
   } else {
-    bgmState.shopAudio.pause();
-    if (bgmState.fishAudio) bgmState.fishAudio.pause();
+    pauseBgmAudios(bgmState.mainAudio);
     bgmState.currentType = "main";
     if (bgmState.mainAudio.paused) {
       bgmState.mainAudio.play().catch(() => {});
@@ -1202,6 +1307,11 @@ document.addEventListener(
     if (!isAppAudioBlocked() && bgmState.currentType !== "none") {
       if (bgmState.currentType === "fish") {
         playFishingBgmSafely();
+      } else if (bgmState.currentType === "arcade_lobby") {
+        playArcadeLobbyBgmSafely();
+      } else if (bgmState.currentType === "arcade_game") {
+        const activeGameId = typeof arcadeState !== "undefined" ? arcadeState.activeGameId : null;
+        playArcadeGameBgmSafely(activeGameId, false);
       } else {
         const targetAudio = bgmState.currentType === "shop" ? bgmState.shopAudio : bgmState.mainAudio;
         if (targetAudio && targetAudio.paused) {
