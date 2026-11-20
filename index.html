@@ -163,7 +163,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=24.3" />
+  <link rel="stylesheet" href="style.css?v=24.4" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -1466,6 +1466,7 @@
           <li><strong>🖼️ 대기방 캐릭터 &amp; 디자인 방 설정 개편</strong>: 대기방 캐릭터가 상점과 동일한 비율로 훨씬 크고 선명하게 표시되며, 방 설정 변경이 깔끔한 전용 디자인 팝업으로 변경되었습니다.</li>
           <li><strong>💬 프로필 클릭 통합 &amp; DM 대화 삭제</strong>: 친구목록·대화목록·채팅방·접속자 목록에서 별도 버튼 대신 <strong>프로필 사진/닉네임 터치</strong>로 바로 프로필을 열 수 있고, 대화 목록에서 원치 않는 대화방을 내 목록에서 지울 수 있습니다.</li>
           <li><strong>🔔 알림 반짝임 &amp; 🎣 낚시터 시인성 개선</strong>: 새 알림 도착 시 알림 버튼이 반짝이며 강조되고, 낚시터 좌측 하단 보유 CD·경험치 글씨 크기 및 투명도가 개선되었습니다. (상점 보유 템 장착 오류 해결 포함)</li>
+          <li><strong>🔊 오락실 8종 전용 레트로 효과음(SFX) 탑재</strong>: 별피하기·니꺼내꺼·짝맞추기·기억하기·점프점프·정리고수·뿌셔뿌셔·음표팡팡의 점프·폭발·벽돌파괴·카드뒤집기·피버·스테이지 클리어 액션별 효과음이 전면 추가되었습니다.</li>
         </ul>
 
         <p style="font-weight:900; color:#7c3aed; margin-bottom:5px; font-size:0.92rem;">🕹️ V3.0 황금오락실 &amp; 캐릭터 이펙트 대개편</p>
@@ -2154,14 +2155,15 @@
     <div id="pwa-ios-arrow" style="display: none; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #38bdf8;"></div>
   </div>
 
-  <script defer src="data.js?v=24.3"></script>
-  <script defer src="pixel_avatar_v3.js?v=24.3"></script>
-  <script defer src="pixel_avatar.js?v=24.3"></script>
-  <script defer src="online.js?v=24.3"></script>
-  <script defer src="fishing.js?v=24.3"></script>
-  <script defer src="arcade_games.js?v=24.3"></script>
-  <script defer src="arcade.js?v=24.3"></script>
-  <script defer src="app.js?v=24.3"></script>
+  <script defer src="data.js?v=24.4"></script>
+  <script defer src="pixel_avatar_v3.js?v=24.4"></script>
+  <script defer src="pixel_avatar.js?v=24.4"></script>
+  <script defer src="online.js?v=24.4"></script>
+  <script defer src="fishing.js?v=24.4"></script>
+  <script defer src="arcade_sfx.js?v=24.4"></script>
+  <script defer src="arcade_games.js?v=24.4"></script>
+  <script defer src="arcade.js?v=24.4"></script>
+  <script defer src="app.js?v=24.4"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

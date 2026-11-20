@@ -1,93 +1,11 @@
 // ============================================================================
-// [음악왕 V3.0] 오락실 미니게임 8종 통합 엔진 (arcade_games.js)
+// [음악왕 V3.0/V3.1] 오락실 미니게임 8종 통합 엔진 (arcade_games.js)
 // - 본게임과 동일한 #1e1b18 굵은 잉크 외곽선 & 선명한 카툰 톤앤매너 통일
+// - 효과음 엔진(ArcadeSfx)은 arcade_sfx.js에서 순수 Web Audio API로 제공됨
 // - 1. 별피하기(star_dodge)    2. 니꺼내꺼(side_sort)    3. 짝맞추기(animal_match)
 // - 4. 기억하기(melody_memory) 5. 점프점프(jump_runner)  6. 정리고수(color_sort)
 // - 7. 뿌셔뿌셔(brick_breaker) 8. 음표팡팡(note_pang)
 // ============================================================================
-
-const ArcadeSfx = (() => {
-  let audioCtx = null;
-
-  function isMuted() {
-    if (typeof appExited !== "undefined" && appExited) return true;
-    if (document.hidden) return true;
-    if (typeof bgmState !== "undefined" && bgmState.muted) return true;
-    if (window.__onestorePaused || window.__onestoreRingerSilent) return true;
-    return false;
-  }
-
-  function ensureCtx() {
-    if (isMuted()) return null;
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      if (!audioCtx) audioCtx = new AC();
-      if (audioCtx.state === "suspended") {
-        audioCtx.resume().catch(() => {});
-      }
-      return audioCtx;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function unlock() {
-    ensureCtx();
-  }
-
-  function tone(freq, dur = 0.16, type = "triangle", vol = 0.16, slideTo = null) {
-    const ctx = ensureCtx();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, now);
-      if (slideTo) {
-        osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), now + dur);
-      }
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(vol, now + 0.014);
-      gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + dur + 0.02);
-    } catch (e) {}
-  }
-
-  function coin() {
-    tone(987.77, 0.08, "square", 0.09);
-    setTimeout(() => tone(1318.51, 0.18, "square", 0.09), 65);
-  }
-
-  function jump(isDouble = false) {
-    tone(isDouble ? 420 : 290, 0.14, "triangle", 0.14, isDouble ? 820 : 620);
-  }
-
-  function pop(combo = 1) {
-    const pitch = Math.min(1046, 440 + combo * 42);
-    tone(pitch, 0.12, "sine", 0.15, pitch * 1.28);
-  }
-
-  function hit() {
-    tone(180, 0.22, "sawtooth", 0.12, 75);
-  }
-
-  function wrong() {
-    tone(195, 0.16, "sawtooth", 0.1, 130);
-  }
-
-  function clear() {
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
-      setTimeout(() => tone(f, 0.18, "triangle", 0.15), idx * 75);
-    });
-  }
-
-  return { unlock, tone, coin, jump, pop, hit, wrong, clear };
-})();
 
 // [V3.0] 황금오락실 공용 오프스크린 에셋 캐시 (로딩 중 사전 베이킹해 플레이 렉 방지)
 const ArcadeAssetCache = (() => {
@@ -701,7 +619,7 @@ function createStarDodgeGame(mountEl, hooks) {
         if (g.isShield) {
           hasShield = true;
           score += 40;
-          ArcadeSfx.pop(3);
+          ArcadeSfx.powerup();
         } else {
           score += 55;
           ArcadeSfx.coin();
@@ -753,9 +671,11 @@ function createStarDodgeGame(mountEl, hooks) {
         if (hasShield) {
           hasShield = false;
           invulnSec = 0.8;
-          ArcadeSfx.pop(1);
+          ArcadeSfx.crash();
+          ArcadeSfx.hit1();
         } else {
-          ArcadeSfx.hit();
+          ArcadeSfx.hitDamage();
+          ArcadeSfx.boom2();
           stopped = true;
           syncHud();
           hooks.onFinish(Math.floor(score), "유성 충돌! 게임 종료");
@@ -910,22 +830,24 @@ function createSideSortGame(mountEl, hooks) {
         timeLeft = Math.min(99.0, timeLeft + 0.5);
         feverLeft -= 1;
         popups.push({ text: `+0.5초! (+${pts})`, x: W / 2, y: 244, col: "#d97706", alpha: 1.15 });
-        ArcadeSfx.pop(Math.min(14, combo + 3));
+        ArcadeSfx.click2();
+        ArcadeSfx.pop(Math.min(13, combo + 3));
         if (feverLeft <= 0) {
           inFever = false;
           feverLeft = 0;
           normalStreak = 0;
-          ArcadeSfx.clear();
+          ArcadeSfx.stageClear();
           popups.push({ text: "✨ FEVER 완료! 20연속 재도전!", x: W / 2, y: 208, col: "#2563eb", alpha: 1.45 });
         }
       } else {
         normalStreak += 1;
+        ArcadeSfx.click2();
         ArcadeSfx.pop(combo);
         if (normalStreak >= 20) {
           inFever = true;
           feverLeft = 20;
           normalStreak = 0;
-          ArcadeSfx.clear();
+          ArcadeSfx.fever();
           popups.push({ text: "🔥 FEVER TIME! (+0.5s × 20개)", x: W / 2, y: 214, col: "#dc2626", alpha: 1.55 });
         }
       }
@@ -949,7 +871,7 @@ function createSideSortGame(mountEl, hooks) {
       timeLeft = Math.max(0, timeLeft - 3.0);
       stunUntil = now + 240;
       missFlashUntil = now + 380;
-      ArcadeSfx.wrong();
+      ArcadeSfx.hitDamage();
       popups.push({
         text: wasFever ? "-3.0초! FEVER 종료" : "-3.0초!",
         x: W / 2,
@@ -1237,7 +1159,7 @@ function createAnimalMatchGame(mountEl, hooks) {
 
     card.open = true;
     flippedIds.push(cid);
-    ArcadeSfx.tone(520, 0.06, "sine", 0.08);
+    ArcadeSfx.cardFlip();
     renderBoard();
 
     if (flippedIds.length === 2) {
@@ -1257,7 +1179,7 @@ function createAnimalMatchGame(mountEl, hooks) {
           score += 220;
           timeLeft = Math.min(75, timeLeft + 5);
           stage += 1;
-          ArcadeSfx.clear();
+          ArcadeSfx.stageClear();
           setTimeout(() => {
             if (!stopped) setupStage();
           }, 420);
@@ -1421,7 +1343,7 @@ function createMelodyMemoryGame(mountEl, hooks) {
         round += 1;
         phase = "wait";
         if (bannerEl) bannerEl.textContent = "🎉 라운드 클리어! 다음 단계 준비 중...";
-        ArcadeSfx.clear();
+        ArcadeSfx.stageClear();
         syncHud();
         safeTimeout(() => startNextRound(true), 680);
         return;
@@ -1429,7 +1351,7 @@ function createMelodyMemoryGame(mountEl, hooks) {
       syncHud();
     } else {
       hearts -= 1;
-      ArcadeSfx.wrong();
+      ArcadeSfx.hitDamage();
       syncHud();
       if (hearts <= 0) {
         stopped = true;
@@ -1743,7 +1665,10 @@ function createJumpRunnerGame(mountEl, hooks) {
       if (!qb.hit && Math.abs(player.x - qb.x) < 34 && Math.abs(player.y - qb.y) < 36) {
         qb.hit = true;
         score += 80;
-        ArcadeSfx.coin();
+        ArcadeSfx.hit1();
+        setTimeout(() => {
+          if (!stopped) ArcadeSfx.coin();
+        }, 55);
       }
       if (qb.x < -50) qBlocks.splice(i, 1);
     }
@@ -1808,7 +1733,8 @@ function createJumpRunnerGame(mountEl, hooks) {
           player.knockSec = 0.42;
           dyingTimer = 0.42;
           dyingReason = "토관 충돌! 점프점프 완료";
-          ArcadeSfx.hit();
+          ArcadeSfx.hitDamage();
+          ArcadeSfx.boom1();
         }
       } else {
         // 뾰족 몬스터 (살짝 통통 뛰며 접근)
@@ -1829,7 +1755,7 @@ function createJumpRunnerGame(mountEl, hooks) {
               score += 75;
               player.vy = -440;
               player.jumpsLeft = 1;
-              ArcadeSfx.pop(2);
+              ArcadeSfx.bounce2();
               obstacles.splice(i, 1);
               continue;
             } else {
@@ -1846,7 +1772,8 @@ function createJumpRunnerGame(mountEl, hooks) {
               o.vy = -290;
               dyingTimer = 0.42;
               dyingReason = "몬스터 충돌! 점프점프 완료";
-              ArcadeSfx.hit();
+              ArcadeSfx.hitDamage();
+              ArcadeSfx.crash();
               continue;
             }
           }
@@ -2048,7 +1975,9 @@ function createColorSortGame(mountEl, hooks) {
             comboWindow = 2.9;
             const pts = Math.round((110 + (run.len - 3) * 45) * (1 + Math.min(8, combo - 1) * 0.45));
             score += pts;
-            ArcadeSfx.pop(Math.min(14, combo));
+            if (combo >= 3) ArcadeSfx.boom2();
+            else ArcadeSfx.boom1();
+            ArcadeSfx.pop(Math.min(13, combo));
             popups.push({
               x: colCenterX(c),
               y: BOARD_TOP + run.midRow * ROW_PITCH,
@@ -2068,7 +1997,8 @@ function createColorSortGame(mountEl, hooks) {
     if (overflow) {
       held = null;
       stopped = true;
-      ArcadeSfx.hit();
+      ArcadeSfx.boom3();
+      ArcadeSfx.hitDamage();
       syncHud();
       hooks.onFinish(score, "블록이 바닥 위험선을 넘었습니다!");
       return true;
@@ -2085,10 +2015,11 @@ function createColorSortGame(mountEl, hooks) {
     for (let c = 0; c < 3; c++) cols[c].unshift(row[c]);
     if (fromUser) {
       score += 20;
-      ArcadeSfx.tone(660, 0.06, "triangle", 0.09);
+      ArcadeSfx.click2();
+      ArcadeSfx.pop(2);
       popups.push({ x: W / 2, y: 112, text: "⚡ +20", col: "#38bdf8", alpha: 0.9 });
     } else {
-      ArcadeSfx.tone(240, 0.07, "triangle", 0.08);
+      ArcadeSfx.hit2();
     }
     resolveAllMatches();
     checkOverflowEnd();
@@ -2105,7 +2036,7 @@ function createColorSortGame(mountEl, hooks) {
     }
     stack.splice(stack.length - count, count);
     held = { fromCol: ci, color, count };
-    ArcadeSfx.tone(540, 0.05, "triangle", 0.11);
+    ArcadeSfx.click1();
     return true;
   }
 
@@ -2114,7 +2045,7 @@ function createColorSortGame(mountEl, hooks) {
     const { fromCol, color, count } = held;
     held = null;
     for (let k = 0; k < count; k++) cols[ci].push(color);
-    ArcadeSfx.tone(440, 0.05, "triangle", 0.1);
+    ArcadeSfx.click2();
     if (ci !== fromCol) {
       resolveAllMatches();
     }
@@ -2587,12 +2518,12 @@ function createBrickBreakerGame(mountEl, hooks) {
             balls.push({ x: ref.x, y: ref.y, vx: -180, vy: -Math.abs(ref.vy || 300), r: 9 });
             balls.push({ x: ref.x, y: ref.y, vx: 180, vy: -Math.abs(ref.vy || 300), r: 9 });
           }
-        } else if (pu.kind === "wide") {
-          wideSec = 9;
+          ArcadeSfx.fever();
         } else {
-          guardSec = 8;
+          if (pu.kind === "wide") wideSec = 9;
+          else guardSec = 8;
+          ArcadeSfx.powerup();
         }
-        ArcadeSfx.coin();
         powerUps.splice(i, 1);
       } else if (pu.y > H + 20) {
         powerUps.splice(i, 1);
@@ -2610,14 +2541,14 @@ function createBrickBreakerGame(mountEl, hooks) {
         ball.x += ball.vx * subDt;
         ball.y += ball.vy * subDt;
 
-        if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
-        if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
-        if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); ArcadeSfx.tone(480, 0.04, "sine", 0.06); }
+        if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); ArcadeSfx.bounce1(); }
+        if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); ArcadeSfx.bounce1(); }
+        if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); ArcadeSfx.bounce1(); }
 
         if (guardSec > 0 && ball.vy > 0 && ball.y + ball.r >= H - 14) {
           ball.y = H - 14 - ball.r;
           ball.vy = -Math.abs(ball.vy);
-          ArcadeSfx.tone(520, 0.06, "triangle", 0.08);
+          ArcadeSfx.bounce2();
         }
 
         // 패들 충돌
@@ -2635,7 +2566,7 @@ function createBrickBreakerGame(mountEl, hooks) {
           ball.vy = -Math.max(240, Math.cos(angle) * spd);
           ball.y = paddle.y - ball.r - 1;
           combo = 0;
-          ArcadeSfx.tone(360, 0.06, "triangle", 0.12);
+          ArcadeSfx.bounce2();
         }
 
         // 벽돌 충돌
@@ -2652,9 +2583,10 @@ function createBrickBreakerGame(mountEl, hooks) {
             br.hp -= 1;
             combo += 1;
             score += 25 + Math.min(35, combo * 3);
-            ArcadeSfx.pop(combo);
 
             if (br.hp <= 0) {
+              ArcadeSfx.brickBreak(combo);
+              if (br.maxHp >= 2) ArcadeSfx.boom1();
               if (Math.random() < 0.17) {
                 const pKinds = [
                   { kind: "multi", label: "×3", col: "#ec4899" },
@@ -2665,6 +2597,9 @@ function createBrickBreakerGame(mountEl, hooks) {
                 powerUps.push({ ...pk, x: br.x + br.w / 2, y: br.y + br.h / 2 });
               }
               bricks.splice(k, 1);
+            } else {
+              if (br.maxHp >= 3) ArcadeSfx.hit2();
+              else ArcadeSfx.hit1();
             }
             break;
           }
@@ -2684,7 +2619,7 @@ function createBrickBreakerGame(mountEl, hooks) {
 
     if (balls.length === 0) {
       combo = 0;
-      ArcadeSfx.hit();
+      ArcadeSfx.hitDamage();
       stopped = true;
       syncHud();
       hooks.onFinish(score, "공을 놓쳤습니다!");
@@ -2694,7 +2629,7 @@ function createBrickBreakerGame(mountEl, hooks) {
     if (bricks.length === 0) {
       score += 320;
       stage += 1;
-      ArcadeSfx.clear();
+      ArcadeSfx.stageClear();
       spawnBricks();
       resetSingleBall();
     }
@@ -2909,11 +2844,13 @@ function createNotePangGame(mountEl, hooks) {
         }
       }
       if (findMatchClusters().length === 0 && hasAnyValidMove()) {
+        ArcadeSfx.cardFlip();
         popups.push({ x: W / 2, y: BOARD_Y + 160, text: "🔀 자동 섞기!", col: "#0f766e", alpha: 1.3 });
         return;
       }
     }
     fillFreshBoard();
+    ArcadeSfx.cardFlip();
     popups.push({ x: W / 2, y: BOARD_Y + 160, text: "🔀 새 판 생성!", col: "#0f766e", alpha: 1.3 });
   }
 
@@ -3029,17 +2966,20 @@ function createNotePangGame(mountEl, hooks) {
     const bonusSec = wave * 0.5;
     score += wavePts;
     timeLeft = Math.min(150, timeLeft + bonusSec);
-    ArcadeSfx.pop(Math.min(14, wave * 2));
 
     let sumX = 0;
     let sumY = 0;
     let n = 0;
     let hadSpecial = false;
+    let hadRainbow = false;
+    let hadLine = false;
     visited.forEach(k => {
       const [rr, cc] = k.split(",").map(Number);
       const cell = grid[rr][cc];
       if (cell) {
         if (cell.special) hadSpecial = true;
+        if (cell.special === "rainbow") hadRainbow = true;
+        if (cell.special === "lineH" || cell.special === "lineV") hadLine = true;
         spawnPangEffects(rr, cc, cell);
       }
       grid[rr][cc] = null;
@@ -3047,6 +2987,17 @@ function createNotePangGame(mountEl, hooks) {
       sumY += BOARD_Y + rr * CELL + CELL / 2;
       n++;
     });
+
+    if (hadRainbow || wave >= 3 || visited.size >= 8) {
+      ArcadeSfx.boom3();
+      if (wave >= 2 || hadRainbow) ArcadeSfx.fever();
+    } else if (hadLine || wave === 2 || visited.size >= 4) {
+      ArcadeSfx.boom2();
+      ArcadeSfx.crash();
+    } else {
+      ArcadeSfx.boom1();
+      ArcadeSfx.pop(wave);
+    }
 
     if (hadSpecial || wave >= 2 || visited.size >= 4) {
       shakeTimer = Math.max(shakeTimer, hadSpecial ? 0.24 : 0.14);
@@ -3145,10 +3096,12 @@ function createNotePangGame(mountEl, hooks) {
       // 불발 시 살짝 바운스 후 원복
       phase = "bounce";
       phaseTimer = 0.14;
+      ArcadeSfx.bounce1();
       ArcadeSfx.wrong();
     } else {
       phase = "swap";
       phaseTimer = 0.11;
+      ArcadeSfx.click2();
     }
   }
 
@@ -3225,14 +3178,15 @@ function createNotePangGame(mountEl, hooks) {
       const tapped = { r: dragAnchor.r, c: dragAnchor.c };
       if (!selected) {
         selected = tapped;
-        ArcadeSfx.tone(520, 0.05, "sine", 0.08);
+        ArcadeSfx.click1();
       } else if (selected.r === tapped.r && selected.c === tapped.c) {
         selected = null;
+        ArcadeSfx.click1();
       } else if (Math.abs(selected.r - tapped.r) + Math.abs(selected.c - tapped.c) === 1) {
         trySwap(selected, tapped);
       } else {
         selected = tapped;
-        ArcadeSfx.tone(520, 0.05, "sine", 0.08);
+        ArcadeSfx.click1();
       }
     }
     dragAnchor = null;

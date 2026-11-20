@@ -1022,6 +1022,7 @@ window.playArcadeCabinet = async function (gameId, opts = {}) {
 
     userState.arcadeCoins = Number(data.arcade_coins ?? Math.max(0, curCoins - cost));
     syncArcadeBalancesUI();
+    if (typeof ArcadeSfx !== "undefined") ArcadeSfx.coin();
 
     arcadeState.activeSessionId = data.session_id;
     arcadeState.activeGameId = gameId;
@@ -1194,7 +1195,13 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
       };
     }
 
-    if (typeof ArcadeSfx !== "undefined") ArcadeSfx.clear();
+    if (typeof ArcadeSfx !== "undefined") {
+      if (tier === "S" || tier === "A" || tier === "C") {
+        ArcadeSfx.stageClear();
+      } else {
+        ArcadeSfx.coin();
+      }
+    }
     openModal("arcadeResultModal");
   } catch (err) {
     arcadeState.isSubmitting = false;
