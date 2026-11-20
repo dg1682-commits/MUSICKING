@@ -261,6 +261,21 @@ function _arcMapCanvasPoint(canvas, logicalW, logicalH, ev) {
   };
 }
 
+// 풀스크린 캔버스 컨테이너 비율에 맞춰 논리 높이를 자동 동기화 (상하 흰 여백 제거)
+function _arcSyncCanvasAspect(canvas, logicalW, currentH, minH, maxH, onResize) {
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  if (cw > 20 && ch > 20) {
+    const targetH = Math.max(minH, Math.min(maxH, Math.round(logicalW * (ch / cw))));
+    if (Math.abs(currentH - targetH) > 2 || canvas.height !== targetH) {
+      canvas.height = targetH;
+      onResize(targetH);
+      return targetH;
+    }
+  }
+  return currentH;
+}
+
 // 캔버스 + 하단 빈 여백(슬라이드 패드 포함) 전체 좌우 터치/키보드 공용 컨트롤러
 function _arcBindSlideControl({ mountEl, canvas, slidePadEl, logicalW, marginX, onX, onKeyState, allowMouseHover = false }) {
   const prevTouchAction = mountEl.style.touchAction;
@@ -566,7 +581,6 @@ function createStarDodgeGame(mountEl, hooks) {
   let lastMs = performance.now();
   let elapsedSec = 0;
   let score = 0;
-  let hearts = 3;
   let hasShield = false;
   let invulnSec = 0;
   let playerX = W / 2;
@@ -585,7 +599,7 @@ function createStarDodgeGame(mountEl, hooks) {
   const gems = [];
 
   function syncHud() {
-    hooks.onHud({ score: Math.floor(score), hearts, extra: hasShield ? "🛡️ 실드 ON" : `${Math.floor(elapsedSec)}초 생존` });
+    hooks.onHud({ score: Math.floor(score), extra: hasShield ? "🛡️ 실드 ON" : `${Math.floor(elapsedSec)}초 생존` });
   }
 
   const unbindSlide = _arcBindSlideControl({
@@ -741,15 +755,11 @@ function createStarDodgeGame(mountEl, hooks) {
           invulnSec = 0.8;
           ArcadeSfx.pop(1);
         } else {
-          hearts -= 1;
-          invulnSec = 1.1;
           ArcadeSfx.hit();
-          if (hearts <= 0) {
-            stopped = true;
-            syncHud();
-            hooks.onFinish(Math.floor(score), "유성 충돌! 게임 종료");
-            return;
-          }
+          stopped = true;
+          syncHud();
+          hooks.onFinish(Math.floor(score), "유성 충돌! 게임 종료");
+          return;
         }
       } else if (m.y > H + 40) {
         meteors.splice(i, 1);
@@ -805,7 +815,7 @@ function createSideSortGame(mountEl, hooks) {
   const rightTypes = shuffled.slice(2, 4);
 
   const W = 420;
-  const H = 370;
+  let H = 440;
 
   mountEl.innerHTML = `
     <div class="arcade-sort-shell">
@@ -829,6 +839,14 @@ function createSideSortGame(mountEl, hooks) {
 
   const canvas = document.getElementById("arcSideCanvas");
   const ctx = canvas.getContext("2d");
+
+  const syncSideAspect = () => {
+    H = _arcSyncCanvasAspect(canvas, W, H, 300, 740, nextH => { H = nextH; });
+  };
+  syncSideAspect();
+  requestAnimationFrame(syncSideAspect);
+
+  const getTargetY = () => Math.max(250, Math.round(H * 0.74));
 
   const drawSideButtonIcons = (cvId, pair) => {
     const cv = document.getElementById(cvId);
@@ -915,7 +933,7 @@ function createSideSortGame(mountEl, hooks) {
       flyItems.push({
         type: current,
         x: W / 2,
-        y: 304,
+        y: getTargetY(),
         vx: dir === "left" ? -900 : 900,
         vy: -140,
         alpha: 1
@@ -973,6 +991,7 @@ function createSideSortGame(mountEl, hooks) {
 
   function frame(now) {
     if (stopped) return;
+    syncSideAspect();
     const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
     lastMs = now;
     timeLeft -= dt;
@@ -1041,11 +1060,13 @@ function createSideSortGame(mountEl, hooks) {
     ctx.strokeText(barTxt, W / 2, barY + 12);
     ctx.fillText(barTxt, W / 2, barY + 12);
 
-    // 대기열 (위에서 아래로 정렬)
+    // 대기열 & 활성 카드 (풀스크린 세로 비율 맞춤)
+    const targetY = getTargetY();
+    const queueGap = Math.max(46, Math.min(68, Math.round((targetY - 122) / 3.1)));
     const stunShake = now < stunUntil ? Math.sin(now * 0.08) * 10 : 0;
     for (let i = Math.min(3, queue.length - 1); i >= 1; i--) {
-      const y = 304 - i * 50;
-      const r = Math.max(17, 29 - i * 3);
+      const y = targetY - i * queueGap;
+      const r = Math.max(18, 30 - i * 3);
       ctx.save();
       ctx.globalAlpha = Math.max(0.38, 1 - i * 0.16);
       drawCelestialAsset(ctx, queue[i], W / 2, y, r);
@@ -1055,13 +1076,13 @@ function createSideSortGame(mountEl, hooks) {
     // 현재 분류 대상 강조 링
     ctx.save();
     if (now < stunUntil) {
-      _arcFillRoundRect(ctx, W / 2 - 48 + stunShake, 260, 96, 90, 22, "#fecaca", "#dc2626", 4);
+      _arcFillRoundRect(ctx, W / 2 - 50 + stunShake, targetY - 46, 100, 92, 22, "#fecaca", "#dc2626", 4);
     } else if (inFever) {
-      _arcFillRoundRect(ctx, W / 2 - 48, 260, 96, 90, 22, "#fef9c3", "#f59e0b", 4.5);
+      _arcFillRoundRect(ctx, W / 2 - 50, targetY - 46, 100, 92, 22, "#fef9c3", "#f59e0b", 4.5);
     } else {
-      _arcFillRoundRect(ctx, W / 2 - 48, 260, 96, 90, 22, "#ffffff", "#1e1b18", 4);
+      _arcFillRoundRect(ctx, W / 2 - 50, targetY - 46, 100, 92, 22, "#ffffff", "#1e1b18", 4);
     }
-    drawCelestialAsset(ctx, queue[0], W / 2 + stunShake, 305, 34);
+    drawCelestialAsset(ctx, queue[0], W / 2 + stunShake, targetY, 35);
     ctx.restore();
 
     // 날아가는 분류 모션
@@ -1469,8 +1490,9 @@ function createJumpRunnerGame(mountEl, hooks) {
   let rafId = null;
   let lastMs = performance.now();
   let score = 0;
-  let hearts = 3;
   let invulnSec = 0;
+  let dyingTimer = 0;
+  let dyingReason = "";
   let scrollX = 0;
   let speed = 240;
 
@@ -1500,11 +1522,11 @@ function createJumpRunnerGame(mountEl, hooks) {
   let spawnQBlockTimer = 3.2;
 
   function syncHud() {
-    hooks.onHud({ score: Math.floor(score), hearts, extra: `속도 x${(speed / 240).toFixed(1)}` });
+    hooks.onHud({ score: Math.floor(score), extra: `속도 x${(speed / 240).toFixed(1)}` });
   }
 
   function doJump() {
-    if (stopped || player.jumpsLeft <= 0) return;
+    if (stopped || dyingTimer > 0 || player.jumpsLeft <= 0) return;
     ArcadeSfx.unlock();
     const isDouble = !player.onGround;
     player.vy = isDouble ? -555 : -625;
@@ -1547,10 +1569,20 @@ function createJumpRunnerGame(mountEl, hooks) {
     const dt = Math.min(0.05, Math.max(0.005, (now - lastMs) / 1000));
     lastMs = now;
 
-    speed = Math.min(470, speed + dt * 5.2);
-    scrollX += speed * dt;
-    score += 24 * dt;
-    if (invulnSec > 0) invulnSec -= dt;
+    if (dyingTimer > 0) {
+      dyingTimer -= dt;
+      if (dyingTimer <= 0) {
+        stopped = true;
+        syncHud();
+        hooks.onFinish(Math.floor(score), dyingReason || "충돌! 점프점프 완료");
+        return;
+      }
+    } else {
+      speed = Math.min(470, speed + dt * 5.2);
+      scrollX += speed * dt;
+      score += 24 * dt;
+      if (invulnSec > 0) invulnSec -= dt;
+    }
 
     const prevBottom = player.y + 24;
 
@@ -1559,7 +1591,7 @@ function createJumpRunnerGame(mountEl, hooks) {
       player.knockSec -= dt;
       player.x = Math.max(26, player.x + player.vx * dt);
       player.vx *= Math.max(0, 1 - 4.5 * dt);
-    } else if (Math.abs(player.x - BASE_PLAYER_X) > 0.5) {
+    } else if (dyingTimer <= 0 && Math.abs(player.x - BASE_PLAYER_X) > 0.5) {
       player.x += (BASE_PLAYER_X - player.x) * Math.min(1, dt * 4.5);
     }
 
@@ -1571,13 +1603,16 @@ function createJumpRunnerGame(mountEl, hooks) {
     if (player.y >= GROUND_Y - 24) {
       player.y = GROUND_Y - 24;
       player.vy = 0;
-      player.onGround = true;
-      player.jumpsLeft = 2;
+      if (dyingTimer <= 0) {
+        player.onGround = true;
+        player.jumpsLeft = 2;
+      }
     }
 
     // 토관(3단: 소/중/대) / 뾰족 몬스터 스폰 (등속 스크롤로 코인 추월 겹침 방지)
-    spawnObsTimer -= dt;
-    if (spawnObsTimer <= 0) {
+    if (dyingTimer <= 0) {
+      spawnObsTimer -= dt;
+      if (spawnObsTimer <= 0) {
       const spawnX = W + 38;
       if (findSpawnObstacleNearby(spawnX, 118)) {
         spawnObsTimer = 0.25;
@@ -1601,41 +1636,42 @@ function createJumpRunnerGame(mountEl, hooks) {
           obstacles.push({ kind: "pipe", x: spawnX, h: tier.h, w: tier.w });
         }
       }
-    }
-
-    // ? 물음표 블록 스폰
-    spawnQBlockTimer -= dt;
-    if (spawnQBlockTimer <= 0) {
-      const qx = W + 36;
-      const qy = GROUND_Y - 144;
-      const conflictObs = findSpawnObstacleNearby(qx, 70);
-      const conflictQ = qBlocks.some(qb => Math.abs(qb.x - qx) < 96);
-      const conflictCoin = coins.some(c => Math.abs(c.x - qx) < 54 && Math.abs(c.y - qy) < 46);
-      if (conflictObs || conflictQ || conflictCoin) {
-        spawnQBlockTimer = 0.45;
-      } else {
-        spawnQBlockTimer = 4.2 + Math.random() * 2.5;
-        qBlocks.push({ x: qx, y: qy, hit: false });
-      }
-    }
-
-    // 코인 스폰 (토관/몬스터/?블록/코인 간 물리적 겹침 0% 차단)
-    spawnCoinTimer -= dt;
-    if (spawnCoinTimer <= 0) {
-      const cx = W + 34;
-      const nearObs = findSpawnObstacleNearby(cx, 74);
-      let candY = null;
-      if (nearObs) {
-        candY = nearObs.kind === "pipe" ? Math.min(GROUND_Y - 118, GROUND_Y - nearObs.h - 46) : GROUND_Y - 126;
-      } else {
-        candY = Math.random() < 0.48 ? GROUND_Y - 134 : GROUND_Y - 52;
       }
 
-      if (candY !== null && !hasCoinOverlapAt(cx, candY)) {
-        spawnCoinTimer = 0.88 + Math.random() * 0.68;
-        coins.push({ x: cx, y: candY });
-      } else {
-        spawnCoinTimer = 0.28;
+      // ? 물음표 블록 스폰
+      spawnQBlockTimer -= dt;
+      if (spawnQBlockTimer <= 0) {
+        const qx = W + 36;
+        const qy = GROUND_Y - 144;
+        const conflictObs = findSpawnObstacleNearby(qx, 70);
+        const conflictQ = qBlocks.some(qb => Math.abs(qb.x - qx) < 96);
+        const conflictCoin = coins.some(c => Math.abs(c.x - qx) < 54 && Math.abs(c.y - qy) < 46);
+        if (conflictObs || conflictQ || conflictCoin) {
+          spawnQBlockTimer = 0.45;
+        } else {
+          spawnQBlockTimer = 4.2 + Math.random() * 2.5;
+          qBlocks.push({ x: qx, y: qy, hit: false });
+        }
+      }
+
+      // 코인 스폰 (토관/몬스터/?블록/코인 간 물리적 겹침 0% 차단)
+      spawnCoinTimer -= dt;
+      if (spawnCoinTimer <= 0) {
+        const cx = W + 34;
+        const nearObs = findSpawnObstacleNearby(cx, 74);
+        let candY = null;
+        if (nearObs) {
+          candY = nearObs.kind === "pipe" ? Math.min(GROUND_Y - 118, GROUND_Y - nearObs.h - 46) : GROUND_Y - 126;
+        } else {
+          candY = Math.random() < 0.48 ? GROUND_Y - 134 : GROUND_Y - 52;
+        }
+
+        if (candY !== null && !hasCoinOverlapAt(cx, candY)) {
+          spawnCoinTimer = 0.88 + Math.random() * 0.68;
+          coins.push({ x: cx, y: candY });
+        } else {
+          spawnCoinTimer = 0.28;
+        }
       }
     }
 
@@ -1753,35 +1789,26 @@ function createJumpRunnerGame(mountEl, hooks) {
         ctx.fillRect(o.x - o.w * 0.3, pyTop + 18, 6, Math.max(0, o.h - 22));
 
         // 1) 토관 위 착지 판정 (마리오처럼 밟고 지나가거나 2단점프 출발!)
-        if (Math.abs(player.x - o.x) < o.w * 0.46 + 10 && player.vy >= 0 && prevBottom <= pyTop + 14 && player.y + 24 >= pyTop) {
+        if (dyingTimer <= 0 && Math.abs(player.x - o.x) < o.w * 0.46 + 10 && player.vy >= 0 && prevBottom <= pyTop + 14 && player.y + 24 >= pyTop) {
           player.y = pyTop - 24;
           player.vy = 0;
           player.onGround = true;
           player.jumpsLeft = 2;
-        } else if (Math.abs(player.x - o.x) < o.w * 0.44 + 16 && player.y + 20 > pyTop + 8) {
-          // 2) 옆면 충돌: 절대 통과하지 않고 뒤·위로 통통 튕겨 밀려남!
+        } else if (dyingTimer <= 0 && Math.abs(player.x - o.x) < o.w * 0.44 + 16 && player.y + 20 > pyTop + 8) {
+          // 2) 옆면 충돌: 뚫고 가지 않고 뒤·위로 튕겨난 뒤 게임 종료!
           const pipeLeft = o.x - o.w * 0.52 - 18;
           if (player.x <= o.x) {
             player.x = Math.max(24, Math.min(player.x, pipeLeft));
           }
-          if (invulnSec <= 0) {
-            hearts -= 1;
-            invulnSec = 1.15;
-            player.vx = -155;
-            player.vy = -420;
-            player.onGround = false;
-            player.jumpsLeft = 1;
-            player.knockSec = 0.42;
-            ArcadeSfx.hit();
-            if (hearts <= 0) {
-              stopped = true;
-              syncHud();
-              hooks.onFinish(Math.floor(score), "토관 충돌! 점프점프 완료");
-              return;
-            }
-          } else {
-            player.vy = Math.min(player.vy, -240);
-          }
+          invulnSec = 1.0;
+          player.vx = -175;
+          player.vy = -410;
+          player.onGround = false;
+          player.jumpsLeft = 0;
+          player.knockSec = 0.42;
+          dyingTimer = 0.42;
+          dyingReason = "토관 충돌! 점프점프 완료";
+          ArcadeSfx.hit();
         }
       } else {
         // 뾰족 몬스터 (살짝 통통 뛰며 접근)
@@ -1793,7 +1820,7 @@ function createJumpRunnerGame(mountEl, hooks) {
         ctx.fillStyle = "#1e1b18";
         ctx.beginPath(); ctx.arc(o.x - 6, drawY - 4, 2, 0, Math.PI * 2); ctx.arc(o.x + 6, drawY - 4, 2, 0, Math.PI * 2); ctx.fill();
 
-        if (!o.bounced) {
+        if (!o.bounced && dyingTimer <= 0) {
           const dx = Math.abs(player.x - o.x);
           const dy = player.y - drawY;
           if (dx < 28 && Math.abs(dy) < 30) {
@@ -1805,26 +1832,21 @@ function createJumpRunnerGame(mountEl, hooks) {
               ArcadeSfx.pop(2);
               obstacles.splice(i, 1);
               continue;
-            } else if (invulnSec <= 0) {
-              // 옆면 충돌: 캐릭터는 뒤·위로, 몹은 앞·위로 서로 튕겨나감!
-              hearts -= 1;
-              invulnSec = 1.15;
+            } else {
+              // 옆면 충돌: 캐릭터는 뒤·위로, 몹은 앞·위로 서로 튕겨나간 뒤 게임 종료!
+              invulnSec = 1.0;
               player.x = Math.max(26, o.x - 32);
-              player.vx = -165;
-              player.vy = -370;
+              player.vx = -175;
+              player.vy = -380;
               player.onGround = false;
-              player.jumpsLeft = 1;
+              player.jumpsLeft = 0;
               player.knockSec = 0.42;
               o.bounced = true;
-              o.vx = 230;
+              o.vx = 240;
               o.vy = -290;
+              dyingTimer = 0.42;
+              dyingReason = "몬스터 충돌! 점프점프 완료";
               ArcadeSfx.hit();
-              if (hearts <= 0) {
-                stopped = true;
-                syncHud();
-                hooks.onFinish(Math.floor(score), "몬스터 충돌! 점프점프 완료");
-                return;
-              }
               continue;
             }
           }
@@ -1902,18 +1924,12 @@ function createColorSortGame(mountEl, hooks) {
   const playerOffscreen = createBakedMiniPlayerCanvas(108);
 
   function syncCanvasAspect() {
-    const cw = canvas.clientWidth;
-    const ch = canvas.clientHeight;
-    if (cw > 20 && ch > 20) {
-      const targetH = Math.max(480, Math.min(860, Math.round(W * (ch / cw))));
-      if (Math.abs(H - targetH) > 2 || canvas.height !== targetH) {
-        H = targetH;
-        canvas.height = H;
-        DANGER_Y = H - 72;
-        ROW_PITCH = Math.floor((DANGER_Y - BOARD_TOP - 10) / DANGER_ROWS);
-        BLOCK_H = Math.max(34, ROW_PITCH - 5);
-      }
-    }
+    H = _arcSyncCanvasAspect(canvas, W, H, 480, 860, nextH => {
+      H = nextH;
+      DANGER_Y = H - 72;
+      ROW_PITCH = Math.floor((DANGER_Y - BOARD_TOP - 10) / DANGER_ROWS);
+      BLOCK_H = Math.max(34, ROW_PITCH - 5);
+    });
   }
   syncCanvasAspect();
   requestAnimationFrame(syncCanvasAspect);
@@ -2428,7 +2444,6 @@ function createBrickBreakerGame(mountEl, hooks) {
   let lastMs = performance.now();
   let score = 0;
   let stage = 1;
-  let hearts = 3;
   let combo = 0;
   let wideSec = 0;
   let guardSec = 0;
@@ -2441,38 +2456,47 @@ function createBrickBreakerGame(mountEl, hooks) {
   let balls = [];
   const powerUps = [];
 
+  function getStageMaxBallSpd() {
+    return Math.min(860, 560 + (stage - 1) * 75);
+  }
+
   function spawnBricks() {
     bricks = [];
     const cols = 7;
-    const rows = Math.min(7, 5 + (stage - 1));
+    const rows = Math.min(7, 5 + Math.floor((stage - 1) / 1));
     const padX = 14;
     const gap = 5;
     const bw = (W - padX * 2 - gap * (cols - 1)) / cols;
     const bh = 22;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const isTough = stage >= 2 && (r + c) % 6 === 0;
-        const col = ROW_COLORS[(r + c + stage) % ROW_COLORS.length];
+        const isUltra = stage >= 3 && (r * 7 + c) % 8 === 0;
+        const isTough = !isUltra && stage >= 2 && (r + c) % (stage >= 3 ? 3 : 4) === 0;
+        const maxHp = isUltra ? 3 : isTough ? 2 : 1;
+        const col = isUltra ? "#94a3b8" : isTough ? "#cbd5e1" : ROW_COLORS[(r + c + stage) % ROW_COLORS.length];
         bricks.push({
           x: padX + c * (bw + gap),
           y: 44 + r * (bh + gap),
           w: bw,
           h: bh,
-          color: isTough ? "#cbd5e1" : col,
-          hp: isTough ? 2 : 1,
-          maxHp: isTough ? 2 : 1
+          color: col,
+          hp: maxHp,
+          maxHp
         });
       }
     }
   }
 
   function resetSingleBall() {
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const vxBase = 175 + (stage - 1) * 35;
+    const vyBase = 340 + (stage - 1) * 65;
     balls = [
       {
         x: paddle.x,
         y: paddle.y - 14,
-        vx: (Math.random() < 0.5 ? -1 : 1) * (150 + stage * 15),
-        vy: -(295 + stage * 20),
+        vx: dir * vxBase,
+        vy: -vyBase,
         r: 9
       }
     ];
@@ -2482,10 +2506,10 @@ function createBrickBreakerGame(mountEl, hooks) {
   resetSingleBall();
 
   function syncHud() {
+    const spdScale = (1 + (stage - 1) * 0.22).toFixed(1);
     hooks.onHud({
       score,
-      hearts,
-      extra: `STAGE ${stage}${balls.length > 1 ? ` · 공×${balls.length}` : ""}`
+      extra: `STAGE ${stage}${balls.length > 1 ? ` · 공×${balls.length}` : ""} · 속도 x${spdScale}`
     });
   }
 
@@ -2511,10 +2535,11 @@ function createBrickBreakerGame(mountEl, hooks) {
     if (guardSec > 0) guardSec -= dt;
     paddle.w = wideSec > 0 ? 132 : 94;
 
-    if (keys.left) targetPadX -= 420 * dt;
-    if (keys.right) targetPadX += 420 * dt;
+    const keyPadSpd = 460 + (stage - 1) * 35;
+    if (keys.left) targetPadX -= keyPadSpd * dt;
+    if (keys.right) targetPadX += keyPadSpd * dt;
     targetPadX = Math.max(paddle.w / 2 + 6, Math.min(W - paddle.w / 2 - 6, targetPadX));
-    paddle.x += (targetPadX - paddle.x) * Math.min(1, dt * 20);
+    paddle.x += (targetPadX - paddle.x) * Math.min(1, dt * 22);
 
     // 배경
     const bgG = ctx.createLinearGradient(0, 0, 0, H);
@@ -2528,15 +2553,20 @@ function createBrickBreakerGame(mountEl, hooks) {
       _arcFillRoundRect(ctx, 8, H - 14, W - 16, 8, 4, "#38bdf8", "#1e1b18", 2);
     }
 
-    // 벽돌 그리기
+    // 벽돌 그리기 (단단한 2~3HP 금이 간 연출)
     bricks.forEach(b => {
-      _arcFillRoundRect(ctx, b.x, b.y, b.w, b.h, 6, b.color, "#1e1b18", 2.5);
+      _arcFillRoundRect(ctx, b.x, b.y, b.w, b.h, 6, b.color, b.maxHp >= 3 ? "#f59e0b" : "#1e1b18", b.maxHp >= 3 ? 3 : 2.5);
       ctx.fillStyle = "rgba(255,255,255,0.34)";
       ctx.fillRect(b.x + 4, b.y + 3, b.w - 8, 4);
-      if (b.maxHp === 2 && b.hp === 1) {
+      if (b.hp < b.maxHp) {
         ctx.strokeStyle = "#1e1b18";
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(b.x + 12, b.y + 4); ctx.lineTo(b.x + 22, b.y + 14); ctx.lineTo(b.x + 16, b.y + 19); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(b.x + 12, b.y + 4); ctx.lineTo(b.x + 22, b.y + 14); ctx.lineTo(b.x + 16, b.y + 19);
+        if (b.maxHp - b.hp >= 2) {
+          ctx.moveTo(b.x + b.w - 14, b.y + 5); ctx.lineTo(b.x + b.w - 22, b.y + 16);
+        }
+        ctx.stroke();
       }
     });
 
@@ -2569,69 +2599,75 @@ function createBrickBreakerGame(mountEl, hooks) {
       }
     }
 
-    // 공 업데이트 & 충돌
+    // 공 업데이트 & 충돌 (빠른 공 관통 방지를 위해 2-substep 판정 + 스테이지별 가속)
+    const maxSpd = getStageMaxBallSpd();
+    const subSteps = 2;
+    const subDt = dt / subSteps;
+
     for (let bi = balls.length - 1; bi >= 0; bi--) {
       const ball = balls[bi];
-      ball.x += ball.vx * dt;
-      ball.y += ball.vy * dt;
+      for (let st = 0; st < subSteps; st++) {
+        ball.x += ball.vx * subDt;
+        ball.y += ball.vy * subDt;
 
-      if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
-      if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
-      if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); ArcadeSfx.tone(480, 0.04, "sine", 0.06); }
+        if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
+        if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); ArcadeSfx.tone(420, 0.04, "sine", 0.06); }
+        if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); ArcadeSfx.tone(480, 0.04, "sine", 0.06); }
 
-      if (guardSec > 0 && ball.vy > 0 && ball.y + ball.r >= H - 14) {
-        ball.y = H - 14 - ball.r;
-        ball.vy = -Math.abs(ball.vy);
-        ArcadeSfx.tone(520, 0.06, "triangle", 0.08);
-      }
+        if (guardSec > 0 && ball.vy > 0 && ball.y + ball.r >= H - 14) {
+          ball.y = H - 14 - ball.r;
+          ball.vy = -Math.abs(ball.vy);
+          ArcadeSfx.tone(520, 0.06, "triangle", 0.08);
+        }
 
-      // 패들 충돌
-      if (
-        ball.vy > 0 &&
-        ball.y + ball.r >= paddle.y &&
-        ball.y - ball.r <= paddle.y + paddle.h &&
-        ball.x >= paddle.x - paddle.w / 2 - 4 &&
-        ball.x <= paddle.x + paddle.w / 2 + 4
-      ) {
-        const hitNorm = Math.max(-0.92, Math.min(0.92, (ball.x - paddle.x) / (paddle.w / 2)));
-        const spd = Math.min(540, Math.hypot(ball.vx, ball.vy) * 1.015);
-        const angle = hitNorm * (Math.PI * 0.36);
-        ball.vx = Math.sin(angle) * spd;
-        ball.vy = -Math.max(200, Math.cos(angle) * spd);
-        ball.y = paddle.y - ball.r - 1;
-        combo = 0;
-        ArcadeSfx.tone(360, 0.06, "triangle", 0.12);
-      }
+        // 패들 충돌
+        if (
+          ball.vy > 0 &&
+          ball.y + ball.r >= paddle.y &&
+          ball.y - ball.r <= paddle.y + paddle.h &&
+          ball.x >= paddle.x - paddle.w / 2 - 4 &&
+          ball.x <= paddle.x + paddle.w / 2 + 4
+        ) {
+          const hitNorm = Math.max(-0.92, Math.min(0.92, (ball.x - paddle.x) / (paddle.w / 2)));
+          const spd = Math.min(maxSpd, Math.hypot(ball.vx, ball.vy) * 1.022);
+          const angle = hitNorm * (Math.PI * 0.36);
+          ball.vx = Math.sin(angle) * spd;
+          ball.vy = -Math.max(240, Math.cos(angle) * spd);
+          ball.y = paddle.y - ball.r - 1;
+          combo = 0;
+          ArcadeSfx.tone(360, 0.06, "triangle", 0.12);
+        }
 
-      // 벽돌 충돌
-      for (let k = bricks.length - 1; k >= 0; k--) {
-        const br = bricks[k];
-        const nearX = Math.max(br.x, Math.min(ball.x, br.x + br.w));
-        const nearY = Math.max(br.y, Math.min(ball.y, br.y + br.h));
-        const dx = ball.x - nearX;
-        const dy = ball.y - nearY;
-        if (dx * dx + dy * dy <= ball.r * ball.r) {
-          if (Math.abs(dx) > Math.abs(dy)) ball.vx = -ball.vx;
-          else ball.vy = -ball.vy;
+        // 벽돌 충돌
+        for (let k = bricks.length - 1; k >= 0; k--) {
+          const br = bricks[k];
+          const nearX = Math.max(br.x, Math.min(ball.x, br.x + br.w));
+          const nearY = Math.max(br.y, Math.min(ball.y, br.y + br.h));
+          const dx = ball.x - nearX;
+          const dy = ball.y - nearY;
+          if (dx * dx + dy * dy <= ball.r * ball.r) {
+            if (Math.abs(dx) > Math.abs(dy)) ball.vx = -ball.vx;
+            else ball.vy = -ball.vy;
 
-          br.hp -= 1;
-          combo += 1;
-          score += 25 + Math.min(35, combo * 3);
-          ArcadeSfx.pop(combo);
+            br.hp -= 1;
+            combo += 1;
+            score += 25 + Math.min(35, combo * 3);
+            ArcadeSfx.pop(combo);
 
-          if (br.hp <= 0) {
-            if (Math.random() < 0.17) {
-              const pKinds = [
-                { kind: "multi", label: "×3", col: "#ec4899" },
-                { kind: "wide", label: "넓음", col: "#22c55e" },
-                { kind: "guard", label: "방어", col: "#0284c7" }
-              ];
-              const pk = pKinds[Math.floor(Math.random() * pKinds.length)];
-              powerUps.push({ ...pk, x: br.x + br.w / 2, y: br.y + br.h / 2 });
+            if (br.hp <= 0) {
+              if (Math.random() < 0.17) {
+                const pKinds = [
+                  { kind: "multi", label: "×3", col: "#ec4899" },
+                  { kind: "wide", label: "넓음", col: "#22c55e" },
+                  { kind: "guard", label: "방어", col: "#0284c7" }
+                ];
+                const pk = pKinds[Math.floor(Math.random() * pKinds.length)];
+                powerUps.push({ ...pk, x: br.x + br.w / 2, y: br.y + br.h / 2 });
+              }
+              bricks.splice(k, 1);
             }
-            bricks.splice(k, 1);
+            break;
           }
-          break;
         }
       }
 
@@ -2647,16 +2683,12 @@ function createBrickBreakerGame(mountEl, hooks) {
     }
 
     if (balls.length === 0) {
-      hearts -= 1;
       combo = 0;
       ArcadeSfx.hit();
-      if (hearts <= 0) {
-        stopped = true;
-        syncHud();
-        hooks.onFinish(score, "공을 모두 놓쳤습니다!");
-        return;
-      }
-      resetSingleBall();
+      stopped = true;
+      syncHud();
+      hooks.onFinish(score, "공을 놓쳤습니다!");
+      return;
     }
 
     if (bricks.length === 0) {
@@ -2994,7 +3026,9 @@ function createNotePangGame(mountEl, hooks) {
     const extraBlasted = Math.max(0, visited.size - baseClearCoords.length);
     const mult = 1 + Math.min(6, Math.max(0, wave - 1)) * 0.45;
     const wavePts = Math.round((basePts + extraBlasted * 35) * mult) + (wave > 1 ? wave * 45 : 0);
+    const bonusSec = wave * 0.5;
     score += wavePts;
+    timeLeft = Math.min(150, timeLeft + bonusSec);
     ArcadeSfx.pop(Math.min(14, wave * 2));
 
     let sumX = 0;
@@ -3025,11 +3059,11 @@ function createNotePangGame(mountEl, hooks) {
 
     if (n > 0) {
       popups.push({
-        x: Math.max(85, Math.min(W - 85, sumX / n)),
+        x: Math.max(96, Math.min(W - 96, sumX / n)),
         y: Math.max(BOARD_Y + 30, sumY / n),
-        text: wave > 1 ? `🔥 ${wave}연쇄! +${wavePts}` : `+${wavePts}`,
+        text: wave > 1 ? `🔥 ${wave}연쇄! +${wavePts} (+${bonusSec.toFixed(1)}s)` : `+${wavePts} (+0.5s)`,
         col: wave >= 3 ? "#f59e0b" : "#1e1b18",
-        alpha: 1.25
+        alpha: 1.3
       });
     }
 

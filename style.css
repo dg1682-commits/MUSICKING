@@ -4879,12 +4879,17 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
 }
 
 .arcade-sort-shell .arcade-canvas-wrap {
+  width: 100%;
   flex: 1;
   min-height: 0;
 }
 
 .arcade-sort-shell .arcade-game-canvas {
-  max-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: fill;
 }
 
 .arcade-side-btn-row {
