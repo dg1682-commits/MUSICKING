@@ -67,3 +67,99 @@ if (fs.existsSync(stylesPath)) {
     console.log("[patch-android] Disabled Android forceDarkAllowed in styles.xml");
   }
 }
+
+// 5) MainActivity.java/.kt -> WebView textZoom 하한(100%), WideViewPort, 줌 비활성화 적용
+function findFileRecursive(dir, targetNames) {
+  if (!fs.existsSync(dir)) return null;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const hit = findFileRecursive(full, targetNames);
+      if (hit) return hit;
+    } else if (targetNames.includes(entry.name)) {
+      return full;
+    }
+  }
+  return null;
+}
+
+const javaSrcRoot = path.join(androidDir, "app", "src", "main", "java");
+const mainActivityPath = findFileRecursive(javaSrcRoot, ["MainActivity.java", "MainActivity.kt"]);
+if (mainActivityPath) {
+  const cur = fs.readFileSync(mainActivityPath, "utf8");
+  const pkgMatch = cur.match(/^\s*package\s+([A-Za-z0-9_.]+)\s*;?/m);
+  const pkgName = pkgMatch ? pkgMatch[1] : "com.goongdystudio.musicking";
+
+  if (mainActivityPath.endsWith(".java")) {
+    const javaSource = `package ${pkgName};
+
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    private void configureWebViewSettings() {
+        if (getBridge() == null) return;
+        WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+        WebSettings settings = webView.getSettings();
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        if (settings.getTextZoom() < 100) {
+            settings.setTextZoom(100);
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        configureWebViewSettings();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        configureWebViewSettings();
+    }
+}
+`;
+    fs.writeFileSync(mainActivityPath, javaSource, "utf8");
+    console.log(`[patch-android] Patched ${path.basename(mainActivityPath)} WebSettings (textZoom>=100, wideViewPort, noZoom)`);
+  } else {
+    const ktSource = `package ${pkgName}
+
+import android.webkit.WebView
+import com.getcapacitor.BridgeActivity
+
+class MainActivity : BridgeActivity() {
+    private fun configureWebViewSettings() {
+        val webView: WebView = bridge?.webView ?: return
+        val settings = webView.settings
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
+        settings.displayZoomControls = false
+        if (settings.textZoom < 100) {
+            settings.textZoom = 100
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        configureWebViewSettings()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        configureWebViewSettings()
+    }
+}
+`;
+    fs.writeFileSync(mainActivityPath, ktSource, "utf8");
+    console.log(`[patch-android] Patched ${path.basename(mainActivityPath)} WebSettings (textZoom>=100, wideViewPort, noZoom)`);
+  }
+}
