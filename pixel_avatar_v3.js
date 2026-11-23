@@ -677,16 +677,35 @@ function drawV3Hat(ctx, hatItem) {
 }
 
 // ============================================================================
-// 4. V3.0 얼굴 7종 렌더러
+// 4. V3.0 얼굴 7종 렌더러 (V3.2 눈 깜빡임 공용 헬퍼 포함)
 // ============================================================================
-function drawV3Face(ctx, faceItem) {
+function drawAvatarClosedBlinkEyes(ctx, outline = "#1e1b18", y = 192) {
+  ctx.save();
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 7.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  [190, 290].forEach(ex => {
+    ctx.beginPath();
+    ctx.arc(ex, y - 4, 15, 0.14 * Math.PI, 0.86 * Math.PI);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawV3Face(ctx, faceItem, faceOpts = {}) {
   if (!faceItem) return false;
   const id = faceItem.id;
   const outline = "#1e1b18";
+  const isBlink = Boolean(faceOpts && faceOpts.blink);
 
   if (id === "sunglass_tint") {
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 192, 13, 0, Math.PI * 2); ctx.arc(290, 192, 13, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawAvatarClosedBlinkEyes(ctx, outline, 192);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 192, 13, 0, Math.PI * 2); ctx.arc(290, 192, 13, 0, Math.PI * 2); ctx.fill();
+    }
     const gL = ctx.createLinearGradient(0, 166, 0, 218);
     gL.addColorStop(0, "rgba(251, 113, 133, 0.65)"); gL.addColorStop(1, "rgba(250, 204, 21, 0.45)");
     fillRoundRect(ctx, 144, 166, 88, 52, 24, gL, "#be123c", 7);
@@ -732,14 +751,18 @@ function drawV3Face(ctx, faceItem) {
   if (id === "anime_eyes") {
     ctx.strokeStyle = outline; ctx.lineWidth = 6.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(164, 160); ctx.lineTo(208, 168); ctx.moveTo(272, 168); ctx.lineTo(316, 160); ctx.stroke();
-    [190, 290].forEach(ex => {
-      ctx.fillStyle = "#1e3a8a"; ctx.strokeStyle = outline; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.ellipse(ex, 192, 20, 24, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#38bdf8";
-      ctx.beginPath(); ctx.ellipse(ex, 198, 14, 12, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(ex - 7, 182, 7.5, 0, Math.PI * 2); ctx.arc(ex + 6, 202, 4, 0, Math.PI * 2); ctx.fill();
-    });
+    if (isBlink) {
+      drawAvatarClosedBlinkEyes(ctx, outline, 194);
+    } else {
+      [190, 290].forEach(ex => {
+        ctx.fillStyle = "#1e3a8a"; ctx.strokeStyle = outline; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.ellipse(ex, 192, 20, 24, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath(); ctx.ellipse(ex, 198, 14, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(ex - 7, 182, 7.5, 0, Math.PI * 2); ctx.arc(ex + 6, 202, 4, 0, Math.PI * 2); ctx.fill();
+      });
+    }
     ctx.strokeStyle = outline; ctx.lineWidth = 6.5;
     ctx.beginPath(); ctx.moveTo(224, 232); ctx.quadraticCurveTo(240, 244, 256, 232); ctx.stroke();
     return true;
@@ -747,10 +770,14 @@ function drawV3Face(ctx, faceItem) {
   if (id === "piercing_face") {
     ctx.strokeStyle = outline; ctx.lineWidth = 6.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(170, 166); ctx.lineTo(208, 170); ctx.moveTo(272, 170); ctx.lineTo(310, 166); ctx.stroke();
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawAvatarClosedBlinkEyes(ctx, outline, 192);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    }
     // 양쪽 귀 링 피어싱 & 은별
     ctx.strokeStyle = "#facc15"; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.arc(105, 224, 12, 0, Math.PI * 2); ctx.stroke();
@@ -767,10 +794,14 @@ function drawV3Face(ctx, faceItem) {
     ctx.fillStyle = "#1e1b18";
     fillRoundRect(ctx, 158, 152, 54, 16, 7, "#1e1b18");
     fillRoundRect(ctx, 268, 152, 54, 16, 7, "#1e1b18");
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 190, 13, 0, Math.PI * 2); ctx.arc(290, 190, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(186, 185, 4.5, 0, Math.PI * 2); ctx.arc(286, 185, 4.5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawAvatarClosedBlinkEyes(ctx, outline, 190);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 190, 13, 0, Math.PI * 2); ctx.arc(290, 190, 13, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(186, 185, 4.5, 0, Math.PI * 2); ctx.arc(286, 185, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
     // 턱을 감싸는 수염 그림자 & 풍성 콧수염
     ctx.fillStyle = "#334155"; ctx.strokeStyle = outline; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(240, 232, 62, 0.1 * Math.PI, 0.9 * Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -786,17 +817,21 @@ function drawV3Face(ctx, faceItem) {
     // 열혈 전사 눈빛: 날카로운 눈썹 + 빛나는 청록/황금 동공 + 다부진 미소
     ctx.strokeStyle = outline; ctx.lineWidth = 8.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(158, 158); ctx.lineTo(212, 174); ctx.moveTo(322, 158); ctx.lineTo(268, 174); ctx.stroke();
-    [190, 290].forEach((ex, i) => {
-      ctx.fillStyle = "#ffffff"; ctx.strokeStyle = outline; ctx.lineWidth = 5.5;
-      ctx.beginPath();
-      ctx.moveTo(ex - 26, 188); ctx.lineTo(ex + (i === 0 ? 18 : 22), 182);
-      ctx.lineTo(ex + 22, 206); ctx.lineTo(ex - 20, 206); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#14b8a6";
-      ctx.beginPath(); ctx.arc(ex, 194, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fef08a";
-      ctx.beginPath(); ctx.arc(ex, 194, 4.5, 0, Math.PI * 2); ctx.fill();
-    });
+    if (isBlink) {
+      drawAvatarClosedBlinkEyes(ctx, outline, 194);
+    } else {
+      [190, 290].forEach((ex, i) => {
+        ctx.fillStyle = "#ffffff"; ctx.strokeStyle = outline; ctx.lineWidth = 5.5;
+        ctx.beginPath();
+        ctx.moveTo(ex - 26, 188); ctx.lineTo(ex + (i === 0 ? 18 : 22), 182);
+        ctx.lineTo(ex + 22, 206); ctx.lineTo(ex - 20, 206); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#14b8a6";
+        ctx.beginPath(); ctx.arc(ex, 194, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath(); ctx.arc(ex, 194, 4.5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
     ctx.strokeStyle = outline; ctx.lineWidth = 6.5;
     ctx.beginPath(); ctx.moveTo(222, 232); ctx.quadraticCurveTo(240, 224, 258, 230); ctx.stroke();
     return true;
@@ -1453,7 +1488,7 @@ function drawV3EffectLayer(ctx, W, H, effectId, phaseSec, layerSide = "front", m
 // ============================================================================
 const AvatarRenderEngine = (() => {
   const staticCache = new Map();
-  const MAX_CACHE = 45;
+  const MAX_CACHE = 64;
   const activeCanvases = new Map();
   let rafId = null;
   let lastTickMs = 0;
@@ -1461,7 +1496,7 @@ const AvatarRenderEngine = (() => {
   function buildStaticCacheKey(cfg, W, H, opts) {
     const clean = { ...(cfg || {}) };
     delete clean.effect;
-    return `${W}x${H}|t:${opts?.transparentBg ? 1 : 0}|cx:${opts?.charCenterX ?? "c"}|cy:${opts?.charOffsetY ?? 14}|${JSON.stringify(clean)}`;
+    return `${W}x${H}|t:${opts?.transparentBg ? 1 : 0}|cx:${opts?.charCenterX ?? "c"}|cy:${opts?.charOffsetY ?? 14}|fi:${opts?.fishingIdle ? 1 : 0}|bl:${opts?.forceEyeBlink ? 1 : 0}|ho:${opts?.headOnly ? 1 : 0}|${JSON.stringify(clean)}`;
   }
 
   function getOrBakeStaticCanvas(cfg, W, H, opts, bakeFn) {
@@ -1494,7 +1529,30 @@ const AvatarRenderEngine = (() => {
       ctx.drawImage(entry.bgOffscreen, 0, 0, W, H);
     }
     drawV3EffectLayer(ctx, W, H, entry.effectId, phaseSec, "back", entry.maxParticles);
-    ctx.drawImage(entry.charOffscreen, 0, 0, W, H);
+
+    const useBlink =
+      entry.charBlinkOffscreen &&
+      ((phaseSec + (entry.blinkOffset || 0)) % 3.6) < 0.14;
+    const charImg = useBlink ? entry.charBlinkOffscreen : entry.charOffscreen;
+
+    if (entry.opts && entry.opts.idleAnim) {
+      // 발바닥(400)을 바닥에 고정한 채 무릎만 가볍게 굽혔다 펴는 리듬 바운스
+      const cycle = (phaseSec + (entry.idlePhaseOffset || 0)) * (Math.PI * 2 / 1.38);
+      const bend = 0.5 - 0.5 * Math.cos(cycle);
+      const sx = 1 + bend * 0.02;
+      const sy = 1 - bend * 0.046;
+      const anchorX = entry.opts.footAnchorX !== undefined ? entry.opts.footAnchorX : W / 2;
+      const anchorY = entry.opts.footAnchorY !== undefined ? entry.opts.footAnchorY : H * 0.85;
+      ctx.save();
+      ctx.translate(anchorX, anchorY);
+      ctx.scale(sx, sy);
+      ctx.translate(-anchorX, -anchorY);
+      ctx.drawImage(charImg, 0, 0, W, H);
+      ctx.restore();
+    } else {
+      ctx.drawImage(charImg, 0, 0, W, H);
+    }
+
     drawV3EffectLayer(ctx, W, H, entry.effectId, phaseSec, "front", entry.maxParticles);
     ctx.restore();
   }
@@ -1516,7 +1574,7 @@ const AvatarRenderEngine = (() => {
       rafId = null;
       return;
     }
-    if (nowMs - lastTickMs >= 33) {
+    if (nowMs - lastTickMs >= 28) {
       lastTickMs = nowMs;
       const phaseSec = nowMs / 1000;
       for (const [cv, entry] of activeCanvases.entries()) {
@@ -1525,6 +1583,9 @@ const AvatarRenderEngine = (() => {
           continue;
         }
         if (!isCanvasActuallyVisible(cv)) continue;
+        const tickMs = Number(entry.tickMs) || 33;
+        if (entry._lastDrawMs && nowMs - entry._lastDrawMs < tickMs) continue;
+        entry._lastDrawMs = nowMs;
         renderCompositeFrame(cv, entry, phaseSec);
       }
     }
@@ -1547,6 +1608,12 @@ const AvatarRenderEngine = (() => {
 
   function registerCanvas(canvas, entry) {
     if (!canvas || !entry) return;
+    const seed = canvas.id
+      ? canvas.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+      : Math.floor(Math.random() * 100);
+    entry.blinkOffset = (seed % 17) * 0.21;
+    entry.idlePhaseOffset = (seed % 11) * 0.13;
+    entry._lastDrawMs = performance.now();
     activeCanvases.set(canvas, entry);
     renderCompositeFrame(canvas, entry, performance.now() / 1000);
     ensureLoopStarted();

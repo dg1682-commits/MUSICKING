@@ -132,6 +132,10 @@ const userState = {
   equippedItems: [],
   dailyState: null,
   v2BaitMigrated: false,
+  v32WelcomeGranted: false,
+  v32WelcomeOpened: false,
+  v32TutorialDone: false,
+  newBagItems: [],
   avatarConfig: { ...DEFAULT_AVATAR_CONFIG },
   ownedItems: ["meadow", "default", "none", "basic", "mic_silver"],
   isLoggedIn: false
@@ -145,6 +149,81 @@ function getV2KstDayKey(nowMs = Date.now()) {
   return `${y}-${m}-${d}`;
 }
 
+function v32RandInt(min, max) {
+  const lo = Math.ceil(Number(min) || 0);
+  const hi = Math.floor(Number(max) || lo);
+  return lo + Math.floor(Math.random() * (Math.max(0, hi - lo) + 1));
+}
+
+function pickRandomDailyQuestReward() {
+  const types = ["cd", "arcade_coin", "golden_coin", "exp"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  if (type === "cd") {
+    const amount = v32RandInt(100, 200);
+    return { type, amount, label: `💿 ${amount} CD` };
+  }
+  if (type === "arcade_coin") {
+    const amount = v32RandInt(1, 3);
+    return { type, amount, label: `🎟️ 오락실 동전 ${amount}개` };
+  }
+  if (type === "golden_coin") {
+    const amount = v32RandInt(1, 3);
+    return { type, amount, label: `🪙 황금주화 ${amount}개` };
+  }
+  const amount = v32RandInt(500, 1000);
+  return { type: "exp", amount, label: `✨ ${amount.toLocaleString()} EXP` };
+}
+
+function createFreshDailyQuestsForDay(dayKey = getV2KstDayKey()) {
+  const quizTarget = v32RandInt(1, 3);
+  const fishingTargetMin = v32RandInt(3, 10);
+  const arcadeTarget = v32RandInt(1, 3);
+  const pool =
+    typeof ARCADE_GAMES_META !== "undefined" && Array.isArray(ARCADE_GAMES_META) && ARCADE_GAMES_META.length > 0
+      ? ARCADE_GAMES_META.filter(g => g && g.enabled !== false)
+      : [];
+  const pickSpecific = pool.length > 0 && Math.random() < 0.5;
+  const specMeta = pickSpecific ? pool[Math.floor(Math.random() * pool.length)] : null;
+
+  return {
+    kstDate: dayKey,
+    items: [
+      {
+        id: "quiz",
+        type: "quiz",
+        label: `🎵 음악 퀴즈 ${quizTarget}판 완료하기`,
+        target: quizTarget,
+        unit: "판",
+        progress: 0,
+        claimed: false,
+        reward: pickRandomDailyQuestReward()
+      },
+      {
+        id: "fishing",
+        type: "fishing",
+        label: `🎣 낚시터에서 ${fishingTargetMin}분 놀기`,
+        target: fishingTargetMin,
+        unit: "분",
+        secAccum: 0,
+        progress: 0,
+        claimed: false,
+        reward: pickRandomDailyQuestReward()
+      },
+      {
+        id: "arcade",
+        type: "arcade",
+        gameId: specMeta ? specMeta.game_id : "any",
+        label: specMeta ? `🕹️ 오락실 [${specMeta.title}] ${arcadeTarget}판` : `🕹️ 오락실 아무 게임 ${arcadeTarget}판`,
+        target: arcadeTarget,
+        unit: "판",
+        progress: 0,
+        claimed: false,
+        reward: pickRandomDailyQuestReward()
+      }
+    ]
+  };
+}
+
 function createFreshDailyState(dayKey = getV2KstDayKey()) {
   return {
     kstDate: dayKey,
@@ -155,7 +234,8 @@ function createFreshDailyState(dayKey = getV2KstDayKey()) {
     shopAdCount: 0,
     itemAdCounts: {},
     fishing2xExpiresAt: 0,
-    fishing2xKstDate: dayKey
+    fishing2xKstDate: dayKey,
+    dailyQuests: createFreshDailyQuestsForDay(dayKey)
   };
 }
 
@@ -173,12 +253,21 @@ function ensureV2DailyState() {
     cur.itemAdCounts = {};
     cur.fishing2xExpiresAt = 0;
     cur.fishing2xKstDate = today;
+    cur.dailyQuests = createFreshDailyQuestsForDay(today);
     if (Number(cur.attendanceStreak) >= 28) {
       cur.attendanceStreak = 0;
     }
   }
   if (!cur.itemAdCounts || typeof cur.itemAdCounts !== "object") {
     cur.itemAdCounts = {};
+  }
+  if (
+    !cur.dailyQuests ||
+    cur.dailyQuests.kstDate !== today ||
+    !Array.isArray(cur.dailyQuests.items) ||
+    cur.dailyQuests.items.length !== 3
+  ) {
+    cur.dailyQuests = createFreshDailyQuestsForDay(today);
   }
   userState.dailyState = cur;
   return cur;
@@ -328,6 +417,10 @@ function resetUserStateToFreshDefaults() {
   userState.equippedItems = [];
   userState.dailyState = createFreshDailyState();
   userState.v2BaitMigrated = false;
+  userState.v32WelcomeGranted = false;
+  userState.v32WelcomeOpened = false;
+  userState.v32TutorialDone = false;
+  userState.newBagItems = [];
   userState.avatarConfig = { ...DEFAULT_AVATAR_CONFIG };
   userState.ownedItems = ["meadow", "default", "none", "basic", "mic_silver"];
   userState.isLoggedIn = false;
@@ -363,6 +456,13 @@ function resetUserStateToFreshDefaults() {
   if (typeof stopBattleInviteRuntime === "function") {
     try { stopBattleInviteRuntime(); } catch (e) {}
   }
+  const tutOv = document.getElementById("v32TutorialOverlay");
+  if (tutOv) tutOv.classList.add("hidden");
+  try {
+    if (typeof v32TutorialState !== "undefined" && v32TutorialState) {
+      v32TutorialState.isOpen = false;
+    }
+  } catch (e) {}
 }
 
 const plazaState = {
@@ -459,16 +559,22 @@ function updateHeaderUserUI() {
     adminBtn.classList.toggle("hidden", !(userState.isLoggedIn && userState.nickname === "관리자"));
   }
 
-  // 레벨 · 타이틀 · 경험치 UI 동기화
+  // 레벨 · 계급 · 경험치 UI 동기화 (포트리스2 블루 21단계 계급)
   if (typeof getLevelInfo === "function") {
     const lv = getLevelInfo(userState.exp);
     const titlePill = document.getElementById("homeCharTitlePill");
-    if (titlePill) titlePill.textContent = `Lv.${lv.level} ${lv.title}`;
+    if (titlePill) {
+      if (typeof formatFortressLevelBadgeHtml === "function") {
+        titlePill.innerHTML = formatFortressLevelBadgeHtml(userState.exp, { size: 22 });
+      } else {
+        titlePill.textContent = `Lv.${lv.level} ${lv.title}`;
+      }
+    }
 
     const lvLabel = document.getElementById("homeExpLevelLabel");
     if (lvLabel) {
       lvLabel.textContent = lv.isMax
-        ? `Lv.20 MAX (${lv.exp.toLocaleString()} EXP)`
+        ? `Lv.${lv.level} MAX (${lv.exp.toLocaleString()} EXP)`
         : `Lv.${lv.level} (${lv.inLevelExp.toLocaleString()} / ${lv.needInLevel.toLocaleString()} EXP)`;
     }
     const pctLabel = document.getElementById("homeExpPercentLabel");
@@ -479,7 +585,7 @@ function updateHeaderUserUI() {
   }
 
   const homeCanvas = document.getElementById("homeHeroAvatar");
-  if (homeCanvas) renderPixelAvatar(homeCanvas, userState.avatarConfig);
+  if (homeCanvas) renderPixelAvatar(homeCanvas, userState.avatarConfig, { idleAnim: true });
 
   const logoCanvas = document.getElementById("loginLogoCanvas");
   if (logoCanvas && typeof renderPixelLogo === "function") {
@@ -488,6 +594,10 @@ function updateHeaderUserUI() {
 
   const signupPreview = document.getElementById("signupCharPreview");
   if (signupPreview) renderPixelAvatar(signupPreview, userState.avatarConfig);
+
+  if (typeof syncAllRewardSparklesUI === "function") {
+    try { syncAllRewardSparklesUI(); } catch (e) {}
+  }
 }
 
 window.openTitlesModal = function () {
@@ -495,9 +605,10 @@ window.openTitlesModal = function () {
   const lv = getLevelInfo(userState.exp);
   const summaryEl = document.getElementById("titlesCurrentSummary");
   if (summaryEl) {
+    const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lv.level, { size: 20 }) : "";
     summaryEl.innerHTML = lv.isMax
-      ? `👑 현재 최고 레벨 Lv.20 달성! (${lv.title})<br/>총 ${lv.exp.toLocaleString()} EXP`
-      : `현재 Lv.${lv.level} [${lv.title}] · 보유 ${lv.exp.toLocaleString()} EXP<br/>(Lv.${lv.level + 1}까지 ${(lv.nextReq - lv.exp).toLocaleString()} EXP 남음)`;
+      ? `${rankHtml} 현재 최고 계급 Lv.${lv.level} 달성! (${lv.title})<br/>총 ${lv.exp.toLocaleString()} EXP`
+      : `현재 Lv.${lv.level} ${rankHtml} [${lv.title}] · 보유 ${lv.exp.toLocaleString()} EXP<br/>(Lv.${lv.level + 1}까지 ${(lv.nextReq - lv.exp).toLocaleString()} EXP 남음)`;
   }
 
   const listEl = document.getElementById("titlesTableList");
@@ -509,11 +620,15 @@ window.openTitlesModal = function () {
       const rangeStr = nextReq
         ? `필요 누적 ${row.reqExp.toLocaleString()} EXP (다음 +${(nextReq - row.reqExp).toLocaleString()})`
         : `최종 달성 누적 ${row.reqExp.toLocaleString()} EXP (MAX)`;
+      const rowIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.level, { size: 24 }) : "";
       return `
         <div class="pixel-list-item" style="cursor:default; background:${isCurrent ? "#fef9c3" : unlocked ? "#f0fdf4" : "#f8fafc"}; border-color:${isCurrent ? "#f59e0b" : unlocked ? "#86efac" : "#cbd5e1"};">
-          <div>
-            <div style="font-weight:900; font-size:0.88rem; color:var(--text-main);">Lv.${row.level} ${row.title} ${isCurrent ? "⭐(현재)" : ""}</div>
-            <div style="font-size:0.73rem; color:var(--text-sub);">${rangeStr}</div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            ${rowIco}
+            <div>
+              <div style="font-weight:900; font-size:0.88rem; color:var(--text-main);">Lv.${row.level} ${row.title} ${isCurrent ? "⭐(현재)" : ""}</div>
+              <div style="font-size:0.73rem; color:var(--text-sub);">${rangeStr}</div>
+            </div>
           </div>
           <span class="badge ${unlocked ? "accent" : ""}">${unlocked ? "✅ 달성" : "🔒 잠금"}</span>
         </div>
@@ -819,6 +934,10 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
       ? { ...rawCfg._dailyState }
       : createFreshDailyState();
   userState.v2BaitMigrated = Boolean(rawCfg._v2BaitMigrated);
+  userState.v32WelcomeGranted = Boolean(rawCfg._v32WelcomeGranted);
+  userState.v32WelcomeOpened = Boolean(rawCfg._v32WelcomeOpened);
+  userState.v32TutorialDone = Boolean(rawCfg._v32TutorialDone);
+  userState.newBagItems = Array.isArray(rawCfg._newBagItems) ? rawCfg._newBagItems.filter(Boolean) : [];
   const mig = typeof migrateLegacyHairHatIds === "function" ? migrateLegacyHairHatIds(rawCfg) : { cfg: rawCfg, migrated: false };
   userState.avatarConfig = sanitizeAvatarConfigShape(mig.cfg);
   userState.ownedItems = Array.isArray(prof?.owned_items)
@@ -833,6 +952,19 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
   userState.isLoggedIn = true;
 
   let needsProfileSync = Boolean(mig.migrated);
+
+  // [V3.2] 신규 & 기존 유저 모두 1회 🎁 웰컴 패키지 상자 가방 지급 (개봉 전까지 유지)
+  if (!userState.v32WelcomeGranted && !userState.v32WelcomeOpened) {
+    userState.v32WelcomeGranted = true;
+    userState.inventory.welcome_box = Math.max(1, Number(userState.inventory.welcome_box) || 0);
+    if (!userState.newBagItems.includes("welcome_box")) {
+      userState.newBagItems.push("welcome_box");
+    }
+    needsProfileSync = true;
+  } else if (userState.v32WelcomeOpened && userState.inventory && userState.inventory.welcome_box) {
+    delete userState.inventory.welcome_box;
+    userState.newBagItems = userState.newBagItems.filter(id => id !== "welcome_box");
+  }
 
   // [V2.0] 기존 영구 미끼 보유 유저 -> 황금 떡밥(bait_s) 소모품 2개 자동 전환
   if (!userState.v2BaitMigrated) {
@@ -949,6 +1081,10 @@ function buildProfilePayloadConfig() {
   delete cleanAvatar._equippedItems;
   delete cleanAvatar._dailyState;
   delete cleanAvatar._v2BaitMigrated;
+  delete cleanAvatar._v32WelcomeGranted;
+  delete cleanAvatar._v32WelcomeOpened;
+  delete cleanAvatar._v32TutorialDone;
+  delete cleanAvatar._newBagItems;
   return {
     ...cleanAvatar,
     _exp: userState.exp,
@@ -961,7 +1097,11 @@ function buildProfilePayloadConfig() {
     _inventory: userState.inventory || {},
     _equippedItems: userState.equippedItems || [],
     _dailyState: userState.dailyState || null,
-    _v2BaitMigrated: Boolean(userState.v2BaitMigrated)
+    _v2BaitMigrated: Boolean(userState.v2BaitMigrated),
+    _v32WelcomeGranted: Boolean(userState.v32WelcomeGranted),
+    _v32WelcomeOpened: Boolean(userState.v32WelcomeOpened),
+    _v32TutorialDone: Boolean(userState.v32TutorialDone),
+    _newBagItems: Array.isArray(userState.newBagItems) ? userState.newBagItems : []
   };
 }
 
@@ -1580,11 +1720,12 @@ window.loadRankingsList = async function () {
           const safeId = escapeJsSingleArg(row.user_id);
           const safeNick = escapeJsSingleArg(row.nickname);
           const isMe = userState.id && row.user_id === userState.id;
+          const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
           return `
             <div class="rank-podium-card is-rank-${rank}" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
               <div class="rank-podium-place">${badge}</div>
               <canvas class="rank-podium-canvas" width="480" height="480" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
-              <div class="rank-podium-nick">${isMe ? "⭐ " : ""}${row.nickname}</div>
+              <div class="rank-podium-nick">${rankIco}${rankIco ? " " : ""}${isMe ? "⭐ " : ""}${row.nickname}</div>
               <div class="rank-podium-score">${Number(row.score || 0).toLocaleString()}점</div>
               <div class="rank-podium-sub">${modeLabel[row.game_mode] || row.game_mode}·${row.stage}단계</div>
             </div>
@@ -1609,13 +1750,14 @@ window.loadRankingsList = async function () {
           const safeId = escapeJsSingleArg(row.user_id);
           const safeNick = escapeJsSingleArg(row.nickname);
           const isMe = userState.id && row.user_id === userState.id;
+          const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 16 }) : "";
           return `
           <div class="pixel-list-item" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
             <div style="display:flex; align-items:center; gap:9px;">
               <span style="font-weight:900; min-width:32px; font-size:0.92rem; color:var(--primary-dark);">#${realRank}</span>
               <canvas class="rank-mini-canvas" width="480" height="480" style="width:42px; height:42px; border-radius:10px; border:2px solid #1e1b18;" data-avatar='${JSON.stringify(row.avatar_config || DEFAULT_AVATAR_CONFIG)}'></canvas>
               <div>
-                <div style="font-weight:900; font-size:0.88rem;">${isMe ? "⭐ " : ""}${row.nickname} ${row.time_attack ? "⏱️" : ""}</div>
+                <div style="font-weight:900; font-size:0.88rem; display:flex; align-items:center; gap:4px;">${rankIco}<span>${isMe ? "⭐ " : ""}${row.nickname} ${row.time_attack ? "⏱️" : ""}</span></div>
                 <div style="font-size:0.72rem; font-weight:700; color:var(--text-sub);">${modeLabel[row.game_mode] || row.game_mode} · ${row.stage}단계 · 정답률 ${row.accuracy}%</div>
               </div>
             </div>
@@ -1859,19 +2001,15 @@ function updateShopPreviewCanvas() {
     }
   }
 
-  if (sel.cat === "special" && sel.id === "nickname_ticket") {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
-    confirmBtn.textContent = "🛍️ 구매 · 닉변하기";
+  if (sel.cat === "special" && (sel.id === "nickname_ticket" || sel.id === "gender_ticket")) {
+    const ownedCnt = getConsumableCount(sel.id);
+    if (priceBadgeEl) {
+      priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD · 보유 ${ownedCnt}개`;
+    }
+    descEl.textContent = "구매하면 🎒가방 인벤토리에 보관됩니다.\n가방에서 원할 때 언제든 사용할 수 있어요!";
+    confirmBtn.textContent = "🛍️ 구매 (가방 보관)";
     confirmBtn.className = "btn btn-gold";
-    confirmBtn.onclick = purchaseNicknameTicket;
-    return;
-  }
-
-  if (sel.cat === "special" && sel.id === "gender_ticket") {
-    if (priceBadgeEl) priceBadgeEl.textContent = `💿 ${sel.price.toLocaleString()} CD`;
-    confirmBtn.textContent = "🛍️ 구매 · 성별변경";
-    confirmBtn.className = "btn btn-gold";
-    confirmBtn.onclick = purchaseGenderTicket;
+    confirmBtn.onclick = () => purchaseSpecialTicketToBag(sel.id);
     return;
   }
 
@@ -2290,73 +2428,53 @@ async function purchaseAndEquipPreviewItem(sel) {
   }, buyTitle);
 }
 
-function purchaseNicknameTicket() {
-  const item = getItemById("special", "nickname_ticket");
-  const price = item ? item.price : 5000;
+function purchaseSpecialTicketToBag(ticketId) {
+  const item = getItemById("special", ticketId);
+  const defaultPrice = ticketId === "nickname_ticket" ? 20000 : 20000;
+  const price = Number(item?.price) || defaultPrice;
+  const label = item?.name || (ticketId === "nickname_ticket" ? "✨ 닉네임 변경권" : "⚧️ 성별 변경권");
 
   if (!userState.isLoggedIn) {
-    gameAlert("닉네임 변경권은 로그인한 계정에서 사용할 수 있습니다!");
+    gameAlert("변경권 구매는 로그인 후 이용할 수 있습니다!");
     return;
   }
   if (userState.cdCoins < price) {
-    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price.toLocaleString()} CD)`);
+    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins.toLocaleString()} CD / 필요: ${price.toLocaleString()} CD)`);
     return;
   }
 
-  gamePrompt(`🎫 닉네임 변경권 (${price.toLocaleString()} CD)\n새 닉네임을 입력해주세요 (2~12자):`, userState.nickname, async newNick => {
-    if (!newNick || newNick.length < 2) {
-      gameAlert("닉네임은 2글자 이상이어야 합니다.");
-      return;
-    }
-    const nickCheck = validateCleanUserText(newNick, { fieldLabel: "닉네임" });
-    if (!nickCheck.ok) {
-      gameAlert(nickCheck.message, "🚫 닉네임 제한");
-      return;
-    }
-    if (newNick === userState.nickname) {
-      gameAlert("현재 닉네임과 동일합니다.");
-      return;
-    }
+  const curCnt = getConsumableCount(ticketId);
+  gameConfirm(
+    `[${label}]을(를) ${price.toLocaleString()} CD로 구매하시겠습니까?\n구매 후 🎒가방(인벤토리)에 보관되어 원할 때 사용할 수 있습니다. (현재 보유: ${curCnt}개)`,
+    async () => {
+      userState.cdCoins -= price;
+      if (!userState.inventory || typeof userState.inventory !== "object") userState.inventory = {};
+      userState.inventory[ticketId] = getConsumableCount(ticketId) + 1;
+      if (typeof markBagItemNew === "function") markBagItemNew(ticketId);
+      await syncProfileToServer();
+      renderShopCategory(shopPreviewState.selectedCat);
+      updateShopPreviewCanvas();
+      if (typeof syncAllRewardSparklesUI === "function") syncAllRewardSparklesUI();
+      gameConfirm(
+        `🎉 [${label}] 구매 완료!\n🎒 가방에 보관되었습니다. (현재 보유: ${userState.inventory[ticketId]}개)\n\n지금 바로 가방에서 사용하시겠습니까?`,
+        () => openBagScreen(ticketId),
+        "🎒 가방 보관 완료"
+      );
+      const okBtn = document.getElementById("dialogConfirmBtn");
+      const cancelBtn = document.getElementById("dialogCancelBtn");
+      if (okBtn) okBtn.textContent = "🎒 가방에서 쓰기";
+      if (cancelBtn) cancelBtn.textContent = "🛍️ 쇼핑 계속하기";
+    },
+    "🛍️ 변경권 구매"
+  );
+}
 
-    const { data: exist } = await sbClient
-      .from("profiles")
-      .select("id")
-      .eq("nickname", newNick)
-      .maybeSingle();
-
-    if (exist) {
-      gameAlert("이미 다른 유저가 사용 중인 닉네임입니다!");
-      return;
-    }
-
-    userState.cdCoins -= price;
-    userState.nickname = newNick;
-    await syncProfileToServer();
-    updateShopPreviewCanvas();
-    gameAlert(`✨ 닉네임이 [${newNick}](으)로 변경되었습니다!`, "🎫 닉네임 변경 완료");
-  }, "🎫 닉네임 변경권 사용");
+function purchaseNicknameTicket() {
+  purchaseSpecialTicketToBag("nickname_ticket");
 }
 
 function purchaseGenderTicket() {
-  const item = getItemById("special", "gender_ticket");
-  const price = item ? item.price : 10000;
-
-  if (userState.cdCoins < price) {
-    gameAlert(`💿 CD가 부족합니다! (보유: ${userState.cdCoins} CD / 필요: ${price.toLocaleString()} CD)`);
-    return;
-  }
-
-  const nextGender = userState.avatarConfig.gender === "female" ? "male" : "female";
-  const nextLabel = nextGender === "female" ? "👧 여자 캐릭터" : "👦 남자 캐릭터";
-
-  gameConfirm(`⚧️ 성별 변경권 (${price.toLocaleString()} CD)을 구매하여\n내 기본 캐릭터를 [${nextLabel}]로 변경하시겠습니까?`, async () => {
-    userState.cdCoins -= price;
-    userState.avatarConfig.gender = nextGender;
-    shopPreviewState.config.gender = nextGender;
-    await syncProfileToServer();
-    updateShopPreviewCanvas();
-    gameAlert(`✨ 캐릭터 성별이 [${nextLabel}]로 변경되었습니다!`, "⚧️ 성별 변경 완료");
-  }, "⚧️ 성별 변경권 사용");
+  purchaseSpecialTicketToBag("gender_ticket");
 }
 
 const MAX_CONSUMABLE_BUY_QTY = 99;
@@ -2438,6 +2556,9 @@ window.confirmShopQtyBuy = async function () {
   userState.cdCoins -= totalCost;
   if (!userState.inventory || typeof userState.inventory !== "object") userState.inventory = {};
   userState.inventory[item.id] = getConsumableCount(item.id) + qty;
+  if (cat === "game_item" && typeof markBagItemNew === "function") {
+    markBagItemNew(item.id);
+  }
   if (cat === "fishing_bait") {
     userState.avatarConfig.fishingBait = item.id;
     shopPreviewState.config.fishingBait = item.id;
@@ -2446,6 +2567,7 @@ window.confirmShopQtyBuy = async function () {
   await syncProfileToServer();
   renderShopCategory(shopPreviewState.selectedCat);
   updateShopPreviewCanvas();
+  if (typeof syncAllRewardSparklesUI === "function") syncAllRewardSparklesUI();
   gameAlert(
     `🎉 [${item.name}] ×${qty}개를 구매했습니다!\n(사용: 💿 ${totalCost.toLocaleString()} CD · 현재 보유: ${userState.inventory[item.id]}개)`,
     "🛍️ 구매 완료"
@@ -2620,7 +2742,11 @@ window.openMyProfileModal = async function () {
   if (typeof getLevelInfo === "function") {
     const lv = getLevelInfo(userState.exp);
     const pTitle = document.getElementById("profileTitleDisplay");
-    if (pTitle) pTitle.textContent = `Lv.${lv.level} ${lv.title}`;
+    if (pTitle) {
+      pTitle.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
+        ? formatFortressLevelBadgeHtml(userState.exp, { size: 18 })
+        : `Lv.${lv.level} ${lv.title}`;
+    }
     const pExpText = document.getElementById("profileExpText");
     if (pExpText) {
       pExpText.textContent = lv.isMax
@@ -2742,7 +2868,12 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
         const targetExp = Number(rawCfg._exp) || 0;
         if (typeof getLevelInfo === "function") {
           const lv = getLevelInfo(targetExp);
-          document.getElementById("inspectTitleDisplay").textContent = `Lv.${lv.level} ${lv.title}`;
+          const iTitle = document.getElementById("inspectTitleDisplay");
+          if (iTitle) {
+            iTitle.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
+              ? formatFortressLevelBadgeHtml(targetExp, { size: 18 })
+              : `Lv.${lv.level} ${lv.title}`;
+          }
           document.getElementById("inspectExpText").textContent = lv.isMax
             ? `MAX (${lv.exp.toLocaleString()} EXP)`
             : `${lv.inLevelExp.toLocaleString()} / ${lv.needInLevel.toLocaleString()} EXP (총 ${lv.exp.toLocaleString()})`;
@@ -3157,6 +3288,7 @@ async function processClaimedAdminGiftRows(claimedRows, opts = {}) {
       const isEffect = it.kind === "effect" || it.category === "effect";
       if (isConsumable) {
         userState.inventory[it.id] = getConsumableCount(it.id) + qty;
+        if (typeof markBagItemNew === "function") markBagItemNew(it.id);
       } else if (isEffect) {
         if (!Array.isArray(userState.ownedEffects)) userState.ownedEffects = [];
         if (!userState.ownedEffects.includes(it.id)) {
@@ -3689,6 +3821,7 @@ window.loadDmConversationsList = async function () {
           pres.status === "fishing_afk" ? "is-fishing-afk" : pres.status === "offline" ? "hidden" : "";
         const previewRaw = formatDmNotiPreviewText(c.lastMsg?.content || "");
         const timeStr = formatDmConvTimeLabel(c.lastMsg?.created_at);
+        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(prof.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
         const unreadHtml =
           c.unreadCount > 0
             ? `<span class="dm-unread-pill">${c.unreadCount > 99 ? "99+" : c.unreadCount}</span>`
@@ -3703,6 +3836,7 @@ window.loadDmConversationsList = async function () {
               </div>
               <div style="flex:1; min-width:0;">
                 <div class="kakao-friend-nick" style="display:flex; align-items:center; gap:5px;">
+                  ${rankIco}
                   <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeOnlineHtml(rawNick)}</span>
                   ${!isFriend ? `<span class="dm-nonfriend-tag">대화 상대</span>` : ""}
                   <span class="friend-online-pill ${pillCls}" data-online-pill-uid="${c.peerId}">${pres.status === "offline" ? "" : escapeOnlineHtml(pres.activity)}</span>
@@ -3883,6 +4017,7 @@ async function loadFriendsData() {
             </div>
             <div style="flex:1; min-width:0;">
               <div class="kakao-friend-nick" style="display:flex; align-items:center; gap:5px;">
+                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(p.avatar_config?._exp || 0, { isExp: true, size: 15 }) : ""}
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.nickname}</span>
                 <span class="friend-online-pill ${pillCls}" data-online-pill-uid="${otherId}">${pres.status === "offline" ? "" : pres.activity}</span>
               </div>
@@ -4454,6 +4589,7 @@ window.confirmCreateOnlineRoom = async function () {
     {
       id: userState.id,
       nickname: userState.nickname,
+      exp: Number(userState.exp) || 0,
       avatarConfig: userState.avatarConfig,
       score: 0
     }
@@ -4511,6 +4647,7 @@ window.joinOnlineRoom = async function (roomId) {
     players.push({
       id: userState.id,
       nickname: userState.nickname,
+      exp: Number(userState.exp) || 0,
       avatarConfig: userState.avatarConfig,
       score: 0
     });
@@ -4637,6 +4774,7 @@ function broadcastMyRoomCharacter(newChatLine = "") {
   const payload = {
     id: userState.id || "me",
     nickname: userState.nickname,
+    exp: Number(userState.exp) || 0,
     avatarConfig: userState.avatarConfig,
     x: plazaState.myRoomX,
     xRatio: plazaState.myRoomXRatio,
@@ -4798,12 +4936,16 @@ function startRoomStageCanvasLoop() {
       // 1:1 정사각 비율 유지로 찌부짜부 없이 크게 렌더링
       ctx.drawImage(off, Math.round(drawX - charSize / 2), charTop, charSize, charSize);
 
-      // 닉네임 태그
+      // 닉네임 태그 + 포트리스2 계급 아이콘
       ctx.font = "900 11.5px sans-serif";
-      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      const rpExp = rp.id === userState.id ? (Number(userState.exp) || 0) : (Number(live.exp ?? rp.exp) || 0);
+      const rpLv = typeof getLevelInfo === "function" ? getLevelInfo(rpExp).level : 1;
+      const rankCv = typeof getFortressRankIconCanvas === "function" ? getFortressRankIconCanvas(rpLv) : null;
+      const icoGap = rankCv ? 18 : 0;
       const nickStr = rp.id === (room && room.host_id) ? `👑 ${rp.nickname}` : String(rp.nickname || "");
-      const tagW = ctx.measureText(nickStr).width + 14;
+      const textW = ctx.measureText(nickStr).width;
+      const tagW = textW + 14 + icoGap;
       const tagX = Math.max(4, Math.min(W - tagW - 4, drawX - tagW / 2));
       const tagY = groundY + 7;
       ctx.fillStyle = rp.id === userState.id ? "rgba(22, 101, 52, 0.9)" : "rgba(15, 23, 42, 0.84)";
@@ -4811,8 +4953,13 @@ function startRoomStageCanvasLoop() {
       if (typeof ctx.roundRect === "function") ctx.roundRect(tagX, tagY, tagW, 19, 9);
       else ctx.rect(tagX, tagY, tagW, 19);
       ctx.fill();
+      if (rankCv) {
+        ctx.drawImage(rankCv, tagX + 6, tagY + 2.5, 14, 14);
+      }
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(nickStr, tagX + tagW / 2, tagY + 10);
+      ctx.textAlign = "left";
+      ctx.fillText(nickStr, tagX + 7 + icoGap, tagY + 10);
+      ctx.textAlign = "center";
 
       // 말풍선
       if (live.chatMsg) {
@@ -4913,14 +5060,16 @@ function renderBattleRoomState(room) {
 
   const playersEl = document.getElementById("battlePlayersBoard");
   playersEl.innerHTML = (room.players || [])
-    .map(
-      p => `
+    .map(p => {
+      const pExp = p.id === userState.id ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+      const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 16 }) : "";
+      return `
       <div class="score-rule-item">
-        <span>${p.id === room.host_id ? "👑" : "👤"} ${p.nickname}</span>
+        <span style="display:inline-flex; align-items:center; gap:4px;">${p.id === room.host_id ? "👑" : "👤"} ${rankIco} ${escapeOnlineHtml(p.nickname || "")}</span>
         <strong class="score-plus">${p.score || 0}점</strong>
       </div>
-    `
-    )
+    `;
+    })
     .join("");
 
   const startBtn = document.getElementById("battleHostStartBtn");
@@ -5000,19 +5149,23 @@ function renderBattlePlayScreen(room) {
   const hudEl = document.getElementById("battlePlayPlayersHud");
   if (hudEl) {
     hudEl.innerHTML = (room.players || [])
-      .map(
-        p => `
+      .map(p => {
+        const pExp = p.id === userState.id ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
+        return `
         <div class="score-rule-item">
-          <span>${p.id === room.host_id ? "👑" : "👤"} ${p.nickname}</span>
+          <span style="display:inline-flex; align-items:center; gap:4px;">${p.id === room.host_id ? "👑" : "👤"} ${rankIco} ${escapeOnlineHtml(p.nickname || "")}</span>
           <strong class="score-plus">${p.score || 0}점</strong>
         </div>
-      `
-      )
+      `;
+      })
       .join("");
   }
 
   const inputBox = document.getElementById("battlePlayInputBox");
   const finishedBox = document.getElementById("battleFinishedActions");
+  const vsBox = document.getElementById("battle1v1ResultBox");
+  const shareBtn = document.getElementById("battleShareResultBtn");
   const qTextEl = document.getElementById("battlePlayQuestionText");
   const oneSecBox = document.getElementById("battleOneSecBox");
   const artistGroup = document.getElementById("battleArtistInputGroup");
@@ -5023,18 +5176,108 @@ function renderBattlePlayScreen(room) {
     if (inputBox) inputBox.classList.add("hidden");
     if (finishedBox) finishedBox.classList.remove("hidden");
     if (oneSecBox) oneSecBox.classList.add("hidden");
-    if (qTextEl) {
-      qTextEl.classList.remove("hidden");
-      const rankList = [...(room.players || [])]
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .map((p, i) => `${i + 1}위. ${p.nickname} (${p.score || 0}점)`)
-        .join("<br/>");
-      qTextEl.innerHTML = `<div style="text-align:center; padding:8px 0;"><strong>🎹 대결 최종 순위</strong><br/><br/>${rankList}</div>`;
-    }
-    const sorted = [...(room.players || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const players = Array.isArray(room.players) ? room.players : [];
+    const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
     const winner = sorted[0];
     document.getElementById("battleWinnerBanner").textContent =
       `🏆 최종 우승: ${winner ? winner.nickname : "없음"} (${winner ? winner.score : 0}점)`;
+
+    const is1v1Mode = room.room_type === "1v1" && players.length >= 2;
+    if (is1v1Mode && vsBox) {
+      if (qTextEl) {
+        qTextEl.innerHTML = `<div style="text-align:center; padding:6px 0;"><strong>⚔️ 1:1 대결이 종료되었습니다!</strong></div>`;
+      }
+      const leftP = players.find(p => p.id === userState.id) || players[0];
+      const rightP = players.find(p => p.id !== leftP.id) || players[1];
+      const historyList = Array.isArray(room.game_config?._roundHistory) ? room.game_config._roundHistory : [];
+      const totalRounds = Math.max((room.question_ids || []).length, historyList.length, 10);
+      const histByIdx = new Map();
+      historyList.forEach(h => {
+        if (h && h.qIdx !== undefined) histByIdx.set(Number(h.qIdx), h);
+      });
+
+      let leftWins = 0;
+      let rightWins = 0;
+      const rowsHtml = [];
+      for (let i = 0; i < totalRounds; i++) {
+        const rec = histByIdx.get(i);
+        const qId = (room.question_ids || [])[i];
+        const qObj = typeof QUESTIONS_DB !== "undefined" ? QUESTIONS_DB.find(item => item.id === qId) : null;
+        const songText = rec?.songLabel || (qObj ? `${qObj.artist} - ${qObj.title}` : `ROUND ${i + 1}`);
+        const wId = rec?.winnerId ? String(rec.winnerId) : "";
+        const pts = Number(rec?.points) || 100;
+        let cls = "";
+        let leftPtText = "0";
+        let rightPtText = "0";
+        let leftPtCls = "";
+        let rightPtCls = "";
+        if (wId && wId === String(leftP.id)) {
+          cls = "is-me-win";
+          leftPtText = `+${pts}`;
+          leftPtCls = "is-win";
+          rightPtCls = "is-lose";
+          leftWins += 1;
+        } else if (wId && wId === String(rightP.id)) {
+          cls = "is-opp-win";
+          rightPtText = `+${pts}`;
+          leftPtCls = "is-lose";
+          rightPtCls = "is-win";
+          rightWins += 1;
+        }
+        rowsHtml.push(`
+          <div class="battle-round-pill ${cls}">
+            <span class="battle-round-pt ${leftPtCls}">${leftPtText}</span>
+            <span class="battle-round-song">${i + 1}. ${escapeOnlineHtml(songText)}</span>
+            <span class="battle-round-pt ${rightPtCls}">${rightPtText}</span>
+          </div>
+        `);
+      }
+
+      const leftExp = leftP.id === userState.id ? (Number(userState.exp) || 0) : (Number(leftP.exp) || 0);
+      const rightExp = rightP.id === userState.id ? (Number(userState.exp) || 0) : (Number(rightP.exp) || 0);
+      const leftRankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(leftExp, { isExp: true, size: 15 }) : "";
+      const rightRankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(rightExp, { isExp: true, size: 15 }) : "";
+      const leftIsTop = (Number(leftP.score) || 0) > (Number(rightP.score) || 0);
+      const rightIsTop = (Number(rightP.score) || 0) > (Number(leftP.score) || 0);
+
+      vsBox.innerHTML = `
+        <div class="battle-vs-header">
+          <div class="battle-vs-player ${leftIsTop ? "is-winner" : ""}">
+            <canvas id="battleVsLeftCv" width="480" height="480"></canvas>
+            <div class="battle-vs-nick">${leftRankIco}<span>${escapeOnlineHtml(leftP.nickname || "나")}</span></div>
+            <div class="battle-vs-score">${Number(leftP.score || 0).toLocaleString()}점 (${leftWins}/${totalRounds})</div>
+          </div>
+          <div class="battle-vs-badge">VS</div>
+          <div class="battle-vs-player ${rightIsTop ? "is-winner" : ""}">
+            <canvas id="battleVsRightCv" width="480" height="480"></canvas>
+            <div class="battle-vs-nick">${rightRankIco}<span>${escapeOnlineHtml(rightP.nickname || "상대")}</span></div>
+            <div class="battle-vs-score">${Number(rightP.score || 0).toLocaleString()}점 (${rightWins}/${totalRounds})</div>
+          </div>
+        </div>
+        <div class="battle-vs-rounds">${rowsHtml.join("")}</div>
+      `;
+      vsBox.classList.remove("hidden");
+      if (shareBtn) shareBtn.classList.remove("hidden");
+
+      const leftCv = document.getElementById("battleVsLeftCv");
+      const rightCv = document.getElementById("battleVsRightCv");
+      if (leftCv && typeof renderPixelAvatar === "function") {
+        renderPixelAvatar(leftCv, leftP.avatarConfig || DEFAULT_AVATAR_CONFIG, { skipEffectLoop: true });
+      }
+      if (rightCv && typeof renderPixelAvatar === "function") {
+        renderPixelAvatar(rightCv, rightP.avatarConfig || DEFAULT_AVATAR_CONFIG, { skipEffectLoop: true });
+      }
+    } else {
+      if (vsBox) vsBox.classList.add("hidden");
+      if (shareBtn) shareBtn.classList.add("hidden");
+      if (qTextEl) {
+        qTextEl.classList.remove("hidden");
+        const rankList = sorted
+          .map((p, i) => `${i + 1}위. ${p.nickname} (${p.score || 0}점)`)
+          .join("<br/>");
+        qTextEl.innerHTML = `<div style="text-align:center; padding:8px 0;"><strong>🎹 대결 최종 순위</strong><br/><br/>${rankList}</div>`;
+      }
+    }
 
     const roundRewardKey = `${room.id}_${(room.question_ids || []).join(",")}`;
     if (plazaState.lastRewardedKey !== roundRewardKey) {
@@ -5066,6 +5309,9 @@ function renderBattlePlayScreen(room) {
         userState.battleStats[statKey].losses += 1;
       }
 
+      if (typeof window.recordDailyQuestProgress === "function") {
+        try { window.recordDailyQuestProgress("quiz", 1); } catch (e) {}
+      }
       syncProfileToServer();
       if (typeof showRewardSummaryModal === "function") {
         showRewardSummaryModal({
@@ -5082,6 +5328,8 @@ function renderBattlePlayScreen(room) {
     return;
   }
 
+  if (vsBox) vsBox.classList.add("hidden");
+  if (shareBtn) shareBtn.classList.add("hidden");
   if (inputBox) inputBox.classList.remove("hidden");
   if (finishedBox) finishedBox.classList.add("hidden");
 
@@ -5189,6 +5437,7 @@ window.hostStartOnlineBattle = async function () {
   room.status = "playing";
   room.current_q_index = 0;
   room.question_ids = nextIds;
+  room.game_config = { ...(room.game_config || {}), _roundHistory: [] };
   room.players = (room.players || []).map(p => ({ ...p, score: 0, passQ: -1 }));
   plazaState.lastRenderedQIndex = null;
   plazaState.activeMatchKey = `${room.id}_${nextIds.join(",")}`;
@@ -5201,7 +5450,7 @@ window.hostStartOnlineBattle = async function () {
 
   await sbClient
     .from("rooms")
-    .update({ status: "playing", current_q_index: 0, question_ids: nextIds, players: room.players })
+    .update({ status: "playing", current_q_index: 0, question_ids: nextIds, players: room.players, game_config: room.game_config })
     .eq("id", room.id);
 
   plazaState.roomChannel.send({ type: "broadcast", event: "room_update", payload: room });
@@ -5232,6 +5481,18 @@ window.passOnlineBattleQuestion = async function () {
       ? `⏭️ 전원 패스! (정답: ${q.artist} - ${q.title})`
       : "⏭️ 전원 패스! 다음 문제로 이동합니다.";
 
+    const prevHist = Array.isArray(room.game_config?._roundHistory)
+      ? room.game_config._roundHistory.filter(h => Number(h?.qIdx) !== curIdx)
+      : [];
+    prevHist.push({
+      qIdx: curIdx,
+      songLabel: q ? `${q.artist} - ${q.title}` : `ROUND ${curIdx + 1}`,
+      winnerId: null,
+      winnerNick: "",
+      points: 0
+    });
+    room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist };
+
     if (curIdx + 1 >= (room.question_ids || []).length) {
       room.status = "finished";
     } else {
@@ -5245,7 +5506,8 @@ window.passOnlineBattleQuestion = async function () {
     .update({
       players: room.players,
       current_q_index: room.current_q_index,
-      status: room.status
+      status: room.status,
+      game_config: room.game_config
     })
     .eq("id", room.id);
 
@@ -5312,6 +5574,18 @@ window.submitOnlineBattleAnswer = async function () {
     const eventText = `🎉 [${userState.nickname}] 정답! (${q.artist} - ${q.title})`;
     plazaState.pendingRoundToast = eventText;
 
+    const prevHist = Array.isArray(room.game_config?._roundHistory)
+      ? room.game_config._roundHistory.filter(h => Number(h?.qIdx) !== curIdx)
+      : [];
+    prevHist.push({
+      qIdx: curIdx,
+      songLabel: `${q.artist} - ${q.title}`,
+      winnerId: userState.id,
+      winnerNick: userState.nickname || "도전자",
+      points: 100
+    });
+    room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist };
+
     if (curIdx + 1 >= (room.question_ids || []).length) {
       room.status = "finished";
     } else {
@@ -5323,7 +5597,8 @@ window.submitOnlineBattleAnswer = async function () {
       .update({
         players: room.players,
         current_q_index: room.current_q_index,
-        status: room.status
+        status: room.status,
+        game_config: room.game_config
       })
       .eq("id", room.id);
 
@@ -5699,12 +5974,66 @@ window.closeSelfAdModal = function () {
 };
 
 // ============================================================================
-// [V2.0] 가방 (인벤토리 · 착용 슬롯 6칸 · 광고 충전)
+// [V2.0/V3.2] 가방 (인벤토리 · 착용 슬롯 6칸 · 광고 충전 · 웰컴 상자 · 변경권 보관)
 // ============================================================================
 let bagSelectedItemId = "item_3sec";
+let welcomeBoxOpeningInFlight = false;
 
-window.openBagScreen = function () {
+window.markBagItemNew = function (itemId) {
+  if (!itemId) return;
+  if (!Array.isArray(userState.newBagItems)) userState.newBagItems = [];
+  if (!userState.newBagItems.includes(itemId)) {
+    userState.newBagItems.push(itemId);
+  }
+  if (typeof syncAllRewardSparklesUI === "function") {
+    try { syncAllRewardSparklesUI(); } catch (e) {}
+  }
+};
+
+window.clearBagItemNew = function (itemId, shouldSync = false) {
+  if (!itemId || !Array.isArray(userState.newBagItems)) return;
+  const before = userState.newBagItems.length;
+  userState.newBagItems = userState.newBagItems.filter(id => id !== itemId);
+  if (before !== userState.newBagItems.length && shouldSync) {
+    syncProfileToServer();
+  }
+  if (typeof syncAllRewardSparklesUI === "function") {
+    try { syncAllRewardSparklesUI(); } catch (e) {}
+  }
+};
+
+function getDisplayBagCatalogItems() {
+  const list = [];
+  if (getConsumableCount("welcome_box") > 0 && typeof getBagItemMeta === "function") {
+    const wb = getBagItemMeta("welcome_box");
+    if (wb) list.push(wb);
+  }
+  if (typeof BAG_SPECIAL_ITEMS_CATALOG !== "undefined") {
+    BAG_SPECIAL_ITEMS_CATALOG.forEach(item => {
+      if (item.id !== "welcome_box" && getConsumableCount(item.id) > 0) {
+        list.push(item);
+      }
+    });
+  }
+  if (typeof GAME_ITEMS_CATALOG !== "undefined") {
+    GAME_ITEMS_CATALOG.forEach(item => list.push(item));
+  }
+  return list;
+}
+
+window.openBagScreen = function (initialItemId = null) {
   ensureV2DailyState();
+  const catalog = getDisplayBagCatalogItems();
+  if (initialItemId && catalog.some(it => it.id === initialItemId)) {
+    bagSelectedItemId = initialItemId;
+  } else if (getConsumableCount("welcome_box") > 0) {
+    bagSelectedItemId = "welcome_box";
+  } else if (Array.isArray(userState.newBagItems) && userState.newBagItems.length > 0) {
+    const match = catalog.find(it => userState.newBagItems.includes(it.id));
+    if (match) bagSelectedItemId = match.id;
+  } else if (!catalog.some(it => it.id === bagSelectedItemId) && catalog[0]) {
+    bagSelectedItemId = catalog[0].id;
+  }
   switchScreen("bagScreen");
   renderBagScreen();
   requestAnimationFrame(() => {
@@ -5746,22 +6075,27 @@ window.renderBagScreen = function () {
   }
 
   const listEl = document.getElementById("bagItemsGrid");
-  if (listEl && typeof GAME_ITEMS_CATALOG !== "undefined") {
-    const itemCards = GAME_ITEMS_CATALOG.map(item => {
+  const displayItems = getDisplayBagCatalogItems();
+  if (listEl) {
+    const newSet = new Set(Array.isArray(userState.newBagItems) ? userState.newBagItems : []);
+    const itemCards = displayItems.map(item => {
       const cnt = getConsumableCount(item.id);
       const isEquipped = equipped.includes(item.id);
       const isSelected = bagSelectedItemId === item.id;
+      const isNew = item.id === "welcome_box" ? cnt > 0 : newSet.has(item.id) && cnt > 0;
       const emoji = item.name.split(" ")[0] || "🎒";
       return `
-        <div class="bag-item-tile ${isEquipped ? "is-equipped" : ""} ${isSelected ? "is-selected" : ""}" onclick="selectBagItem('${item.id}')">
+        <div class="bag-item-tile ${isEquipped ? "is-equipped" : ""} ${isSelected ? "is-selected" : ""} ${isNew ? "is-new-item" : ""}" onclick="selectBagItem('${item.id}')">
           ${isEquipped ? `<span class="bag-item-equipped-tag">장착</span>` : ""}
+          ${isNew ? `<span class="bag-new-badge">NEW</span>` : ""}
           <span class="bag-item-cnt-pill">x${cnt}</span>
           <div style="font-size:1.85rem; line-height:1.1; margin-top:4px;">${emoji}</div>
           <div class="bag-item-name">${item.name.replace(/^[^\s]+\s/, "")}</div>
         </div>
       `;
     });
-    for (let i = GAME_ITEMS_CATALOG.length; i < 9; i++) {
+    const minGridSlots = Math.max(9, Math.ceil(displayItems.length / 3) * 3);
+    for (let i = displayItems.length; i < minGridSlots; i++) {
       itemCards.push(`
         <div class="bag-item-tile is-empty-slot">
           <div style="font-size:1.25rem; opacity:0.35;">🔒</div>
@@ -5773,16 +6107,26 @@ window.renderBagScreen = function () {
   }
 
   renderBagSelectedDetail();
+  if (typeof syncAllRewardSparklesUI === "function") syncAllRewardSparklesUI();
 };
 
 window.selectBagItem = function (itemId) {
   bagSelectedItemId = itemId;
+  if (itemId !== "welcome_box") {
+    clearBagItemNew(itemId, true);
+  }
   renderBagScreen();
 };
 
 function renderBagSelectedDetail() {
-  const item = typeof getGameItemById === "function" ? getGameItemById(bagSelectedItemId) : null;
+  const catalog = getDisplayBagCatalogItems();
+  let item = typeof getBagItemMeta === "function" ? getBagItemMeta(bagSelectedItemId) : null;
+  if (!item || (item.id === "welcome_box" && getConsumableCount("welcome_box") <= 0)) {
+    item = catalog[0] || (typeof getGameItemById === "function" ? getGameItemById("item_3sec") : null);
+    if (item) bagSelectedItemId = item.id;
+  }
   if (!item) return;
+
   const titleEl = document.getElementById("bagDetailTitle");
   const scopeEl = document.getElementById("bagDetailScope");
   const descEl = document.getElementById("bagDetailDesc");
@@ -5793,10 +6137,40 @@ function renderBagSelectedDetail() {
   const isEquipped = (userState.equippedItems || []).includes(item.id);
 
   if (titleEl) titleEl.textContent = `${item.name} (보유 ${cnt}개)`;
-  if (scopeEl) scopeEl.textContent = `사용 가능: ${item.scopeLabel}`;
+  if (scopeEl) scopeEl.textContent = item.id === "welcome_box" || item.isConsumableTicket ? item.scopeLabel : `사용 가능: ${item.scopeLabel}`;
   if (descEl) descEl.textContent = item.desc;
 
+  if (item.id === "welcome_box") {
+    if (equipBtn) {
+      equipBtn.textContent = "🎁 상자 열어보기!";
+      equipBtn.className = "btn btn-gold is-reward-sparkle";
+      equipBtn.onclick = () => openWelcomePackageBox();
+    }
+    if (adBtn) {
+      adBtn.disabled = true;
+      adBtn.classList.remove("is-reward-sparkle");
+      adBtn.textContent = "✨ V3.2 특별 선물";
+    }
+    return;
+  }
+
+  if (item.isConsumableTicket) {
+    if (equipBtn) {
+      equipBtn.disabled = cnt <= 0;
+      equipBtn.textContent = item.id === "nickname_ticket" ? "🎫 사용하기 (닉네임 변경)" : "⚧️ 사용하기 (성별 변경)";
+      equipBtn.className = cnt > 0 ? "btn btn-primary" : "btn";
+      equipBtn.onclick = () => useBagTicketItem(item.id);
+    }
+    if (adBtn) {
+      adBtn.disabled = true;
+      adBtn.classList.remove("is-reward-sparkle");
+      adBtn.textContent = "🛍️ 상점 변경권 탭 추가구매";
+    }
+    return;
+  }
+
   if (equipBtn) {
+    equipBtn.disabled = false;
     equipBtn.textContent = isEquipped ? "❎ 장착 해제" : "✅ 슬롯에 장착";
     equipBtn.className = isEquipped ? "btn" : "btn btn-primary";
     equipBtn.onclick = () => toggleEquipBagItem(item.id);
@@ -5805,17 +6179,154 @@ function renderBagSelectedDetail() {
   if (adBtn) {
     if (!item.adRechargeable) {
       adBtn.disabled = true;
+      adBtn.classList.remove("is-reward-sparkle");
       adBtn.textContent = "🚫 광고 충전 불가";
     } else {
       const ds = ensureV2DailyState();
       const used = Number(ds.itemAdCounts[item.id] || 0);
       const max = item.maxAdPerDay || 3;
-      adBtn.disabled = used >= max;
-      adBtn.textContent = used >= max ? `✅ 충전 완료 (${used}/${max})` : `📺 광고 보고 충전 (${used}/${max})`;
+      const canWatch = used < max;
+      adBtn.disabled = !canWatch;
+      adBtn.classList.toggle("is-reward-sparkle", canWatch);
+      adBtn.textContent = !canWatch ? `✅ 충전 완료 (${used}/${max})` : `📺 광고 보고 충전 (${used}/${max})`;
       adBtn.onclick = () => rechargeBagItemWithAd(item.id);
     }
   }
 }
+
+window.openWelcomePackageBox = async function () {
+  if (welcomeBoxOpeningInFlight) return;
+  if (!userState.isLoggedIn || !sbClient) {
+    gameAlert("웰컴 패키지 개봉은 로그인 후 이용할 수 있습니다.");
+    return;
+  }
+  if (userState.v32WelcomeOpened || getConsumableCount("welcome_box") <= 0) {
+    gameAlert("이미 웰컴 패키지 상자를 개봉하셨습니다!");
+    renderBagScreen();
+    return;
+  }
+
+  welcomeBoxOpeningInFlight = true;
+  try {
+    const { data, error } = await sbClient.rpc("claim_welcome_package");
+    if (error) {
+      const msg = String(error.message || "");
+      if (error.code === "PGRST202" || msg.includes("claim_welcome_package")) {
+        gameAlert("서버 DB 업데이트(supabase_v3_2_update.sql 실행) 후 웰컴 상자를 열 수 있습니다!", "⚠️ DB 반영 필요");
+      } else {
+        gameAlert(`웰컴 상자 개봉 중 오류가 발생했습니다.\n(${msg || "서버 오류"})`);
+      }
+      return;
+    }
+
+    if (data && data.ok) {
+      if (typeof data.cd_coins === "number") userState.cdCoins = Math.max(0, data.cd_coins);
+      else userState.cdCoins = (Number(userState.cdCoins) || 0) + 1000;
+      if (typeof data.arcade_coins === "number") userState.arcadeCoins = Math.max(0, data.arcade_coins);
+      else userState.arcadeCoins = (Number(userState.arcadeCoins) || 0) + 2;
+
+      userState.inventory.item_3sec = getConsumableCount("item_3sec") + 1;
+      userState.inventory.item_chosung = getConsumableCount("item_chosung") + 1;
+      userState.v32WelcomeOpened = true;
+      userState.v32WelcomeGranted = true;
+      delete userState.inventory.welcome_box;
+      userState.newBagItems = (Array.isArray(userState.newBagItems) ? userState.newBagItems : []).filter(id => id !== "welcome_box");
+      markBagItemNew("item_3sec");
+      markBagItemNew("item_chosung");
+      bagSelectedItemId = "item_3sec";
+
+      await syncProfileToServer();
+      updateHeaderUserUI();
+      renderBagScreen();
+      if (typeof playRandomBoxFanfare === "function") playRandomBoxFanfare("burst");
+      openModal("welcomeBoxModal");
+    } else if (data && data.already_claimed) {
+      userState.v32WelcomeOpened = true;
+      delete userState.inventory.welcome_box;
+      clearBagItemNew("welcome_box", true);
+      await syncProfileToServer();
+      renderBagScreen();
+      gameAlert("이미 웰컴 패키지 보상을 수령하셨습니다!");
+    }
+  } finally {
+    welcomeBoxOpeningInFlight = false;
+  }
+};
+
+window.useBagTicketItem = function (ticketId) {
+  if (!userState.isLoggedIn) {
+    gameAlert("변경권 사용은 로그인 후 이용할 수 있습니다!");
+    return;
+  }
+  const cnt = getConsumableCount(ticketId);
+  if (cnt <= 0) {
+    gameAlert("보유한 변경권이 없습니다. 상점 [🎫 변경권]에서 구매해주세요!");
+    return;
+  }
+
+  if (ticketId === "nickname_ticket") {
+    gamePrompt(
+      `🎫 닉네임 변경권 사용 (보유 ${cnt}개 · 확인 시 1개 소모)\n새 닉네임을 입력해주세요 (2~12자):`,
+      userState.nickname,
+      async newNick => {
+        const trimmed = String(newNick || "").trim();
+        if (!trimmed || trimmed.length < 2) {
+          gameAlert("닉네임은 2글자 이상이어야 합니다.");
+          return;
+        }
+        const nickCheck = validateCleanUserText(trimmed, { fieldLabel: "닉네임" });
+        if (!nickCheck.ok) {
+          gameAlert(nickCheck.message, "🚫 닉네임 제한");
+          return;
+        }
+        if (trimmed === userState.nickname) {
+          gameAlert("현재 닉네임과 동일합니다.");
+          return;
+        }
+        const { data: exist } = await sbClient
+          .from("profiles")
+          .select("id")
+          .eq("nickname", trimmed)
+          .maybeSingle();
+        if (exist) {
+          gameAlert("이미 다른 유저가 사용 중인 닉네임입니다!");
+          return;
+        }
+
+        const latestCnt = getConsumableCount("nickname_ticket");
+        if (latestCnt <= 0) return;
+        userState.inventory.nickname_ticket = Math.max(0, latestCnt - 1);
+        if (userState.inventory.nickname_ticket <= 0) clearBagItemNew("nickname_ticket", false);
+        userState.nickname = trimmed;
+        await syncProfileToServer();
+        renderBagScreen();
+        gameAlert(`✨ 닉네임이 [${trimmed}](으)로 변경되었습니다!`, "🎫 닉네임 변경 완료");
+      },
+      "🎫 닉네임 변경권 사용"
+    );
+    return;
+  }
+
+  if (ticketId === "gender_ticket") {
+    const nextGender = userState.avatarConfig.gender === "female" ? "male" : "female";
+    const nextLabel = nextGender === "female" ? "👧 여자 캐릭터" : "👦 남자 캐릭터";
+    gameConfirm(
+      `⚧️ 성별 변경권 사용 (보유 ${cnt}개 · 확인 시 1개 소모)\n내 기본 캐릭터를 [${nextLabel}]로 변경하시겠습니까?`,
+      async () => {
+        const latestCnt = getConsumableCount("gender_ticket");
+        if (latestCnt <= 0) return;
+        userState.inventory.gender_ticket = Math.max(0, latestCnt - 1);
+        if (userState.inventory.gender_ticket <= 0) clearBagItemNew("gender_ticket", false);
+        userState.avatarConfig.gender = nextGender;
+        shopPreviewState.config.gender = nextGender;
+        await syncProfileToServer();
+        renderBagScreen();
+        gameAlert(`✨ 캐릭터 성별이 [${nextLabel}]로 변경되었습니다!`, "⚧️ 성별 변경 완료");
+      },
+      "⚧️ 성별 변경권 사용"
+    );
+  }
+};
 
 window.toggleEquipBagItem = async function (itemId) {
   if (!userState.equippedItems) userState.equippedItems = [];
@@ -5846,6 +6357,7 @@ window.rechargeBagItemWithAd = function (itemId) {
     const fresh = ensureV2DailyState();
     fresh.itemAdCounts[itemId] = Number(fresh.itemAdCounts[itemId] || 0) + 1;
     userState.inventory[itemId] = getConsumableCount(itemId) + 1;
+    markBagItemNew(itemId);
     await syncProfileToServer();
     renderBagScreen();
     gameAlert(`🎉 [${item.name}] 1개가 가방에 충전되었습니다!`, "🎒 충전 완료");
@@ -5860,8 +6372,10 @@ window.updateShopFreeCdAdButton = function () {
   if (!btn) return;
   const ds = ensureV2DailyState();
   const used = Number(ds.shopAdCount || 0);
-  btn.disabled = used >= 3;
-  btn.textContent = used >= 3 ? "✅ 무료CD 완료 (3/3)" : `📺 무료CD +200 (${used}/3)`;
+  const canWatch = used < 3;
+  btn.disabled = !canWatch;
+  btn.classList.toggle("is-reward-sparkle", canWatch);
+  btn.textContent = !canWatch ? "✅ 무료CD 완료 (3/3)" : `📺 무료CD +200 (${used}/3)`;
 };
 
 window.claimShopFreeCdAd = function () {
@@ -5913,6 +6427,41 @@ window.syncHomeV2BadgesUI = function () {
   if (cdDot) cdDot.classList.toggle("hidden", Boolean(ds.dailyCdClaimed));
   if (boxDot) boxDot.classList.toggle("hidden", Boolean(ds.randomBoxClaimed));
   if (attDot) attDot.classList.toggle("hidden", Boolean(ds.attendanceClaimedToday));
+  if (typeof syncAllRewardSparklesUI === "function") syncAllRewardSparklesUI();
+};
+
+window.syncAllRewardSparklesUI = function () {
+  const ds = ensureV2DailyState();
+  const cdBtn = document.getElementById("homeDailyCdBtn");
+  const boxBtn = document.getElementById("homeRandomBoxBtn");
+  const attBtn = document.getElementById("homeAttendanceBtn");
+  if (cdBtn) cdBtn.classList.toggle("is-reward-sparkle", !ds.dailyCdClaimed);
+  if (boxBtn) boxBtn.classList.toggle("is-reward-sparkle", !ds.randomBoxClaimed);
+  if (attBtn) attBtn.classList.toggle("is-reward-sparkle", !ds.attendanceClaimedToday);
+
+  const quests = Array.isArray(ds.dailyQuests?.items) ? ds.dailyQuests.items : [];
+  const claimedCnt = quests.filter(q => q.claimed).length;
+  const readyCnt = quests.filter(q => !q.claimed && q.progress >= q.target).length;
+  const allDone = quests.length > 0 && claimedCnt >= quests.length;
+
+  const questBtn = document.getElementById("homeDailyQuestBtn");
+  const questCountEl = document.getElementById("homeDailyQuestCount");
+  if (questCountEl) {
+    questCountEl.textContent = allDone ? "완료" : readyCnt > 0 ? "보상!" : `${claimedCnt}/${quests.length}`;
+  }
+  if (questBtn) {
+    questBtn.classList.toggle("is-quest-done", allDone);
+    questBtn.classList.toggle("is-reward-sparkle", !allDone && readyCnt > 0);
+    questBtn.setAttribute("aria-disabled", allDone ? "true" : "false");
+  }
+
+  const hasWelcomeBox = getConsumableCount("welcome_box") > 0;
+  const hasNewItems = Array.isArray(userState.newBagItems) && userState.newBagItems.some(id => id === "welcome_box" || getConsumableCount(id) > 0);
+  const bagHighlight = Boolean(hasWelcomeBox || hasNewItems);
+  const bagBtn = document.getElementById("enterBagBtn");
+  const bagBadge = document.getElementById("enterBagNewBadge");
+  if (bagBadge) bagBadge.classList.toggle("hidden", !bagHighlight);
+  if (bagBtn) bagBtn.classList.toggle("is-reward-sparkle", bagHighlight);
 };
 
 window.claimDailyCd = async function () {
@@ -6038,6 +6587,7 @@ window.claimDailyRandomBox = function () {
     userState.cdCoins += pick.amount;
   } else {
     userState.inventory[pick.id] = getConsumableCount(pick.id) + pick.amount;
+    if (pick.id !== "bait_c" && typeof markBagItemNew === "function") markBagItemNew(pick.id);
   }
   syncProfileToServer();
   syncHomeV2BadgesUI();
@@ -6198,6 +6748,7 @@ window.claimAttendanceDay = async function () {
     userState.cdCoins += reward.amount;
   } else if (reward.type === "inv") {
     userState.inventory[reward.id] = getConsumableCount(reward.id) + reward.amount;
+    if (reward.id !== "bait_c" && typeof markBagItemNew === "function") markBagItemNew(reward.id);
   } else if (reward.type === "wing") {
     if (!userState.ownedItems.includes(reward.id)) userState.ownedItems.push(reward.id);
     userState.avatarConfig.wing = reward.id;
@@ -6832,6 +7383,343 @@ window.refreshOnlineUsersFriendships = async function () {
   } catch (e) {}
 };
 
+// ============================================================================
+// [V3.2] 참여형 일일 퀘스트 · 1:1 결과 공유 · 스포트라이트 튜토리얼
+// ============================================================================
+let dailyQuestClaimInFlight = false;
+
+window.recordDailyQuestProgress = function (kind, payload = 1) {
+  if (typeof userState === "undefined" || !userState.isLoggedIn) return;
+  const ds = ensureV2DailyState();
+  const items = ds.dailyQuests && Array.isArray(ds.dailyQuests.items) ? ds.dailyQuests.items : [];
+  let changed = false;
+
+  items.forEach(q => {
+    if (!q || q.claimed || q.progress >= q.target) return;
+    if (kind === "quiz" && q.type === "quiz") {
+      q.progress = Math.min(q.target, (Number(q.progress) || 0) + Math.max(1, Number(payload) || 1));
+      changed = true;
+    } else if (kind === "fishing_sec" && q.type === "fishing") {
+      const addSec = Math.max(0, Number(payload) || 0);
+      if (addSec <= 0) return;
+      q.secAccum = (Number(q.secAccum) || 0) + addSec;
+      const newMin = Math.min(q.target, Math.floor(q.secAccum / 60));
+      if (newMin > (Number(q.progress) || 0)) {
+        q.progress = newMin;
+        changed = true;
+      }
+    } else if (kind === "arcade" && q.type === "arcade") {
+      const playedGameId = String(payload || "");
+      if (q.gameId === "any" || (playedGameId && q.gameId === playedGameId)) {
+        q.progress = Math.min(q.target, (Number(q.progress) || 0) + 1);
+        changed = true;
+      }
+    }
+  });
+
+  if (changed) {
+    syncAllRewardSparklesUI();
+    syncProfileToServer();
+    const modal = document.getElementById("dailyQuestModal");
+    if (modal && !modal.classList.contains("hidden")) {
+      renderDailyQuestModal();
+    }
+  }
+};
+
+window.openDailyQuestModal = function () {
+  if (!userState.isLoggedIn) {
+    gameConfirm("일일 퀘스트는 로그인 후 참여할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
+    return;
+  }
+  const ds = ensureV2DailyState();
+  const items = Array.isArray(ds.dailyQuests?.items) ? ds.dailyQuests.items : [];
+  if (items.length > 0 && items.every(q => q.claimed)) {
+    gameAlert(
+      "오늘의 일일 퀘스트를 모두 완료했습니다!\n내일 오전 6시 초기화 후 다시 도전해보세요!",
+      "📋 오늘 일퀘 완료"
+    );
+    return;
+  }
+  renderDailyQuestModal();
+  openModal("dailyQuestModal");
+};
+
+window.renderDailyQuestModal = function () {
+  const listEl = document.getElementById("dailyQuestList");
+  const sumEl = document.getElementById("dailyQuestModalSummary");
+  if (!listEl) return;
+
+  const ds = ensureV2DailyState();
+  const items = Array.isArray(ds.dailyQuests?.items) ? ds.dailyQuests.items : [];
+  const claimedCnt = items.filter(q => q.claimed).length;
+  if (sumEl) sumEl.textContent = `${claimedCnt} / ${items.length} 완료`;
+
+  listEl.innerHTML = items
+    .map((q, idx) => {
+      const pct = Math.min(100, Math.round(((Number(q.progress) || 0) / Math.max(1, q.target)) * 100));
+      const isComplete = (Number(q.progress) || 0) >= q.target;
+      const isClaimed = Boolean(q.claimed);
+      const cardCls = isClaimed ? "is-claimed" : isComplete ? "is-ready" : "";
+      let progressLabel = `${q.progress} / ${q.target}${q.unit || ""}`;
+      if (q.type === "fishing" && !isComplete) {
+        const remMin = Math.max(0, (q.target * 60 - (Number(q.secAccum) || 0)));
+        const rm = Math.floor(remMin / 60);
+        const rs = Math.floor(remMin % 60);
+        progressLabel = `${q.progress}/${q.target}분 (${rm}:${String(rs).padStart(2, "0")} 남음)`;
+      }
+
+      const btnHtml = isClaimed
+        ? `<button type="button" class="btn" disabled style="padding:6px 10px; font-size:0.75rem;">✅ 수령완료</button>`
+        : isComplete
+        ? `<button type="button" class="btn btn-gold is-reward-sparkle" onclick="claimDailyQuestReward(${idx})" style="padding:6px 11px; font-size:0.76rem;">🎁 받기</button>`
+        : `<button type="button" class="btn" disabled style="padding:6px 10px; font-size:0.74rem;">진행중</button>`;
+
+      return `
+        <div class="daily-quest-card ${cardCls}">
+          <div class="dq-top-row">
+            <span class="dq-title">${escapeOnlineHtml(q.label)}</span>
+            <span class="dq-reward-pill">${escapeOnlineHtml(q.reward?.label || "보상")}</span>
+          </div>
+          <div class="dq-bottom-row">
+            <div class="dq-progress-track">
+              <div class="dq-progress-fill" style="width:${pct}%;"></div>
+            </div>
+            <span class="dq-progress-text">${escapeOnlineHtml(progressLabel)}</span>
+            ${btnHtml}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+};
+
+window.claimDailyQuestReward = async function (idx) {
+  if (dailyQuestClaimInFlight) return;
+  if (!userState.isLoggedIn || !sbClient) return;
+  const ds = ensureV2DailyState();
+  const items = Array.isArray(ds.dailyQuests?.items) ? ds.dailyQuests.items : [];
+  const q = items[idx];
+  if (!q || q.claimed || q.progress < q.target) return;
+
+  dailyQuestClaimInFlight = true;
+  try {
+    const { data, error } = await sbClient.rpc("claim_daily_quest_reward", {
+      p_day_key: ds.kstDate,
+      p_quest_idx: idx,
+      p_reward_type: q.reward?.type || "cd",
+      p_reward_amount: Number(q.reward?.amount) || 100
+    });
+    if (error) {
+      const msg = String(error.message || "");
+      if (error.code === "PGRST202" || msg.includes("claim_daily_quest_reward")) {
+        gameAlert("서버 DB 업데이트(supabase_v3_2_update.sql 실행) 후 일일 퀘스트 보상을 수령할 수 있습니다!", "⚠️ DB 반영 필요");
+      } else {
+        gameAlert(`일일 퀘스트 보상 수령 중 오류가 발생했습니다.\n(${msg || "서버 오류"})`);
+      }
+      return;
+    }
+
+    if (data && data.ok) {
+      if (typeof data.cd_coins === "number") userState.cdCoins = Math.max(0, data.cd_coins);
+      if (typeof data.arcade_coins === "number") userState.arcadeCoins = Math.max(0, data.arcade_coins);
+      if (typeof data.golden_coins === "number") userState.goldenCoins = Math.max(0, data.golden_coins);
+      if (typeof data.exp === "number") userState.exp = Math.max(0, data.exp);
+      q.claimed = true;
+
+      if (typeof playDingSound === "function") playDingSound();
+      await syncProfileToServer();
+      updateHeaderUserUI();
+      syncAllRewardSparklesUI();
+      renderDailyQuestModal();
+      if (items.every(it => it.claimed)) {
+        closeModal("dailyQuestModal");
+      }
+      gameAlert(`🎉 [${q.label}] 완료!\n보상 [${q.reward?.label}]이(가) 지급되었습니다!`, "📋 일일 퀘스트 보상");
+    } else if (data && data.already_claimed) {
+      q.claimed = true;
+      await syncProfileToServer();
+      syncAllRewardSparklesUI();
+      renderDailyQuestModal();
+      gameAlert("이미 오늘 수령 완료된 퀘스트입니다.");
+    } else if (data && data.error === "DAY_MISMATCH") {
+      ensureV2DailyState();
+      syncAllRewardSparklesUI();
+      renderDailyQuestModal();
+      gameAlert("오전 6시가 지나 일일 퀘스트가 새로 갱신되었습니다!");
+    }
+  } finally {
+    dailyQuestClaimInFlight = false;
+  }
+};
+
+window.shareBattle1v1ResultImage = async function () {
+  const target = document.getElementById("battle1v1ResultBox");
+  if (!target || typeof html2canvas === "undefined") {
+    gameAlert("결과 이미지 생성 모듈을 불러오는 중입니다.");
+    return;
+  }
+  const origMaxH = target.querySelector(".battle-vs-rounds")?.style.maxHeight || "";
+  const roundsBox = target.querySelector(".battle-vs-rounds");
+  try {
+    if (roundsBox) roundsBox.style.maxHeight = "none";
+    const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+    if (roundsBox) roundsBox.style.maxHeight = origMaxH;
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    if (blob && navigator.canShare) {
+      const file = new File([blob], `musicking_1v1_${Date.now()}.png`, { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "음악왕 1:1 대결 결과!",
+          text: "음악왕 1:1 실시간 대결 결과를 확인해보세요!",
+          files: [file]
+        });
+        return;
+      }
+    }
+    if (blob && navigator.clipboard && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        gameAlert("📸 1:1 대결 결과 이미지가 클립보드에 복사되었습니다!\n채팅창에 바로 붙여넣기 해보세요.");
+        return;
+      } catch (clipErr) {}
+    }
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `musicking_1v1_${Date.now()}.png`;
+    a.click();
+    gameAlert("📸 1:1 대결 결과 이미지가 저장되었습니다!");
+  } catch (e) {
+    if (roundsBox) roundsBox.style.maxHeight = origMaxH;
+  }
+};
+
+const V32_TUTORIAL_STEPS = [
+  {
+    selector: "#homeCharTitlePill",
+    title: "🎖️ 포트리스2 블루 21단계 계급!",
+    desc: "기존 타이틀이 Lv.1 해골부터 Lv.21 별왕관까지 21단계 포트리스2 계급으로 개편되었어요!\n퀴즈와 낚시로 경험치를 쌓아 명예로운 별왕관에 도전해보세요."
+  },
+  {
+    selector: "#homeDailyQuestBtn",
+    title: "📋 매일 랜덤 일일 퀘스트!",
+    desc: "우측 상단 [일퀘] 버튼을 눌러 매일 오전 6시에 새로 배정되는 랜덤 미션 3개를 깨고 CD·오락실 동전·황금주화·EXP를 챙기세요!"
+  },
+  {
+    selector: "#enterBagBtn",
+    title: "🎒 가방 · 웰컴 패키지 & 변경권!",
+    desc: "가방에 🎁 웰컴 패키지 상자를 넣어드렸어요!\n(1,000 CD + 동전 2개 + 3초듣기 + 초성힌트!)\n앞으로 상점의 닉네임·성별 변경권도 가방에 보관됩니다."
+  },
+  {
+    selector: "#enterOutingBtn",
+    title: "🏘️ 놀러가기 · 낚시터 & 황금오락실!",
+    desc: "낚시터에서 수다 떨며 방치 보상을 받고, 황금오락실 '🔥 오늘의 핫 게임'에서 황금주화 2배를 노려보세요!"
+  },
+  {
+    selector: "#enterPlayHubBtn",
+    title: "🎮 퀴즈 & 1:1 실시간 대결!",
+    desc: "싱글 퀴즈와 함께 친구와의 1:1 대결을 즐겨보세요!\n1:1 대결 종료 시 1~10라운드 VS 비교표도 확인할 수 있답니다!"
+  }
+];
+
+const v32TutorialState = {
+  isOpen: false,
+  stepIdx: 0
+};
+
+function positionV32TutorialStep() {
+  const overlay = document.getElementById("v32TutorialOverlay");
+  const box = document.getElementById("v32TutorialSpotlightBox");
+  const card = document.getElementById("v32TutorialCard");
+  if (!overlay || !box || !card || !v32TutorialState.isOpen) return;
+
+  const step = V32_TUTORIAL_STEPS[v32TutorialState.stepIdx];
+  const targetEl = step ? document.querySelector(step.selector) : null;
+  if (!targetEl) return;
+
+  const r = targetEl.getBoundingClientRect();
+  const pad = 6;
+  const top = Math.max(4, r.top - pad);
+  const left = Math.max(4, r.left - pad);
+  const width = Math.min(window.innerWidth - 8, r.width + pad * 2);
+  const height = r.height + pad * 2;
+
+  box.style.top = `${top}px`;
+  box.style.left = `${left}px`;
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+
+  const cardH = card.offsetHeight || 190;
+  const viewH = window.innerHeight || 720;
+  let cardTop = top + height + 14;
+  if (cardTop + cardH > viewH - 18) {
+    cardTop = Math.max(58, top - cardH - 14);
+  }
+  card.style.top = `${cardTop}px`;
+}
+
+function renderV32TutorialStep() {
+  const step = V32_TUTORIAL_STEPS[v32TutorialState.stepIdx];
+  if (!step) return;
+  const badgeEl = document.getElementById("v32TutorialStepBadge");
+  const titleEl = document.getElementById("v32TutorialTitle");
+  const descEl = document.getElementById("v32TutorialDesc");
+  const prevBtn = document.getElementById("v32TutorialPrevBtn");
+  const nextBtn = document.getElementById("v32TutorialNextBtn");
+
+  if (badgeEl) badgeEl.textContent = `튜토리얼 ${v32TutorialState.stepIdx + 1} / ${V32_TUTORIAL_STEPS.length}`;
+  if (titleEl) titleEl.textContent = step.title;
+  if (descEl) descEl.textContent = step.desc;
+  if (prevBtn) prevBtn.classList.toggle("hidden", v32TutorialState.stepIdx === 0);
+  if (nextBtn) {
+    const isLast = v32TutorialState.stepIdx >= V32_TUTORIAL_STEPS.length - 1;
+    nextBtn.textContent = isLast ? "🎉 시작하기! (가방 상자 열기)" : "다음 ➔";
+  }
+
+  requestAnimationFrame(positionV32TutorialStep);
+}
+
+window.maybeStartV32Tutorial = function () {
+  if (v32TutorialState.isOpen) return;
+  if (typeof userState === "undefined" || !userState.isLoggedIn || userState.v32TutorialDone) return;
+  if (typeof state !== "undefined" && state.currentScreen !== "homeScreen") return;
+  if (document.querySelector(".modal-backdrop:not(.hidden)")) return;
+
+  v32TutorialState.isOpen = true;
+  v32TutorialState.stepIdx = 0;
+  const overlay = document.getElementById("v32TutorialOverlay");
+  if (overlay) overlay.classList.remove("hidden");
+  renderV32TutorialStep();
+};
+
+window.stepV32Tutorial = function (delta) {
+  if (!v32TutorialState.isOpen) return;
+  const nextIdx = v32TutorialState.stepIdx + Number(delta || 0);
+  if (nextIdx < 0) return;
+  if (nextIdx >= V32_TUTORIAL_STEPS.length) {
+    finishV32Tutorial(false);
+    return;
+  }
+  v32TutorialState.stepIdx = nextIdx;
+  renderV32TutorialStep();
+};
+
+window.finishV32Tutorial = async function (skipped = false) {
+  v32TutorialState.isOpen = false;
+  const overlay = document.getElementById("v32TutorialOverlay");
+  if (overlay) overlay.classList.add("hidden");
+  userState.v32TutorialDone = true;
+  await syncProfileToServer();
+  syncAllRewardSparklesUI();
+  if (!skipped && getConsumableCount("welcome_box") > 0) {
+    openBagScreen("welcome_box");
+  }
+};
+
+window.addEventListener("resize", () => {
+  if (v32TutorialState.isOpen) positionV32TutorialStep();
+});
+
 window.openOnlineUsersModal = async function () {
   if (!userState.isLoggedIn) {
     gameConfirm("접속 중인 유저 목록은 로그인 후 이용할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
@@ -6926,6 +7814,7 @@ window.renderOnlineUsersModalList = function () {
             </div>
             <div style="min-width:0; flex:1;">
               <div style="display:flex; align-items:center; gap:5px;">
+                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lvNum, { size: 16 }) : ""}
                 <strong style="font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="프로필 보기">${isMe ? "⭐ " : ""}${escapeOnlineHtml(u.nickname || "도전자")}</strong>
                 <span style="font-size:0.66rem; font-weight:900; color:var(--primary-dark); background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:0 4px; flex-shrink:0;">Lv.${lvNum}</span>
               </div>
@@ -7444,6 +8333,7 @@ async function handleIncomingBattleInviteReply(payload) {
       {
         id: userState.id,
         nickname: userState.nickname,
+        exp: Number(userState.exp) || 0,
         avatarConfig: userState.avatarConfig,
         score: 0
       }
@@ -7640,6 +8530,7 @@ window.renderBattleInviteModalList = async function (refreshBg = false) {
             </div>
             <div style="min-width:0; flex:1;">
               <div style="display:flex; align-items:center; gap:5px;">
+                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lvNum, { size: 16 }) : ""}
                 <strong style="font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeOnlineHtml(u.nickname)}</strong>
                 <span style="font-size:0.66rem; font-weight:900; color:var(--primary-dark); background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:0 4px; flex-shrink:0;">Lv.${lvNum}</span>
               </div>

@@ -253,6 +253,7 @@ function renderFishingHud() {
 
   const ad2xBtn = document.getElementById("fishing2xBuffBtn");
   if (ad2xBtn) {
+    ad2xBtn.classList.toggle("is-reward-sparkle", !mults.is2xActive);
     if (mults.is2xActive && typeof userState !== "undefined" && userState.dailyState) {
       const remSec = Math.max(0, Math.ceil((Number(userState.dailyState.fishing2xExpiresAt) - Date.now()) / 1000));
       const mm = String(Math.floor(remSec / 60)).padStart(2, "0");
@@ -318,6 +319,10 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
       fishingState.msCarry += chunkEnd - cursor;
       let chunkSec = Math.floor(fishingState.msCarry / 1000);
       fishingState.msCarry -= chunkSec * 1000;
+
+      if (chunkSec > 0 && typeof window.recordDailyQuestProgress === "function") {
+        try { window.recordDailyQuestProgress("fishing_sec", chunkSec); } catch (e) {}
+      }
 
       while (chunkSec > 0) {
         const hasAvatarCfg = typeof userState !== "undefined" && userState.avatarConfig;
@@ -835,15 +840,25 @@ function syncFishingPlayersDOM() {
 
     const nickEl = node.querySelector(".fishing-player-nick");
     if (nickEl) {
-      nickEl.textContent = p.mode === "bg" ? `${p.nickname || "도전자"} 💤` : p.nickname || "도전자";
+      const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+      const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 13 }) : "";
+      const nickSafe = escapeFishingHtml(p.nickname || "도전자");
+      nickEl.innerHTML = `${rankHtml}${rankHtml ? " " : ""}${nickSafe}${p.mode === "bg" ? " 💤" : ""}`;
     }
 
-    // 아바타가 변경되었을 때만 480x480 캔버스 렌더링 (6시간 배터리 최적화!)
+    // 아바타가 변경되었을 때만 480x480 캔버스 렌더링 (V3.2 무릎 바운스 + 눈 깜빡임 + 낚싯대, 12.5fps 최적화)
     if (fishingState.playerAvatarKeys.get(p.key) !== cfgSig) {
       fishingState.playerAvatarKeys.set(p.key, cfgSig);
       const cv = node.querySelector(".fishing-player-canvas");
       if (cv && typeof renderPixelAvatar === "function") {
-        renderPixelAvatar(cv, cfg, { transparentBg: true, matchCssAspect: false, maxEffectParticles: 6 });
+        renderPixelAvatar(cv, cfg, {
+          transparentBg: true,
+          matchCssAspect: false,
+          maxEffectParticles: 6,
+          idleAnim: true,
+          fishingIdle: true,
+          idleFps: 12.5
+        });
       }
     }
   });
@@ -868,7 +883,9 @@ function renderFishingOnlineUsersList(playersList = null) {
       const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.nickname || "") : "";
       const isMe = userState.id && p.userId === userState.id;
       const isBg = p.mode === "bg";
-      return `<div class="fishing-user-item${isMe ? " is-me" : ""}${isBg ? " is-afk" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}"><span class="fishing-user-nick">${escapeFishingHtml(p.nickname || "도전자")}</span>${isBg ? `<span class="fishing-user-afk">(잠수중)</span>` : ""}</div>`;
+      const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+      const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
+      return `<div class="fishing-user-item${isMe ? " is-me" : ""}${isBg ? " is-afk" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}"><span class="fishing-user-nick">${rankHtml}${rankHtml ? " " : ""}${escapeFishingHtml(p.nickname || "도전자")}</span>${isBg ? `<span class="fishing-user-afk">(잠수중)</span>` : ""}</div>`;
     })
     .join("");
 }
@@ -1009,6 +1026,7 @@ async function trackMyFishingPresence(alsoBroadcastMove = false) {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
+    exp: Number(userState.exp) || 0,
     avatarConfig: cleanAvatar,
     x: fishingState.myPos.x,
     y: fishingState.myPos.y,
@@ -1136,6 +1154,7 @@ async function syncFishingGlobalRosterFromDb() {
         key: r.id,
         userId: r.id,
         nickname: r.nickname || prev?.nickname || "도전자",
+        exp: Number(cfg._exp) || prev?.exp || 0,
         avatarConfig: getPublicFishingAvatarConfig(cfg),
         x: useDbPos ? (Number(live.x) || 50) : prev.x,
         y: useDbPos ? (Number(live.y) || 68) : prev.y,
@@ -1228,6 +1247,7 @@ function connectFishingRealtimeChannel(isReconnect = false, restorePos = null, o
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
+    exp: Number(userState.exp) || 0,
     avatarConfig: getPublicFishingAvatarConfig(),
     x: fishingState.myPos.x,
     y: fishingState.myPos.y,

@@ -6,6 +6,8 @@
 }
 
 :root {
+  color-scheme: light only;
+  forced-color-adjust: none;
   --bg-page: #dff4ff;
   --bg-card: #ffffff;
   --bg-subtle: #f8fafc;
@@ -256,7 +258,7 @@ body.keyboard-open #loginScreen .home-hero {
 .home-title-block {
   flex-shrink: 0;
   width: 100%;
-  padding: 0 58px;
+  padding: 0 74px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -266,7 +268,7 @@ body.keyboard-open #loginScreen .home-hero {
   background: none;
   border: none;
   padding: 2px 6px;
-  font-size: clamp(1.22rem, 5.2vw, 1.48rem);
+  font-size: clamp(1.12rem, 4.8vw, 1.44rem);
   font-weight: 900;
   color: var(--text-main);
   letter-spacing: -0.5px;
@@ -276,6 +278,10 @@ body.keyboard-open #loginScreen .home-hero {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .hero-badge {
@@ -5489,4 +5495,419 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
   background: #fef3c7;
   color: #b45309;
   border-color: #fcd34d;
+}
+
+/* ============================================================================ */
+/* [V3.2] 일일 퀘스트 · 보상 반짝임 · 포트리스2 계급 아이콘 · 핫게임 · 1:1 VS표 · 튜토리얼 */
+/* ============================================================================ */
+html, body {
+  color-scheme: light only;
+  forced-color-adjust: none;
+}
+
+.f2-rank-ico {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: -3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* 홈 우측 상단 일퀘 버튼 (좌측 접속자 버튼과 동일 높이·대칭 스타일) */
+.home-daily-quest-top-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 42;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 2.2px solid var(--game-border);
+  background: #ffffff;
+  color: #1e1b18;
+  font-size: 0.72rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--game-border);
+  transition: transform 0.1s ease, filter 0.15s ease;
+  white-space: nowrap;
+}
+
+.home-daily-quest-top-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 var(--game-border);
+}
+
+.home-daily-quest-top-btn.is-quest-done {
+  background: #e2e8f0;
+  color: #64748b;
+  border-color: #94a3b8;
+  box-shadow: none;
+  opacity: 0.85;
+}
+
+/* 미수령 무료·광고 보상 & 일퀘 황금 반짝임 강조 */
+@keyframes v32RewardSparkle {
+  0%, 100% {
+    box-shadow: 0 2px 0 var(--game-border), 0 0 0 0 rgba(250, 204, 21, 0.72);
+    filter: brightness(1);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 2px 0 #b45309, 0 0 14px 4px rgba(245, 158, 11, 0.65);
+    filter: brightness(1.07);
+    transform: translateY(-1.5px);
+  }
+}
+
+.is-reward-sparkle {
+  border-color: #d97706 !important;
+  background-image: linear-gradient(135deg, #fef9c3 0%, #fde047 100%) !important;
+  color: #78350f !important;
+  animation: v32RewardSparkle 1.25s ease-in-out infinite !important;
+}
+
+/* 가방 NEW 배지 & 새 아이템 타일 강조 */
+.home-bag-new-badge {
+  position: absolute;
+  top: -6px;
+  right: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f43f5e, #f59e0b);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  border: 1.5px solid #1e1b18;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.25);
+  z-index: 3;
+}
+
+.bag-item-tile.is-new-item {
+  border-color: #f59e0b;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  box-shadow: 0 0 0 2px #fde047, 0 4px 10px rgba(245, 158, 11, 0.28);
+}
+
+.bag-new-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #e11d48;
+  color: #ffffff;
+  font-size: 0.56rem;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1.5px solid #1e1b18;
+}
+
+/* 오락실 오늘의 핫 게임 (2배 강조) */
+.arcade-cabinet-card.is-hot-game {
+  box-shadow: 0 4px 0 #1e1b18, 0 0 0 3px #facc15, 0 0 16px rgba(249, 115, 22, 0.55);
+}
+
+.arcade-hot-badge {
+  position: absolute;
+  top: -9px;
+  right: 6px;
+  z-index: 6;
+  background: linear-gradient(135deg, #ef4444, #f59e0b);
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 2px solid #1e1b18;
+  box-shadow: 0 2px 0 #1e1b18;
+  white-space: nowrap;
+}
+
+.arcade-hot-guide-pill {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fee2e2, #fef08a);
+  border: 2px solid #ea580c;
+  color: #9a3412;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+/* 참여형 일일 퀘스트 카드 */
+.daily-quest-card {
+  background: #ffffff;
+  border: 2.5px solid var(--game-border);
+  border-radius: 14px;
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  box-shadow: 0 3px 0 rgba(30, 27, 24, 0.14);
+}
+
+.daily-quest-card.is-ready {
+  background: linear-gradient(180deg, #fffbeb 0%, #fef9c3 100%);
+  border-color: #d97706;
+}
+
+.daily-quest-card.is-claimed {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  opacity: 0.78;
+}
+
+.dq-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.dq-title {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #1e1b18;
+}
+
+.dq-reward-pill {
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  border: 1.5px solid #f59e0b;
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.dq-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dq-progress-track {
+  flex: 1;
+  height: 11px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  border: 1.5px solid #1e1b18;
+  overflow: hidden;
+  position: relative;
+}
+
+.dq-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #2563eb);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.daily-quest-card.is-ready .dq-progress-fill,
+.daily-quest-card.is-claimed .dq-progress-fill {
+  background: linear-gradient(90deg, #4ade80, #16a34a);
+}
+
+.dq-progress-text {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #334155;
+  white-space: nowrap;
+  min-width: 44px;
+  text-align: center;
+}
+
+/* 1:1 대전 VS 결과 리포트 카드 */
+.battle-vs-card {
+  background: #ffffff;
+  color: #1e1b18;
+  border: 3px solid #1e1b18;
+  border-radius: 16px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.battle-vs-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.battle-vs-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.battle-vs-player canvas {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 2.2px solid #1e1b18;
+  background: #f8fafc;
+}
+
+.battle-vs-player.is-winner canvas {
+  border-color: #eab308;
+  box-shadow: 0 0 0 2px #fde047;
+}
+
+.battle-vs-nick {
+  font-size: 0.76rem;
+  font-weight: 900;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.battle-vs-score {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #1d4ed8;
+}
+
+.battle-vs-badge {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444, #f59e0b);
+  border: 2px solid #1e1b18;
+  border-radius: 999px;
+  padding: 3px 8px;
+  box-shadow: 0 2px 0 #1e1b18;
+}
+
+.battle-vs-rounds {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 225px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.battle-round-pill {
+  display: grid;
+  grid-template-columns: 50px 1fr 50px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 2px solid #1e1b18;
+  font-size: 0.72rem;
+  font-weight: 900;
+  background: #f1f5f9;
+}
+
+.battle-round-pill.is-me-win {
+  background: linear-gradient(90deg, #bbf7d0 0%, #ecfdf5 45%, #fff1f2 60%, #fecdd3 100%);
+}
+
+.battle-round-pill.is-opp-win {
+  background: linear-gradient(90deg, #fecdd3 0%, #fff1f2 45%, #ecfdf5 60%, #bbf7d0 100%);
+}
+
+.battle-round-song {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1e1b18;
+}
+
+.battle-round-pt {
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.battle-round-pt.is-win {
+  color: #15803d;
+}
+
+.battle-round-pt.is-lose {
+  color: #be123c;
+}
+
+/* 웰컴 패키지 개봉 모달 */
+.welcome-rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.welcome-reward-chip {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 9px 6px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #92400e;
+}
+
+/* 스포트라이트 튜토리얼 오버레이 */
+.spotlight-tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9960;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.spotlight-tutorial-box {
+  position: fixed;
+  border-radius: 16px;
+  border: 3px solid #facc15;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.78), 0 0 18px 4px rgba(250, 204, 21, 0.7);
+  pointer-events: none;
+  transition: top 0.24s ease, left 0.24s ease, width 0.24s ease, height 0.24s ease;
+}
+
+.spotlight-tutorial-skip {
+  position: fixed;
+  top: max(14px, calc(env(safe-area-inset-top, 0px) + 12px));
+  right: 14px;
+  z-index: 9965;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 2px solid #1e1b18;
+  background: #ffffff;
+  color: #1e1b18;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #1e1b18;
+}
+
+.spotlight-tutorial-card {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 370px);
+  z-index: 9964;
+  background: #ffffff;
+  border: 3px solid #1e1b18;
+  border-radius: 18px;
+  padding: 13px 14px;
+  box-shadow: 0 6px 0 #1e1b18, 0 16px 32px rgba(0, 0, 0, 0.45);
+  transition: top 0.24s ease;
 }

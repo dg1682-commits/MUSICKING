@@ -144,6 +144,26 @@ function getArcadeGameMeta(gameId) {
   return arcadeState.games.find(g => g.game_id === gameId) || ARCADE_GAMES_META.find(g => g.game_id === gameId);
 }
 
+const ARCADE_HOT_POOL = [
+  "star_dodge",
+  "side_sort",
+  "animal_match",
+  "melody_memory",
+  "jump_runner",
+  "color_sort",
+  "brick_breaker",
+  "note_pang"
+];
+
+window.getTodayHotArcadeGameId = function (nowMs = Date.now()) {
+  const shifted = new Date(nowMs + 3 * 60 * 60 * 1000);
+  const utcDay = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  const epochDay = Date.UTC(2026, 0, 1);
+  const days = Math.floor((utcDay - epochDay) / 86400000);
+  const idx = (((days * 3 + 5) % 8) + 8) % 8;
+  return ARCADE_HOT_POOL[idx];
+};
+
 window.syncArcadeBalancesUI = function () {
   const cd = typeof userState !== "undefined" ? Math.max(0, Number(userState.cdCoins) || 0) : 0;
   const coins = typeof userState !== "undefined" ? Math.max(0, Number(userState.arcadeCoins) || 0) : 0;
@@ -742,14 +762,17 @@ window.exitArcadeScreenWithLoading = function () {
 function renderArcadeCabinetsGrid() {
   const grid = document.getElementById("arcadeCabinetsGrid");
   if (!grid) return;
+  const hotGameId = typeof window.getTodayHotArcadeGameId === "function" ? window.getTodayHotArcadeGameId() : "";
 
   const cardsHtml = arcadeState.games
     .map(g => {
       const myRec = arcadeState.myScoresMap.get(g.game_id);
       const weeklyBest = myRec ? Number(myRec.weekly_score) || 0 : 0;
       const isOff = g.enabled === false;
+      const isHot = !isOff && g.game_id === hotGameId;
       return `
-      <button type="button" class="arcade-cabinet-card ${isOff ? "is-disabled" : ""}" onclick="playArcadeCabinet('${g.game_id}')" style="--cab-col:${g.cabinetCol || "#6366f1"}; --marq-bg:${g.marqueeBg || "#1e1b4b"};">
+      <button type="button" class="arcade-cabinet-card ${isOff ? "is-disabled" : ""} ${isHot ? "is-hot-game" : ""}" onclick="playArcadeCabinet('${g.game_id}')" style="--cab-col:${g.cabinetCol || "#6366f1"}; --marq-bg:${g.marqueeBg || "#1e1b4b"};">
+        ${isHot ? `<span class="arcade-hot-badge">🔥 오늘 2배!</span>` : ""}
         <div class="arcade-cabinet-marquee">${g.title}</div>
         <div class="arcade-cabinet-bezel">
           <canvas id="cabArt_${g.game_id}" class="arcade-cabinet-crt" width="168" height="104"></canvas>
@@ -987,10 +1010,12 @@ window.playArcadeCabinet = async function (gameId, opts = {}) {
     const gCuts = document.getElementById("arcadeGuideCuts");
     const gArt = document.getElementById("arcadeGuideArtCanvas");
     const gStartBtn = document.getElementById("arcadeGuideStartBtn");
-    if (gTitle) gTitle.textContent = `🕹️ ${meta.title} 게임 가이드`;
+    const isHotGame = typeof window.getTodayHotArcadeGameId === "function" && window.getTodayHotArcadeGameId() === gameId;
+    if (gTitle) gTitle.textContent = isHotGame ? `🔥 ${meta.title} (오늘 황금주화 2배!)` : `🕹️ ${meta.title} 게임 가이드`;
     if (gBody) gBody.textContent = ARCADE_GAME_GUIDES[gameId] || `${meta.subtitle || "최고 점수에 도전하세요!"}`;
     if (gCuts) {
-      gCuts.textContent = `목표 점수: C ${Number(meta.cut_c).toLocaleString()} · A ${Number(meta.cut_a).toLocaleString()} · S ${Number(meta.cut_s).toLocaleString()}`;
+      const baseCutStr = `목표 점수: C ${Number(meta.cut_c).toLocaleString()} · A ${Number(meta.cut_a).toLocaleString()} · S ${Number(meta.cut_s).toLocaleString()}`;
+      gCuts.textContent = isHotGame ? `${baseCutStr} · 🔥 오늘의 핫 게임 2배!` : baseCutStr;
     }
     if (gArt) drawArcadeCabinetScreenArt(gArt, gameId);
     if (gStartBtn) {
@@ -1040,8 +1065,9 @@ window.playArcadeCabinet = async function (gameId, opts = {}) {
     const cutA = Number(data.cut_a ?? meta.cut_a);
     const cutS = Number(data.cut_s ?? meta.cut_s);
 
+    const isHotGame = typeof window.getTodayHotArcadeGameId === "function" && window.getTodayHotArcadeGameId() === gameId;
     const titleEl = document.getElementById("arcadePlayTitle");
-    if (titleEl) titleEl.textContent = `🕹️ ${meta.title}`;
+    if (titleEl) titleEl.textContent = isHotGame ? `🔥 ${meta.title} (2배)` : `🕹️ ${meta.title}`;
 
     switchScreen("arcadePlayScreen");
     const mountEl = document.getElementById("arcadePlayStage");
@@ -1059,9 +1085,10 @@ window.playArcadeCabinet = async function (gameId, opts = {}) {
     }
 
     const updateHud = ({ score = 0, hearts = null, timeSec = null, extra = "" } = {}) => {
+      const sReward = isHotGame ? 20 : 10;
       const tierTxt =
         score >= cutS
-          ? "👑 S목표 (+10🪙)"
+          ? `👑 S목표 (+${sReward}🪙)`
           : score >= cutA
           ? `🔥 A달성! S:${cutS}`
           : score >= cutC
@@ -1163,24 +1190,36 @@ async function finishAndSubmitArcadeGame(rawScore, reasonMsg = "") {
 
     // 결과 모달 표출
     const tier = data.tier || "BASE";
+    const isHot = Boolean(data.is_hot_game);
+    const mult = isHot ? 2 : 1;
     const tierBadgeMap = {
-      S: "👑 S목표 대성공! (+10 🪙)",
-      A: "🔥 A목표 달성! (+6 🪙)",
-      C: "✨ C목표 달성! (+3 🪙)",
-      BASE: "🎮 참가 완료 (+1 🪙)"
+      S: `👑 S목표 대성공! (+${10 * mult} 🪙)`,
+      A: `🔥 A목표 달성! (+${6 * mult} 🪙)`,
+      C: `✨ C목표 달성! (+${3 * mult} 🪙)`,
+      BASE: `🎮 참가 완료 (+${1 * mult} 🪙)`
     };
     const setTxt = (id, v) => {
       const el = document.getElementById(id);
       if (el) el.textContent = v;
     };
-    setTxt("arcadeResGameTitle", `🕹️ ${meta ? meta.title : gameId}`);
+    setTxt("arcadeResGameTitle", isHot ? `🔥 ${meta ? meta.title : gameId} (오늘의 핫 게임 2배!)` : `🕹️ ${meta ? meta.title : gameId}`);
     setTxt("arcadeResTierBadge", tierBadgeMap[tier] || `+${data.gained_golden || 1} 🪙`);
     setTxt("arcadeResScore", `${Number(data.score ?? safeScore).toLocaleString()}점`);
-    setTxt("arcadeResGoldenGain", `🪙 +${Number(data.gained_golden || 1)}개 획득! (보유 ${userState.goldenCoins.toLocaleString()}개)`);
+    const gainedGold = Number(data.gained_golden || 1);
+    setTxt(
+      "arcadeResGoldenGain",
+      isHot
+        ? `🔥 핫 게임 2배! 🪙 +${gainedGold}개 획득! (보유 ${userState.goldenCoins.toLocaleString()}개)`
+        : `🪙 +${gainedGold}개 획득! (보유 ${userState.goldenCoins.toLocaleString()}개)`
+    );
     setTxt(
       "arcadeResBestSummary",
       `${reasonMsg ? reasonMsg + "\n" : ""}이번주 최고: ${Number(data.weekly_score || 0).toLocaleString()}점 · 역대 최고: ${Number(data.best_score || 0).toLocaleString()}점`
     );
+
+    if (typeof window.recordDailyQuestProgress === "function") {
+      try { window.recordDailyQuestProgress("arcade", gameId); } catch (e) {}
+    }
 
     const replayBtn = document.getElementById("arcadeResReplayBtn");
     if (replayBtn) {
@@ -1307,6 +1346,20 @@ async function loadArcadeRankingList() {
       }
     }
 
+    const expMap = new Map();
+    try {
+      const uids = [...new Set(displayRows.map(r => r.user_id).filter(Boolean))];
+      if (uids.length > 0 && typeof renderFortressRankIconHtml === "function") {
+        const { data: profs } = await sbClient
+          .from("profiles")
+          .select("id, avatar_config")
+          .in("id", uids);
+        (profs || []).forEach(p => {
+          expMap.set(String(p.id), Number(p.avatar_config?._exp) || 0);
+        });
+      }
+    } catch (e) {}
+
     const medal = ["🥇", "🥈", "🥉"];
     listEl.innerHTML = displayRows
       .map((r, i) => {
@@ -1315,10 +1368,13 @@ async function loadArcadeRankingList() {
         const safeId = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(r.user_id || "") : "";
         const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(r.nickname || "") : "";
         const bonusTag = arcadeState.rankMode === "weekly" && i < 3 ? `<span class="badge gold" style="font-size:0.65rem;">+${[30, 20, 10][i]}🪙</span>` : "";
+        const uExp = expMap.has(String(r.user_id)) ? expMap.get(String(r.user_id)) : 0;
+        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(uExp, { isExp: true, size: 17 }) : "";
         return `
         <div class="pixel-list-item ${isMe ? "is-me-rank" : ""}" onclick="inspectOtherUser('${safeId}', '${safeNick}')" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; min-width:0;">
             <strong style="min-width:26px; font-size:0.9rem;">${i < 3 ? medal[i] : `${i + 1}`}</strong>
+            ${rankIco}
             <span style="font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${typeof escapeFishingHtml === "function" ? escapeFishingHtml(r.nickname) : r.nickname}</span>
             ${bonusTag}
           </div>

@@ -560,10 +560,10 @@ function performCleanAppExit() {
 
 window.openAdminBackendPage = function () {
   if (typeof closeModal === "function") closeModal("settingsModal");
-  location.replace("admin.html?v=24.3");
+  location.replace("admin.html?v=24.6");
 };
 
-const PATCH_NOTES_LATEST_VERSION = "v24.3";
+const PATCH_NOTES_LATEST_VERSION = "v24.6";
 const PATCH_NOTES_SEEN_STORAGE_KEY = "mk_seen_patch_version";
 
 window.syncPatchNotesNotiDot = function () {
@@ -594,6 +594,13 @@ window.processInAppBackStep = function (fromOnestore = false) {
 
   if (!fromOnestore) {
     hasBackGuardPushed = false;
+  }
+
+  const tutOv = document.getElementById("v32TutorialOverlay");
+  if (tutOv && !tutOv.classList.contains("hidden") && typeof finishV32Tutorial === "function") {
+    finishV32Tutorial(true);
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
   }
 
   const dialog = document.getElementById("customDialogModal");
@@ -1493,6 +1500,9 @@ window.switchScreen = function (targetId, opts = {}) {
     if (typeof syncHomeV2BadgesUI === "function") syncHomeV2BadgesUI();
     if (typeof syncPatchNotesNotiDot === "function") syncPatchNotesNotiDot();
     if (typeof syncHomeOnlineUsersBtn === "function") syncHomeOnlineUsersBtn();
+    setTimeout(() => {
+      if (typeof maybeStartV32Tutorial === "function") maybeStartV32Tutorial();
+    }, 340);
   }
   if (typeof syncGlobalOnlineActivity === "function") {
     syncGlobalOnlineActivity(targetId);
@@ -2461,6 +2471,10 @@ async function showFinalResult() {
     )
     .join("");
 
+  if (typeof window.recordDailyQuestProgress === "function") {
+    try { window.recordDailyQuestProgress("quiz", 1); } catch (e) {}
+  }
+
   showRewardSummaryModal(rewardResult);
 }
 
@@ -2561,7 +2575,12 @@ window.showRewardSummaryModal = function (res) {
       ? `+${res.finalExp.toLocaleString()} EXP (×${res.multiplier}배!)`
       : `+${res.finalExp.toLocaleString()} EXP`;
 
-  document.getElementById("rewardLevelTitle").textContent = `Lv.${afterLv.level} ${afterLv.title}`;
+  const rLvEl = document.getElementById("rewardLevelTitle");
+  if (rLvEl) {
+    rLvEl.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
+      ? formatFortressLevelBadgeHtml(res.expAfter, { size: 20 })
+      : `Lv.${afterLv.level} ${afterLv.title}`;
+  }
   document.getElementById("rewardLevelUpTag").classList.toggle("hidden", afterLv.level <= beforeLv.level);
 
   const leveledUp = afterLv.level > beforeLv.level;
