@@ -265,6 +265,7 @@ const ArcadeSfx = (() => {
 
   function boom3() {
     if (!canTrigger("boom3", 70)) return;
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("heavy");
     const graph = ensureGraph();
     if (!graph) return;
     spawnNoise(graph, { dur: 0.06, vol: 0.2, filterType: "highpass", freqStart: 2200, freqEnd: 1400, q: 0.8 });
@@ -325,6 +326,7 @@ const ArcadeSfx = (() => {
   // 피격소리: 몬스터·유성 충돌, 라이프 차감, 스턴 페널티
   function hitDamage() {
     if (!canTrigger("hitDamage", 75)) return;
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
     const graph = ensureGraph();
     if (!graph) return;
     spawnTone(graph, { freq: 235, slideTo: 66, dur: 0.22, type: "sawtooth", vol: 0.14, lowpass: 1450, attack: 0.004 });
@@ -389,6 +391,7 @@ const ArcadeSfx = (() => {
   // 다음 스테이지 통과 / 라운드 클리어 팡파르
   function stageClear() {
     if (!canTrigger("stageClear", 180)) return;
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
     const graph = ensureGraph();
     if (!graph) return;
     const melody = [

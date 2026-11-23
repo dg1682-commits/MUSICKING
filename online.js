@@ -3230,6 +3230,7 @@ window.tryShowPendingAdminGiftPopup = function () {
 
   if (typeof playRandomBoxFanfare === "function") {
     playRandomBoxFanfare("burst");
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
   }
   openModal("adminGiftPopupModal");
 };
@@ -3356,6 +3357,7 @@ async function processClaimedAdminGiftRows(claimedRows, opts = {}) {
 
   if (typeof playRandomBoxFanfare === "function") {
     playRandomBoxFanfare("burst");
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
   }
 
   const lines = [];
@@ -5565,6 +5567,7 @@ window.submitOnlineBattleAnswer = async function () {
       : isArtistMatch(artistVal, q) && isTitleMatch(titleVal, q);
 
   if (isCorrect) {
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
     if (artistInput) artistInput.value = "";
     if (titleInput) titleInput.value = "";
     room.players = (room.players || []).map(p =>
@@ -5611,6 +5614,7 @@ window.submitOnlineBattleAnswer = async function () {
     }
     renderBattleRoomState(room);
   } else {
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("error");
     showBattleRoundToast("❌ 오답입니다! 다시 생각해보세요!", true);
   }
 };
@@ -5869,16 +5873,32 @@ window.getCurrentPlatformEnv = function () {
   return "web";
 };
 
+window.isPlayNoAdMode = function () {
+  return (
+    getCurrentPlatformEnv() === "capacitor" &&
+    !AD_CONFIG.ADMOB_BANNER_ID &&
+    !AD_CONFIG.ADMOB_REWARD_ID
+  );
+};
+
 window.updateHomeAdBannerPlatform = function () {
   const env = getCurrentPlatformEnv();
+  const bannerSlot = document.getElementById("homeAdBannerSlot");
   const coupangWrap = document.getElementById("homeCoupangFrameWrap");
   const coupangDisc = document.querySelector("#homeAdBannerSlot .coupang-disclosure");
   const admobSlot = document.getElementById("homeAdmobBannerSlot");
   if (env === "capacitor") {
     if (coupangWrap) coupangWrap.classList.add("hidden");
     if (coupangDisc) coupangDisc.classList.add("hidden");
-    if (admobSlot) admobSlot.classList.remove("hidden");
+    if (AD_CONFIG.ADMOB_BANNER_ID) {
+      if (bannerSlot) bannerSlot.classList.remove("hidden");
+      if (admobSlot) admobSlot.classList.remove("hidden");
+    } else {
+      if (admobSlot) admobSlot.classList.add("hidden");
+      if (bannerSlot) bannerSlot.classList.add("hidden");
+    }
   } else {
+    if (bannerSlot) bannerSlot.classList.remove("hidden");
     if (coupangWrap) coupangWrap.classList.remove("hidden");
     if (coupangDisc) coupangDisc.classList.remove("hidden");
     if (admobSlot) admobSlot.classList.add("hidden");
@@ -5894,7 +5914,7 @@ window.stopSelfAdCountdownTimer = function () {
 };
 window.showRewardedAd = function (reasonLabel, onRewardCallback) {
   const env = getCurrentPlatformEnv();
-  // Capacitor AdMob 실키가 등록된 경우에만 네이티브 호출, 미등록 시 자체 광고 폴백
+  // Capacitor AdMob 실키가 등록된 경우에만 네이티브 호출, 미등록 시 자체 모달 폴백
   if (env === "capacitor" && AD_CONFIG.ADMOB_REWARD_ID && window.Capacitor?.Plugins?.AdMob) {
     try {
       window.Capacitor.Plugins.AdMob.prepareRewardVideoAd({ adId: AD_CONFIG.ADMOB_REWARD_ID })
@@ -5914,28 +5934,49 @@ window.showRewardedAd = function (reasonLabel, onRewardCallback) {
     } catch (e) {}
   }
 
-  // 자체 책 광고 모달 (myad/ad1.png · 15초 카운트다운)
+  // 자체 15초 대기 보너스 모달 (웹/원스토어: myad/ad1.png · 구글플레이 무광고 심사 빌드: 순수 보너스 대기 카드)
   const modal = document.getElementById("selfAdModal");
+  const modalTitleEl = document.getElementById("selfAdModalTitle");
   const titleEl = document.getElementById("selfAdRewardLabel");
   const timerEl = document.getElementById("selfAdCountdownText");
   const barEl = document.getElementById("selfAdProgressFill");
   const claimBtn = document.getElementById("selfAdClaimBtn");
   const imgEl = document.getElementById("selfAdImage");
+  const fallbackBox = document.getElementById("selfAdFallbackBox");
   if (!modal) {
     if (typeof onRewardCallback === "function") onRewardCallback();
     return;
   }
 
-  if (imgEl) {
-    imgEl.src = "myad/ad1.png?v=20.0";
+  const noAdMode = isPlayNoAdMode();
+  if (modalTitleEl) {
+    modalTitleEl.textContent = noAdMode ? "🎁 궁디스튜디오 보너스 충전" : "📺 스폰서 · 제작자 추천 도서";
   }
-  if (titleEl) titleEl.textContent = reasonLabel || "15초 시청 시 보상이 지급됩니다!";
+  if (noAdMode) {
+    if (imgEl) {
+      imgEl.removeAttribute("src");
+      imgEl.style.display = "none";
+    }
+    if (fallbackBox) fallbackBox.classList.remove("hidden");
+  } else {
+    if (imgEl) {
+      imgEl.style.display = "block";
+      imgEl.src = "myad/ad1.png?v=20.0";
+    }
+    if (fallbackBox) fallbackBox.classList.add("hidden");
+  }
+  if (titleEl) {
+    titleEl.textContent = reasonLabel || (noAdMode ? "15초 대기 후 무료 보상이 지급됩니다!" : "15초 시청 시 보상이 지급됩니다!");
+  }
   if (selfAdTimerId) clearInterval(selfAdTimerId);
 
   let remain = 15;
   const updateTimerUi = () => {
     if (timerEl) {
-      timerEl.textContent = remain > 0 ? `⏳ ${remain}초 후 보상 받기 가능` : "✅ 시청 완료! 아래 버튼을 눌러 보상을 받으세요!";
+      const doneMsg = noAdMode
+        ? "✅ 대기 완료! 아래 버튼을 눌러 보상을 받으세요!"
+        : "✅ 시청 완료! 아래 버튼을 눌러 보상을 받으세요!";
+      timerEl.textContent = remain > 0 ? `⏳ ${remain}초 후 보상 받기 가능` : doneMsg;
     }
     if (barEl) {
       barEl.style.width = `${Math.round(((15 - remain) / 15) * 100)}%`;
@@ -6177,10 +6218,11 @@ function renderBagSelectedDetail() {
   }
 
   if (adBtn) {
+    const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
     if (!item.adRechargeable) {
       adBtn.disabled = true;
       adBtn.classList.remove("is-reward-sparkle");
-      adBtn.textContent = "🚫 광고 충전 불가";
+      adBtn.textContent = noAdMode ? "🚫 무료 충전 불가" : "🚫 광고 충전 불가";
     } else {
       const ds = ensureV2DailyState();
       const used = Number(ds.itemAdCounts[item.id] || 0);
@@ -6188,7 +6230,11 @@ function renderBagSelectedDetail() {
       const canWatch = used < max;
       adBtn.disabled = !canWatch;
       adBtn.classList.toggle("is-reward-sparkle", canWatch);
-      adBtn.textContent = !canWatch ? `✅ 충전 완료 (${used}/${max})` : `📺 광고 보고 충전 (${used}/${max})`;
+      adBtn.textContent = !canWatch
+        ? `✅ 충전 완료 (${used}/${max})`
+        : noAdMode
+        ? `🎁 무료 충전 받기 (${used}/${max})`
+        : `📺 광고 보고 충전 (${used}/${max})`;
       adBtn.onclick = () => rechargeBagItemWithAd(item.id);
     }
   }
@@ -6238,6 +6284,7 @@ window.openWelcomePackageBox = async function () {
       await syncProfileToServer();
       updateHeaderUserUI();
       renderBagScreen();
+      if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
       if (typeof playRandomBoxFanfare === "function") playRandomBoxFanfare("burst");
       openModal("welcomeBoxModal");
     } else if (data && data.already_claimed) {
@@ -6347,10 +6394,15 @@ window.toggleEquipBagItem = async function (itemId) {
 window.rechargeBagItemWithAd = function (itemId) {
   const item = typeof getGameItemById === "function" ? getGameItemById(itemId) : null;
   if (!item || !item.adRechargeable) return;
+  const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
   const ds = ensureV2DailyState();
   const used = Number(ds.itemAdCounts[itemId] || 0);
   if (used >= (item.maxAdPerDay || 3)) {
-    gameAlert("오늘 이 아이템의 광고 충전 횟수(3회)를 모두 사용했습니다.\n매일 오전 6시에 초기화됩니다.");
+    gameAlert(
+      noAdMode
+        ? "오늘 이 아이템의 무료 충전 횟수(3회)를 모두 사용했습니다.\n매일 오전 6시에 초기화됩니다."
+        : "오늘 이 아이템의 광고 충전 횟수(3회)를 모두 사용했습니다.\n매일 오전 6시에 초기화됩니다."
+    );
     return;
   }
   showRewardedAd(`[${item.name}] 1개 무료 충전`, async () => {
@@ -6370,15 +6422,21 @@ window.rechargeBagItemWithAd = function (itemId) {
 window.updateShopFreeCdAdButton = function () {
   const btn = document.getElementById("shopFreeCdAdBtn");
   if (!btn) return;
+  const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
   const ds = ensureV2DailyState();
   const used = Number(ds.shopAdCount || 0);
   const canWatch = used < 3;
   btn.disabled = !canWatch;
   btn.classList.toggle("is-reward-sparkle", canWatch);
-  btn.textContent = !canWatch ? "✅ 무료CD 완료 (3/3)" : `📺 무료CD +200 (${used}/3)`;
+  btn.textContent = !canWatch
+    ? "✅ 무료CD 완료 (3/3)"
+    : noAdMode
+    ? `🎁 무료CD +200 (${used}/3)`
+    : `📺 무료CD +200 (${used}/3)`;
 };
 
 window.claimShopFreeCdAd = function () {
+  const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
   const ds = ensureV2DailyState();
   if (Number(ds.shopAdCount || 0) >= 3) {
     gameAlert("오늘 상점 무료CD 충전(3회)을 모두 완료했습니다!\n매일 오전 6시에 초기화됩니다.");
@@ -6391,7 +6449,7 @@ window.claimShopFreeCdAd = function () {
     await syncProfileToServer();
     updateShopFreeCdAdButton();
     updateShopPreviewCanvas();
-    gameAlert("💿 +200 CD가 지급되었습니다!", "📺 상점 무료CD 충전");
+    gameAlert("💿 +200 CD가 지급되었습니다!", noAdMode ? "🎁 상점 무료CD 충전" : "📺 상점 무료CD 충전");
   });
 };
 
@@ -6623,6 +6681,7 @@ window.claimDailyRandomBox = function () {
       prizePop.classList.remove("hidden");
     }
     playRandomBoxFanfare("burst");
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
     if (btn) {
       btn.disabled = true;
       btn.textContent = "✅ 오늘 수령 완료!";
@@ -6756,6 +6815,7 @@ window.claimAttendanceDay = async function () {
 
   if (nextDay === 14 || nextDay === 28) {
     playRandomBoxFanfare("burst");
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
   } else {
     playDingSound();
   }

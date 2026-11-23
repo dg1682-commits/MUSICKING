@@ -241,12 +241,13 @@ function renderFishingHud() {
     cdFillEl.style.width = `${pct.toFixed(1)}%`;
   }
 
+  const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
   const buffEl = document.getElementById("fishingBuffBadge");
   if (buffEl) {
     const parts = [];
     if (mults.expMultiplier > 1) parts.push(`🎣EXP+${Math.round((mults.expMultiplier - 1) * 100)}%`);
     if (mults.cdMultiplier > 1) parts.push(`🪱CD+${Math.round((mults.cdMultiplier - 1) * 100)}%`);
-    if (mults.is2xActive) parts.push("⚡광고2배");
+    if (mults.is2xActive) parts.push(noAdMode ? "⚡2배버프" : "⚡광고2배");
     buffEl.textContent = parts.join(" · ");
     buffEl.classList.toggle("hidden", parts.length === 0);
   }
@@ -262,7 +263,7 @@ function renderFishingHud() {
       ad2xBtn.textContent = `⚡ 2배 버프중 (${mm}:${ss})`;
     } else {
       ad2xBtn.disabled = false;
-      ad2xBtn.textContent = "📺 30분 CD 2배";
+      ad2xBtn.textContent = noAdMode ? "⚡ 30분 CD 2배" : "📺 30분 CD 2배";
     }
   }
 

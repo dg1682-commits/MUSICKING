@@ -519,6 +519,90 @@ function stopAllAppAudio(releaseSources = false) {
 }
 window.stopAllAppAudio = stopAllAppAudio;
 
+window.triggerGameHaptic = function (kind = "light") {
+  if (typeof appExited !== "undefined" && appExited) return;
+  try {
+    const cap = window.Capacitor;
+    const haptics = cap?.Plugins?.Haptics;
+    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform() || !haptics) return;
+    if (kind === "success" || kind === "warning" || kind === "error") {
+      if (typeof haptics.notification === "function") {
+        haptics.notification({ type: kind.toUpperCase() }).catch(() => {});
+        return;
+      }
+    }
+    const impactMap = { light: "LIGHT", medium: "MEDIUM", heavy: "HEAVY" };
+    const style = impactMap[kind] || "LIGHT";
+    if (typeof haptics.impact === "function") {
+      haptics.impact({ style }).catch(() => {});
+    }
+  } catch (e) {}
+};
+
+function applyCapacitorImmersiveMode() {
+  try {
+    const cap = window.Capacitor;
+    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+    const sysBars = cap.Plugins?.SystemBars;
+    if (sysBars && typeof sysBars.setVisible === "function") {
+      sysBars.setVisible({ statusBar: false, navigationBar: false }).catch(() => {});
+    }
+    if (sysBars && typeof sysBars.setStyle === "function") {
+      sysBars.setStyle({ style: "DARK" }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+let capacitorNativeBridgeReady = false;
+function initCapacitorNativeBridge() {
+  if (capacitorNativeBridgeReady) return;
+  const cap = window.Capacitor;
+  if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+  capacitorNativeBridgeReady = true;
+
+  applyCapacitorImmersiveMode();
+  try {
+    cap.Plugins?.SplashScreen?.hide({ fadeOutDuration: 240 }).catch(() => {});
+  } catch (e) {}
+
+  const appPlugin = cap.Plugins?.App;
+  if (appPlugin && typeof appPlugin.addListener === "function") {
+    try {
+      appPlugin.addListener("backButton", () => {
+        if (typeof window.processInAppBackStep === "function") {
+          window.processInAppBackStep(false);
+        }
+      });
+    } catch (e) {}
+
+    try {
+      appPlugin.addListener("appStateChange", stateInfo => {
+        if (stateInfo && stateInfo.isActive) {
+          applyCapacitorImmersiveMode();
+          if (typeof recoverAppForegroundState === "function") {
+            recoverAppForegroundState();
+          }
+        } else {
+          if (typeof handleFishingVisibilityChange === "function") {
+            handleFishingVisibilityChange(true);
+          }
+          stopAllAppAudio(false);
+        }
+      });
+    } catch (e) {}
+  }
+
+  let lastOfflineWarnAt = 0;
+  window.addEventListener("offline", () => {
+    const now = Date.now();
+    if (now - lastOfflineWarnAt < 6000) return;
+    lastOfflineWarnAt = now;
+    if (typeof gameAlert === "function") {
+      gameAlert("인터넷 연결이 끊어졌습니다.\nWi-Fi 또는 모바일 데이터를 확인한 뒤 다시 시도해주세요.", "📡 네트워크 연결 확인");
+    }
+  });
+}
+
 function performCleanAppExit() {
   appExited = true;
   allowAppExit = true;
@@ -540,6 +624,16 @@ function performCleanAppExit() {
       `<div style="font-size:2.4rem;">👑</div><h2 style="font-size:1.18rem; font-weight:900;">음악왕이 종료되었습니다</h2><p style="font-size:0.86rem; color:#94a3b8; line-height:1.5;">모든 사운드와 연결이 정지되었습니다.<br/>앱 또는 브라우저 창을 닫아주세요.</p>`;
     document.body.appendChild(overlay);
   }
+
+  try {
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) {
+      const capApp = window.Capacitor.Plugins?.App;
+      if (capApp && typeof capApp.exitApp === "function") {
+        capApp.exitApp();
+        return;
+      }
+    }
+  } catch (e) {}
 
   try {
     if (window.onestoreSdk && typeof window.onestoreSdk.isSupported === "function" && window.onestoreSdk.isSupported()) {
@@ -2213,11 +2307,13 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
     if (state.timeAttack) gained *= 2;
     state.score += gained;
     state.streak++;
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
   } else {
     state.streak = 0;
     if (state.questionLimit === "infinite") {
       state.hearts--;
     }
+    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("error");
   }
 
   state.history.push({ q, correct: isCorrect, gained });
@@ -2680,14 +2776,18 @@ window.addEventListener("load", syncHomeCornerFloatingButtons);
 
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();
+  initCapacitorNativeBridge();
   if (typeof window.__markMusickingBootReady === "function") {
     window.__markMusickingBootReady();
   }
   relocateCoupangAdBanner();
   setTimeout(relocateCoupangAdBanner, 450);
   setTimeout(relocateCoupangAdBanner, 1500);
-  // PWA & PWABuilder Android APK 필수 조건: Service Worker 등록
-  if ("serviceWorker" in navigator) {
+  // PWA & PWABuilder Android APK 전용: Capacitor 네이티브 앱 내부에서는 로컬 번들 제공을 위해 SW 등록 생략
+  const isCapNative = Boolean(
+    window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()
+  );
+  if ("serviceWorker" in navigator && !isCapNative) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 });

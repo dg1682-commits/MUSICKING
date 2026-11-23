@@ -1,0 +1,24 @@
+{
+  "name": "musicking",
+  "version": "1.0.0",
+  "description": "대한민국 K-POP 음악 퀴즈 · 소셜 낚시터 · 황금오락실 - 음악왕 (궁디스튜디오)",
+  "private": true,
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.mjs",
+    "prepare:assets": "node scripts/prepare-assets.mjs",
+    "patch:android": "node scripts/patch-android.mjs",
+    "cap:sync": "npm run prepare:www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0",
+    "sharp": "^0.33.5"
+  }
+}

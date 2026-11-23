@@ -164,7 +164,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=24.6" />
+  <link rel="stylesheet" href="style.css?v=24.8" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -352,13 +352,17 @@
         </div>
       </div>
 
-      <!-- 최하단 플랫폼별 배너 슬롯 (웹/원스토어: 쿠팡 320x50 · 구글플레이 Capacitor: AdMob 배너) -->
-      <div id="homeAdBannerSlot" class="home-ad-banner" aria-label="하단 배너 광고">
+      <!-- 최하단 플랫폼별 배너 슬롯 (웹/원스토어: 쿠팡 320x50 · 구글플레이: AdMob 전까지 숨김) -->
+      <div id="homeAdBannerSlot" class="home-ad-banner" aria-label="하단 배너 영역">
         <div id="homeCoupangFrameWrap" class="coupang-frame-wrap">
           <script src="https://ads-partners.coupang.com/g.js"></script>
           <script>
             try {
-              if (typeof PartnersCoupang !== "undefined") {
+              var _isCapNative = Boolean(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+              if (_isCapNative) {
+                var _adSlot = document.getElementById("homeAdBannerSlot");
+                if (_adSlot) _adSlot.classList.add("hidden");
+              } else if (typeof PartnersCoupang !== "undefined") {
                 new PartnersCoupang.G({"id":1051148,"template":"carousel","trackingCode":"AF5801294","width":"320","height":"50","tsource":""});
               }
             } catch (e) {}
@@ -366,7 +370,7 @@
         </div>
         <p class="coupang-disclosure">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
         <div id="homeAdmobBannerSlot" class="hidden" style="width:320px; height:50px; display:flex; align-items:center; justify-content:center; background:#0f172a; color:#94a3b8; font-size:0.75rem; font-weight:800; border-radius:8px;">
-          📱 Google AdMob 배너 영역 (출시 키 연동)
+          📱 Google AdMob 배너 영역
         </div>
       </div>
     </main>
@@ -1810,18 +1814,18 @@
   <!-- 랭킹 3위 이내 달성 시 터지는 축하 폭죽 파티클 캔버스 -->
   <canvas id="confettiCanvas" class="hidden"></canvas>
 
-  <!-- ==================== [V2.0 모달 A] 자체 책 광고 (15초 시청 보상) ==================== -->
+  <!-- ==================== [V2.0 모달 A] 자체 보상 대기 모달 (웹/원스토어: 도서 · 구글플레이 무광고: 보너스 대기) ==================== -->
   <div id="selfAdModal" class="modal-backdrop hidden" style="z-index:2600;">
     <div class="modal-content" style="max-width:370px; text-align:center;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="font-size:0.98rem;">📺 스폰서 · 제작자 추천 도서</h3>
+        <h3 id="selfAdModalTitle" style="font-size:0.98rem;">📺 스폰서 · 제작자 추천 도서</h3>
         <button class="header-btn" onclick="closeSelfAdModal()">닫기 ✕</button>
       </div>
       <p id="selfAdRewardLabel" style="font-size:0.8rem; font-weight:800; color:var(--primary-dark); margin-bottom:8px;"></p>
       <div style="border-radius:12px; overflow:hidden; border:2px solid var(--game-border); background:#f8fafc; margin-bottom:10px;">
-        <img id="selfAdImage" src="myad/ad1.png?v=20.0" alt="추천 도서 안내" style="width:100%; max-height:290px; object-fit:contain; display:block;" onerror="this.style.display='none'; document.getElementById('selfAdFallbackBox').classList.remove('hidden');" />
-        <div id="selfAdFallbackBox" class="hidden" style="padding:36px 16px; font-weight:800; color:var(--text-sub);">
-          📘 제작자 추천 도서 홍보 배너<br/>(myad/ad1.png)
+        <img id="selfAdImage" src="myad/ad1.png?v=20.0" alt="보너스 충전 안내" style="width:100%; max-height:290px; object-fit:contain; display:block;" onerror="this.style.display='none'; document.getElementById('selfAdFallbackBox').classList.remove('hidden');" />
+        <div id="selfAdFallbackBox" class="hidden" style="padding:36px 16px; font-weight:900; color:#1e1b18; background:linear-gradient(135deg, #fef9c3, #e0f2fe);">
+          🎁 음악왕 무료 보너스 충전 중!<br/><span style="display:inline-block; margin-top:6px; font-size:0.78rem; font-weight:700; color:#334155;">잠시만 기다리시면 보상이 바로 지급됩니다 ♪</span>
         </div>
       </div>
       <div class="exp-progress-track" style="height:10px; margin-bottom:6px;">
@@ -2215,15 +2219,15 @@
     </div>
   </div>
 
-  <script defer src="data.js?v=24.6"></script>
-  <script defer src="pixel_avatar_v3.js?v=24.6"></script>
-  <script defer src="pixel_avatar.js?v=24.6"></script>
-  <script defer src="online.js?v=24.6"></script>
-  <script defer src="fishing.js?v=24.6"></script>
-  <script defer src="arcade_sfx.js?v=24.6"></script>
-  <script defer src="arcade_games.js?v=24.6"></script>
-  <script defer src="arcade.js?v=24.6"></script>
-  <script defer src="app.js?v=24.6"></script>
+  <script defer src="data.js?v=24.8"></script>
+  <script defer src="pixel_avatar_v3.js?v=24.8"></script>
+  <script defer src="pixel_avatar.js?v=24.8"></script>
+  <script defer src="online.js?v=24.8"></script>
+  <script defer src="fishing.js?v=24.8"></script>
+  <script defer src="arcade_sfx.js?v=24.8"></script>
+  <script defer src="arcade_games.js?v=24.8"></script>
+  <script defer src="arcade.js?v=24.8"></script>
+  <script defer src="app.js?v=24.8"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");
