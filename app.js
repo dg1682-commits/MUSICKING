@@ -2577,8 +2577,8 @@ window.showRewardSummaryModal = function (res) {
 
   const rLvEl = document.getElementById("rewardLevelTitle");
   if (rLvEl) {
-    rLvEl.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
-      ? formatFortressLevelBadgeHtml(res.expAfter, { size: 20 })
+    rLvEl.innerHTML = typeof formatMusicRankBadgeHtml === "function"
+      ? formatMusicRankBadgeHtml(res.expAfter, { size: 20 })
       : `Lv.${afterLv.level} ${afterLv.title}`;
   }
   document.getElementById("rewardLevelUpTag").classList.toggle("hidden", afterLv.level <= beforeLv.level);

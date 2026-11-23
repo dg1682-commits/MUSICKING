@@ -559,13 +559,13 @@ function updateHeaderUserUI() {
     adminBtn.classList.toggle("hidden", !(userState.isLoggedIn && userState.nickname === "관리자"));
   }
 
-  // 레벨 · 계급 · 경험치 UI 동기화 (포트리스2 블루 21단계 계급)
+  // 레벨 · 계급 · 경험치 UI 동기화 (21단계 계급)
   if (typeof getLevelInfo === "function") {
     const lv = getLevelInfo(userState.exp);
     const titlePill = document.getElementById("homeCharTitlePill");
     if (titlePill) {
-      if (typeof formatFortressLevelBadgeHtml === "function") {
-        titlePill.innerHTML = formatFortressLevelBadgeHtml(userState.exp, { size: 22 });
+      if (typeof formatMusicRankBadgeHtml === "function") {
+        titlePill.innerHTML = formatMusicRankBadgeHtml(userState.exp, { size: 22 });
       } else {
         titlePill.textContent = `Lv.${lv.level} ${lv.title}`;
       }
@@ -605,7 +605,7 @@ window.openTitlesModal = function () {
   const lv = getLevelInfo(userState.exp);
   const summaryEl = document.getElementById("titlesCurrentSummary");
   if (summaryEl) {
-    const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lv.level, { size: 20 }) : "";
+    const rankHtml = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(lv.level, { size: 20 }) : "";
     summaryEl.innerHTML = lv.isMax
       ? `${rankHtml} 현재 최고 계급 Lv.${lv.level} 달성! (${lv.title})<br/>총 ${lv.exp.toLocaleString()} EXP`
       : `현재 Lv.${lv.level} ${rankHtml} [${lv.title}] · 보유 ${lv.exp.toLocaleString()} EXP<br/>(Lv.${lv.level + 1}까지 ${(lv.nextReq - lv.exp).toLocaleString()} EXP 남음)`;
@@ -620,7 +620,7 @@ window.openTitlesModal = function () {
       const rangeStr = nextReq
         ? `필요 누적 ${row.reqExp.toLocaleString()} EXP (다음 +${(nextReq - row.reqExp).toLocaleString()})`
         : `최종 달성 누적 ${row.reqExp.toLocaleString()} EXP (MAX)`;
-      const rowIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.level, { size: 24 }) : "";
+      const rowIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(row.level, { size: 24 }) : "";
       return `
         <div class="pixel-list-item" style="cursor:default; background:${isCurrent ? "#fef9c3" : unlocked ? "#f0fdf4" : "#f8fafc"}; border-color:${isCurrent ? "#f59e0b" : unlocked ? "#86efac" : "#cbd5e1"};">
           <div style="display:flex; align-items:center; gap:9px;">
@@ -1720,7 +1720,7 @@ window.loadRankingsList = async function () {
           const safeId = escapeJsSingleArg(row.user_id);
           const safeNick = escapeJsSingleArg(row.nickname);
           const isMe = userState.id && row.user_id === userState.id;
-          const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
+          const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
           return `
             <div class="rank-podium-card is-rank-${rank}" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
               <div class="rank-podium-place">${badge}</div>
@@ -1750,7 +1750,7 @@ window.loadRankingsList = async function () {
           const safeId = escapeJsSingleArg(row.user_id);
           const safeNick = escapeJsSingleArg(row.nickname);
           const isMe = userState.id && row.user_id === userState.id;
-          const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 16 }) : "";
+          const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(row.avatar_config?._exp || 0, { isExp: true, size: 16 }) : "";
           return `
           <div class="pixel-list-item" onclick="inspectOtherUser('${safeId}', '${safeNick}')">
             <div style="display:flex; align-items:center; gap:9px;">
@@ -2743,8 +2743,8 @@ window.openMyProfileModal = async function () {
     const lv = getLevelInfo(userState.exp);
     const pTitle = document.getElementById("profileTitleDisplay");
     if (pTitle) {
-      pTitle.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
-        ? formatFortressLevelBadgeHtml(userState.exp, { size: 18 })
+      pTitle.innerHTML = typeof formatMusicRankBadgeHtml === "function"
+        ? formatMusicRankBadgeHtml(userState.exp, { size: 18 })
         : `Lv.${lv.level} ${lv.title}`;
     }
     const pExpText = document.getElementById("profileExpText");
@@ -2870,8 +2870,8 @@ window.inspectOtherUser = async function (targetId, fallbackNick) {
           const lv = getLevelInfo(targetExp);
           const iTitle = document.getElementById("inspectTitleDisplay");
           if (iTitle) {
-            iTitle.innerHTML = typeof formatFortressLevelBadgeHtml === "function"
-              ? formatFortressLevelBadgeHtml(targetExp, { size: 18 })
+            iTitle.innerHTML = typeof formatMusicRankBadgeHtml === "function"
+              ? formatMusicRankBadgeHtml(targetExp, { size: 18 })
               : `Lv.${lv.level} ${lv.title}`;
           }
           document.getElementById("inspectExpText").textContent = lv.isMax
@@ -3821,7 +3821,7 @@ window.loadDmConversationsList = async function () {
           pres.status === "fishing_afk" ? "is-fishing-afk" : pres.status === "offline" ? "hidden" : "";
         const previewRaw = formatDmNotiPreviewText(c.lastMsg?.content || "");
         const timeStr = formatDmConvTimeLabel(c.lastMsg?.created_at);
-        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(prof.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
+        const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(prof.avatar_config?._exp || 0, { isExp: true, size: 15 }) : "";
         const unreadHtml =
           c.unreadCount > 0
             ? `<span class="dm-unread-pill">${c.unreadCount > 99 ? "99+" : c.unreadCount}</span>`
@@ -4017,7 +4017,7 @@ async function loadFriendsData() {
             </div>
             <div style="flex:1; min-width:0;">
               <div class="kakao-friend-nick" style="display:flex; align-items:center; gap:5px;">
-                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(p.avatar_config?._exp || 0, { isExp: true, size: 15 }) : ""}
+                ${typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(p.avatar_config?._exp || 0, { isExp: true, size: 15 }) : ""}
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.nickname}</span>
                 <span class="friend-online-pill ${pillCls}" data-online-pill-uid="${otherId}">${pres.status === "offline" ? "" : pres.activity}</span>
               </div>
@@ -4936,12 +4936,12 @@ function startRoomStageCanvasLoop() {
       // 1:1 정사각 비율 유지로 찌부짜부 없이 크게 렌더링
       ctx.drawImage(off, Math.round(drawX - charSize / 2), charTop, charSize, charSize);
 
-      // 닉네임 태그 + 포트리스2 계급 아이콘
+      // 닉네임 태그 + 계급 아이콘
       ctx.font = "900 11.5px sans-serif";
       ctx.textBaseline = "middle";
       const rpExp = rp.id === userState.id ? (Number(userState.exp) || 0) : (Number(live.exp ?? rp.exp) || 0);
       const rpLv = typeof getLevelInfo === "function" ? getLevelInfo(rpExp).level : 1;
-      const rankCv = typeof getFortressRankIconCanvas === "function" ? getFortressRankIconCanvas(rpLv) : null;
+      const rankCv = typeof getMusicRankIconCanvas === "function" ? getMusicRankIconCanvas(rpLv) : null;
       const icoGap = rankCv ? 18 : 0;
       const nickStr = rp.id === (room && room.host_id) ? `👑 ${rp.nickname}` : String(rp.nickname || "");
       const textW = ctx.measureText(nickStr).width;
@@ -5062,7 +5062,7 @@ function renderBattleRoomState(room) {
   playersEl.innerHTML = (room.players || [])
     .map(p => {
       const pExp = p.id === userState.id ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
-      const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 16 }) : "";
+      const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 16 }) : "";
       return `
       <div class="score-rule-item">
         <span style="display:inline-flex; align-items:center; gap:4px;">${p.id === room.host_id ? "👑" : "👤"} ${rankIco} ${escapeOnlineHtml(p.nickname || "")}</span>
@@ -5151,7 +5151,7 @@ function renderBattlePlayScreen(room) {
     hudEl.innerHTML = (room.players || [])
       .map(p => {
         const pExp = p.id === userState.id ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
-        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
+        const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
         return `
         <div class="score-rule-item">
           <span style="display:inline-flex; align-items:center; gap:4px;">${p.id === room.host_id ? "👑" : "👤"} ${rankIco} ${escapeOnlineHtml(p.nickname || "")}</span>
@@ -5235,8 +5235,8 @@ function renderBattlePlayScreen(room) {
 
       const leftExp = leftP.id === userState.id ? (Number(userState.exp) || 0) : (Number(leftP.exp) || 0);
       const rightExp = rightP.id === userState.id ? (Number(userState.exp) || 0) : (Number(rightP.exp) || 0);
-      const leftRankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(leftExp, { isExp: true, size: 15 }) : "";
-      const rightRankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(rightExp, { isExp: true, size: 15 }) : "";
+      const leftRankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(leftExp, { isExp: true, size: 15 }) : "";
+      const rightRankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(rightExp, { isExp: true, size: 15 }) : "";
       const leftIsTop = (Number(leftP.score) || 0) > (Number(rightP.score) || 0);
       const rightIsTop = (Number(rightP.score) || 0) > (Number(leftP.score) || 0);
 
@@ -6149,7 +6149,7 @@ function renderBagSelectedDetail() {
     if (adBtn) {
       adBtn.disabled = true;
       adBtn.classList.remove("is-reward-sparkle");
-      adBtn.textContent = "✨ V3.2 특별 선물";
+      adBtn.textContent = "🎁 환영 특별 선물";
     }
     return;
   }
@@ -7597,28 +7597,28 @@ window.shareBattle1v1ResultImage = async function () {
 const V32_TUTORIAL_STEPS = [
   {
     selector: "#homeCharTitlePill",
-    title: "🎖️ 포트리스2 블루 21단계 계급!",
-    desc: "기존 타이틀이 Lv.1 해골부터 Lv.21 별왕관까지 21단계 포트리스2 계급으로 개편되었어요!\n퀴즈와 낚시로 경험치를 쌓아 명예로운 별왕관에 도전해보세요."
+    title: "🎖️ 나의 계급 & 경험치",
+    desc: "퀴즈와 낚시로 경험치를 모아 Lv.1 해골부터 Lv.21 별왕관까지 21단계 계급을 올려보세요!"
   },
   {
     selector: "#homeDailyQuestBtn",
-    title: "📋 매일 랜덤 일일 퀘스트!",
-    desc: "우측 상단 [일퀘] 버튼을 눌러 매일 오전 6시에 새로 배정되는 랜덤 미션 3개를 깨고 CD·오락실 동전·황금주화·EXP를 챙기세요!"
+    title: "📋 오늘의 일일 퀘스트",
+    desc: "매일 오전 6시에 새로 열리는 미션 3개를 완료하고 CD·동전·황금주화·EXP를 받아보세요!"
   },
   {
     selector: "#enterBagBtn",
-    title: "🎒 가방 · 웰컴 패키지 & 변경권!",
-    desc: "가방에 🎁 웰컴 패키지 상자를 넣어드렸어요!\n(1,000 CD + 동전 2개 + 3초듣기 + 초성힌트!)\n앞으로 상점의 닉네임·성별 변경권도 가방에 보관됩니다."
+    title: "🎒 내 가방 & 웰컴 패키지",
+    desc: "가방에 🎁 웰컴 패키지 상자가 지급되었어요!\n게임 아이템 장착과 변경권 사용도 가방에서 할 수 있습니다."
   },
   {
     selector: "#enterOutingBtn",
-    title: "🏘️ 놀러가기 · 낚시터 & 황금오락실!",
-    desc: "낚시터에서 수다 떨며 방치 보상을 받고, 황금오락실 '🔥 오늘의 핫 게임'에서 황금주화 2배를 노려보세요!"
+    title: "🏘️ 낚시터 & 황금오락실",
+    desc: "낚시터에서 경험치와 CD를 모으고, 황금오락실 오늘의 핫 게임에서 황금주화 2배에 도전하세요!"
   },
   {
     selector: "#enterPlayHubBtn",
-    title: "🎮 퀴즈 & 1:1 실시간 대결!",
-    desc: "싱글 퀴즈와 함께 친구와의 1:1 대결을 즐겨보세요!\n1:1 대결 종료 시 1~10라운드 VS 비교표도 확인할 수 있답니다!"
+    title: "🎮 음악 퀴즈 & 실시간 대결",
+    desc: "싱글 퀴즈는 물론 친구와의 1:1 · 4인 실시간 대결로 음악 실력을 겨뤄보세요!"
   }
 ];
 
@@ -7814,7 +7814,7 @@ window.renderOnlineUsersModalList = function () {
             </div>
             <div style="min-width:0; flex:1;">
               <div style="display:flex; align-items:center; gap:5px;">
-                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lvNum, { size: 16 }) : ""}
+                ${typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(lvNum, { size: 16 }) : ""}
                 <strong style="font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="프로필 보기">${isMe ? "⭐ " : ""}${escapeOnlineHtml(u.nickname || "도전자")}</strong>
                 <span style="font-size:0.66rem; font-weight:900; color:var(--primary-dark); background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:0 4px; flex-shrink:0;">Lv.${lvNum}</span>
               </div>
@@ -8530,7 +8530,7 @@ window.renderBattleInviteModalList = async function (refreshBg = false) {
             </div>
             <div style="min-width:0; flex:1;">
               <div style="display:flex; align-items:center; gap:5px;">
-                ${typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(lvNum, { size: 16 }) : ""}
+                ${typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(lvNum, { size: 16 }) : ""}
                 <strong style="font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeOnlineHtml(u.nickname)}</strong>
                 <span style="font-size:0.66rem; font-weight:900; color:var(--primary-dark); background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:0 4px; flex-shrink:0;">Lv.${lvNum}</span>
               </div>

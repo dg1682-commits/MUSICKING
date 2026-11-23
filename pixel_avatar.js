@@ -31,12 +31,12 @@ const EXP_LEVEL_TABLE = [
 ];
 
 // ============================================================================
-// [V3.2] 포트리스2 블루 공식 21단계 계급 아이콘 렌더러 & HTML/Canvas 캐시
+// [V3.2] 음악왕 21단계 계급 아이콘 렌더러 & HTML/Canvas 캐시
 // ============================================================================
-const _fortressRankCanvasCache = new Map();
-const _fortressRankUrlCache = new Map();
+const _musicRankCanvasCache = new Map();
+const _musicRankUrlCache = new Map();
 
-function drawFortressStarPath(ctx, cx, cy, outerR, innerR) {
+function drawMusicRankStarPath(ctx, cx, cy, outerR, innerR) {
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
     const rad = i % 2 === 0 ? outerR : innerR;
@@ -49,7 +49,7 @@ function drawFortressStarPath(ctx, cx, cy, outerR, innerR) {
   ctx.closePath();
 }
 
-function getFortressMetalPalette(tier) {
+function getMusicRankMetalPalette(tier) {
   if (tier === "bronze") {
     return { light: "#fdba74", mid: "#d97706", dark: "#78350f", rim: "#92400e", gem: "#ef4444" };
   }
@@ -59,7 +59,7 @@ function getFortressMetalPalette(tier) {
   return { light: "#fef08a", mid: "#eab308", dark: "#854d0e", rim: "#a16207", gem: "#e11d48" };
 }
 
-function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
+function drawMusicRankIcon(ctx, rawLevel = 1, size = 32) {
   const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
   const outline = "#1e1b18";
   const sc = size / 32;
@@ -110,7 +110,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     const xs = cnt === 1 ? [16] : cnt === 2 ? [11.2, 20.8] : [7.6, 16, 24.4];
     const bw = cnt === 3 ? 5.6 : 6.8;
     xs.forEach(cx => {
-      // 동색 탄두
       ctx.fillStyle = "#ea580c";
       ctx.strokeStyle = outline;
       ctx.lineWidth = 1.6;
@@ -122,13 +121,11 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      // 황동 탄피
       ctx.fillStyle = "#facc15";
       ctx.beginPath();
       ctx.rect(cx - bw * 0.5, 12.2, bw, 14);
       ctx.fill();
       ctx.stroke();
-      // 하이라이트 & 하단 림
       ctx.fillStyle = "#fef9c3";
       ctx.fillRect(cx - bw * 0.28, 13.4, bw * 0.24, 10.5);
       ctx.fillStyle = "#854d0e";
@@ -141,7 +138,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     const xs = cnt === 1 ? [16] : cnt === 2 ? [10.8, 21.2] : [7.2, 16, 24.8];
     const mw = cnt === 3 ? 5.0 : 6.2;
     xs.forEach(cx => {
-      // 불꽃 추진체
       ctx.fillStyle = "#f97316";
       ctx.beginPath();
       ctx.moveTo(cx - mw * 0.35, 25.5);
@@ -149,7 +145,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
       ctx.lineTo(cx + mw * 0.35, 25.5);
       ctx.closePath();
       ctx.fill();
-      // 좌우 날개 핀
       ctx.fillStyle = "#dc2626";
       ctx.strokeStyle = outline;
       ctx.lineWidth = 1.4;
@@ -167,13 +162,11 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      // 본체
       ctx.fillStyle = "#e2e8f0";
       ctx.fillRect(cx - mw * 0.48, 10.5, mw * 0.96, 15);
       ctx.strokeRect(cx - mw * 0.48, 10.5, mw * 0.96, 15);
       ctx.fillStyle = "#2563eb";
       ctx.fillRect(cx - mw * 0.46, 16, mw * 0.92, 3.2);
-      // 빨간 탄두
       ctx.fillStyle = "#ef4444";
       ctx.beginPath();
       ctx.moveTo(cx, 3);
@@ -185,7 +178,7 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     });
   } else if (lv >= 8 && lv <= 10) {
     // 8~10. 동별 / 은별 / 금별
-    const pal = getFortressMetalPalette(lv === 8 ? "bronze" : lv === 9 ? "silver" : "gold");
+    const pal = getMusicRankMetalPalette(lv === 8 ? "bronze" : lv === 9 ? "silver" : "gold");
     const g = ctx.createLinearGradient(6, 4, 26, 28);
     g.addColorStop(0, pal.light);
     g.addColorStop(0.55, pal.mid);
@@ -193,15 +186,15 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.fillStyle = g;
     ctx.strokeStyle = outline;
     ctx.lineWidth = 2;
-    drawFortressStarPath(ctx, 16, 16.5, 12.2, 5.4);
+    drawMusicRankStarPath(ctx, 16, 16.5, 12.2, 5.4);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = pal.light;
-    drawFortressStarPath(ctx, 15.2, 15.4, 5.2, 2.3);
+    drawMusicRankStarPath(ctx, 15.2, 15.4, 5.2, 2.3);
     ctx.fill();
   } else if (lv === 11) {
     // 11. 금쌍별
-    const pal = getFortressMetalPalette("gold");
+    const pal = getMusicRankMetalPalette("gold");
     [10.2, 21.8].forEach((cx, idx) => {
       const g = ctx.createLinearGradient(cx - 7, 6, cx + 7, 25);
       g.addColorStop(0, pal.light);
@@ -210,7 +203,7 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
       ctx.fillStyle = g;
       ctx.strokeStyle = outline;
       ctx.lineWidth = 1.75;
-      drawFortressStarPath(ctx, cx, idx === 0 ? 15.5 : 16.5, 8.2, 3.6);
+      drawMusicRankStarPath(ctx, cx, idx === 0 ? 15.5 : 16.5, 8.2, 3.6);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = "#ffffff";
@@ -220,8 +213,7 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     });
   } else if (lv >= 12 && lv <= 14) {
     // 12~14. 동메달 / 은메달 / 금메달
-    const pal = getFortressMetalPalette(lv === 12 ? "bronze" : lv === 13 ? "silver" : "gold");
-    // 상단 V자 리본
+    const pal = getMusicRankMetalPalette(lv === 12 ? "bronze" : lv === 13 ? "silver" : "gold");
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5;
     ctx.fillStyle = "#dc2626";
@@ -232,7 +224,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.beginPath();
     ctx.moveTo(24, 3.5); ctx.lineTo(18.5, 3.5); ctx.lineTo(15, 11.5); ctx.lineTo(18.8, 11.5);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    // 메달 고리 & 본체
     ctx.fillStyle = pal.light;
     ctx.fillRect(14.3, 10.5, 3.4, 3);
     ctx.strokeRect(14.3, 10.5, 3.4, 3);
@@ -255,12 +246,11 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.stroke();
 
     ctx.fillStyle = pal.light;
-    drawFortressStarPath(ctx, 16, 20.8, 4.3, 1.9);
+    drawMusicRankStarPath(ctx, 16, 20.8, 4.3, 1.9);
     ctx.fill();
   } else if (lv >= 15 && lv <= 17) {
     // 15~17. 동훈장 / 은훈장 / 금훈장
-    const pal = getFortressMetalPalette(lv === 15 ? "bronze" : lv === 16 ? "silver" : "gold");
-    // 상단 약장 리본 바
+    const pal = getMusicRankMetalPalette(lv === 15 ? "bronze" : lv === 16 ? "silver" : "gold");
     ctx.strokeStyle = outline;
     ctx.lineWidth = 1.5;
     ctx.fillStyle = "#1d4ed8";
@@ -271,7 +261,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.fillRect(14.5, 4.5, 3, 5.2);
     ctx.strokeRect(6, 4.5, 20, 5.2);
 
-    // 좌우 월계수/날개 장식
     ctx.fillStyle = pal.mid;
     ctx.beginPath();
     ctx.moveTo(16, 11.5); ctx.lineTo(3.5, 13.5); ctx.lineTo(6.5, 19.5); ctx.lineTo(11, 21.5);
@@ -280,7 +269,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.fill();
     ctx.stroke();
 
-    // 중앙 8각 방패 훈장 & 보석
     const g = ctx.createLinearGradient(10, 12, 22, 28);
     g.addColorStop(0, pal.light);
     g.addColorStop(0.55, pal.mid);
@@ -305,17 +293,16 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
   } else {
     // 18~21. 동왕관 / 은왕관 / 금왕관 / 별왕관
     const tier = lv === 18 ? "bronze" : lv === 19 ? "silver" : "gold";
-    const pal = getFortressMetalPalette(tier);
+    const pal = getMusicRankMetalPalette(tier);
     const hasTopStar = lv === 21;
     const crownBaseY = hasTopStar ? 27.5 : 26;
     const crownPeakTop = hasTopStar ? 12.2 : 8.5;
 
     if (hasTopStar) {
-      // 최상위 별왕관: 상단에 빛나는 황금별
       ctx.fillStyle = "#fef08a";
       ctx.strokeStyle = outline;
       ctx.lineWidth = 1.6;
-      drawFortressStarPath(ctx, 16, 7.2, 6.2, 2.7);
+      drawMusicRankStarPath(ctx, 16, 7.2, 6.2, 2.7);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = "#ffffff";
@@ -324,14 +311,12 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
       ctx.fill();
     }
 
-    // 빨간 벨벳 속
     ctx.fillStyle = "#b91c1c";
     ctx.beginPath();
     ctx.moveTo(7, 22);
     ctx.quadraticCurveTo(16, crownPeakTop - 1, 25, 22);
     ctx.fill();
 
-    // 왕관 본체 (3뾰족 봉우리)
     const g = ctx.createLinearGradient(5, crownPeakTop, 27, crownBaseY);
     g.addColorStop(0, pal.light);
     g.addColorStop(0.55, pal.mid);
@@ -351,7 +336,6 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
     ctx.fill();
     ctx.stroke();
 
-    // 하단 왕관 띠 & 보석
     ctx.fillStyle = pal.rim;
     ctx.fillRect(5.2, crownBaseY - 3.6, 21.6, 3.8);
     ctx.strokeRect(5.2, crownBaseY - 3.6, 21.6, 3.8);
@@ -370,51 +354,51 @@ function drawFortressRankIcon(ctx, rawLevel = 1, size = 32) {
   ctx.restore();
 }
 
-function getFortressRankIconCanvas(rawLevel = 1) {
+function getMusicRankIconCanvas(rawLevel = 1) {
   const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
-  if (_fortressRankCanvasCache.has(lv)) {
-    return _fortressRankCanvasCache.get(lv);
+  if (_musicRankCanvasCache.has(lv)) {
+    return _musicRankCanvasCache.get(lv);
   }
   const cv = document.createElement("canvas");
   cv.width = 64;
   cv.height = 64;
   const ctx = cv.getContext("2d");
-  if (ctx) drawFortressRankIcon(ctx, lv, 64);
-  _fortressRankCanvasCache.set(lv, cv);
+  if (ctx) drawMusicRankIcon(ctx, lv, 64);
+  _musicRankCanvasCache.set(lv, cv);
   return cv;
 }
 
-function getFortressRankIconDataUrl(rawLevel = 1) {
+function getMusicRankIconDataUrl(rawLevel = 1) {
   const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
-  if (_fortressRankUrlCache.has(lv)) {
-    return _fortressRankUrlCache.get(lv);
+  if (_musicRankUrlCache.has(lv)) {
+    return _musicRankUrlCache.get(lv);
   }
-  const cv = getFortressRankIconCanvas(lv);
+  const cv = getMusicRankIconCanvas(lv);
   let url = "";
   try {
     url = cv.toDataURL("image/png");
   } catch (e) {}
-  _fortressRankUrlCache.set(lv, url);
+  _musicRankUrlCache.set(lv, url);
   return url;
 }
 
-window.getFortressRankIconCanvas = getFortressRankIconCanvas;
-window.getFortressRankIconDataUrl = getFortressRankIconDataUrl;
-window.renderFortressRankIconHtml = function (levelOrExp, opts = {}) {
+window.getMusicRankIconCanvas = getMusicRankIconCanvas;
+window.getMusicRankIconDataUrl = getMusicRankIconDataUrl;
+window.renderMusicRankIconHtml = function (levelOrExp, opts = {}) {
   const lv =
     opts && opts.isExp
       ? getLevelInfo(Number(levelOrExp) || 0).level
       : Math.max(1, Math.min(21, Math.floor(Number(levelOrExp) || 1)));
   const info = EXP_LEVEL_TABLE[lv - 1] || EXP_LEVEL_TABLE[0];
-  const url = getFortressRankIconDataUrl(lv);
+  const url = getMusicRankIconDataUrl(lv);
   const size = Math.max(12, Math.min(48, Number(opts?.size) || 18));
   const extra = opts && opts.className ? ` ${opts.className}` : "";
   if (!url) return "";
-  return `<img src="${url}" alt="${info.title}" title="Lv.${lv} ${info.title}" class="f2-rank-ico${extra}" style="width:${size}px;height:${size}px;" />`;
+  return `<img src="${url}" alt="${info.title}" title="Lv.${lv} ${info.title}" class="mk-rank-ico${extra}" style="width:${size}px;height:${size}px;" />`;
 };
-window.formatFortressLevelBadgeHtml = function (rawExp = 0, opts = {}) {
+window.formatMusicRankBadgeHtml = function (rawExp = 0, opts = {}) {
   const lv = getLevelInfo(rawExp);
-  const icoHtml = window.renderFortressRankIconHtml(lv.level, { size: opts?.size || 20, className: opts?.className || "" });
+  const icoHtml = window.renderMusicRankIconHtml(lv.level, { size: opts?.size || 20, className: opts?.className || "" });
   return `Lv.${lv.level} ${icoHtml} ${lv.title}`;
 };
 
@@ -539,7 +523,7 @@ const BAG_SPECIAL_ITEMS_CATALOG = [
     adRechargeable: false,
     maxAdPerDay: 0,
     isConsumableOpen: true,
-    desc: "V3.2 음악왕 환영 선물상자!\n열어보면 💿 1,000 CD + 🎟️ 오락실 동전 2개 +\n🎧 3초 듣기 1개 + 🔤 초성힌트 1개를 즉시 지급합니다!"
+    desc: "음악왕 환영 선물상자!\n열어보면 💿 1,000 CD + 🎟️ 오락실 동전 2개 +\n🎧 3초 듣기 1개 + 🔤 초성힌트 1개를 즉시 지급합니다!"
   },
   {
     id: "nickname_ticket",

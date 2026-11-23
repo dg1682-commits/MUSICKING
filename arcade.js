@@ -54,7 +54,7 @@ const ARCADE_GAMES_META = [
   {
     game_id: "jump_runner",
     title: "점프점프",
-    subtitle: "마리오풍 2단 점프",
+    subtitle: "모험가 2단 점프",
     marqueeBg: "#dc2626",
     cabinetCol: "#ef4444",
     coin_cost: 1,
@@ -1349,7 +1349,7 @@ async function loadArcadeRankingList() {
     const expMap = new Map();
     try {
       const uids = [...new Set(displayRows.map(r => r.user_id).filter(Boolean))];
-      if (uids.length > 0 && typeof renderFortressRankIconHtml === "function") {
+      if (uids.length > 0 && typeof renderMusicRankIconHtml === "function") {
         const { data: profs } = await sbClient
           .from("profiles")
           .select("id, avatar_config")
@@ -1369,7 +1369,7 @@ async function loadArcadeRankingList() {
         const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(r.nickname || "") : "";
         const bonusTag = arcadeState.rankMode === "weekly" && i < 3 ? `<span class="badge gold" style="font-size:0.65rem;">+${[30, 20, 10][i]}🪙</span>` : "";
         const uExp = expMap.has(String(r.user_id)) ? expMap.get(String(r.user_id)) : 0;
-        const rankIco = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(uExp, { isExp: true, size: 17 }) : "";
+        const rankIco = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(uExp, { isExp: true, size: 17 }) : "";
         return `
         <div class="pixel-list-item ${isMe ? "is-me-rank" : ""}" onclick="inspectOtherUser('${safeId}', '${safeNick}')" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <div style="display:flex; align-items:center; gap:6px; min-width:0;">

@@ -841,7 +841,7 @@ function syncFishingPlayersDOM() {
     const nickEl = node.querySelector(".fishing-player-nick");
     if (nickEl) {
       const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
-      const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 13 }) : "";
+      const rankHtml = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 13 }) : "";
       const nickSafe = escapeFishingHtml(p.nickname || "도전자");
       nickEl.innerHTML = `${rankHtml}${rankHtml ? " " : ""}${nickSafe}${p.mode === "bg" ? " 💤" : ""}`;
     }
@@ -884,7 +884,7 @@ function renderFishingOnlineUsersList(playersList = null) {
       const isMe = userState.id && p.userId === userState.id;
       const isBg = p.mode === "bg";
       const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
-      const rankHtml = typeof renderFortressRankIconHtml === "function" ? renderFortressRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
+      const rankHtml = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
       return `<div class="fishing-user-item${isMe ? " is-me" : ""}${isBg ? " is-afk" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}"><span class="fishing-user-nick">${rankHtml}${rankHtml ? " " : ""}${escapeFishingHtml(p.nickname || "도전자")}</span>${isBg ? `<span class="fishing-user-afk">(잠수중)</span>` : ""}</div>`;
     })
     .join("");

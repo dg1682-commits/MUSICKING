@@ -5498,14 +5498,14 @@ body.on-fishing-screen.keyboard-open .fishing-chat-log {
 }
 
 /* ============================================================================ */
-/* [V3.2] 일일 퀘스트 · 보상 반짝임 · 포트리스2 계급 아이콘 · 핫게임 · 1:1 VS표 · 튜토리얼 */
+/* [V3.2] 일일 퀘스트 · 보상 반짝임 · 21단계 계급 아이콘 · 핫게임 · 1:1 VS표 · 튜토리얼 */
 /* ============================================================================ */
 html, body {
   color-scheme: light only;
   forced-color-adjust: none;
 }
 
-.f2-rank-ico {
+.mk-rank-ico {
   display: inline-block;
   width: 18px;
   height: 18px;
