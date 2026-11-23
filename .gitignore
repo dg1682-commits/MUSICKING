@@ -1,0 +1,11 @@
+node_modules/
+www/
+android/
+assets/
+*.jks
+*.keystore
+.gradle/
+build/
+dist/
+.DS_Store
+Thumbs.db
