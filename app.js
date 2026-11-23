@@ -458,8 +458,14 @@ function resetHistoryToExitBase() {
 
 window.resetHistoryToExitBase = resetHistoryToExitBase;
 
+window.isCapacitorNativeApp = function () {
+  const cap = window.Capacitor;
+  return Boolean(cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform());
+};
+
 window.armAppBackGuard = function (forceWithGesture = false) {
   if (appExited || hasBackGuardPushed || state.currentScreen === "loginScreen") return;
+  if (window.isCapacitorNativeApp()) return;
   const hasActivation =
     forceWithGesture || (typeof navigator !== "undefined" && navigator.userActivation && navigator.userActivation.hasBeenActive);
   if (!hasActivation) return;
@@ -515,6 +521,11 @@ function stopAllAppAudio(releaseSources = false) {
       state.audioEl.removeAttribute("src");
       state.audioEl.load();
     }
+    if (releaseSources && bgmState.clickCtx) {
+      bgmState.clickCtx.close().catch(() => {});
+      bgmState.clickCtx = null;
+      bgmState.clickBuf = null;
+    }
   } catch (e) {}
 }
 window.stopAllAppAudio = stopAllAppAudio;
@@ -522,9 +533,9 @@ window.stopAllAppAudio = stopAllAppAudio;
 window.triggerGameHaptic = function (kind = "light") {
   if (typeof appExited !== "undefined" && appExited) return;
   try {
-    const cap = window.Capacitor;
-    const haptics = cap?.Plugins?.Haptics;
-    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform() || !haptics) return;
+    if (!window.isCapacitorNativeApp()) return;
+    const haptics = window.Capacitor?.Plugins?.Haptics;
+    if (!haptics) return;
     if (kind === "success" || kind === "warning" || kind === "error") {
       if (typeof haptics.notification === "function") {
         haptics.notification({ type: kind.toUpperCase() }).catch(() => {});
@@ -541,9 +552,8 @@ window.triggerGameHaptic = function (kind = "light") {
 
 function applyCapacitorImmersiveMode() {
   try {
-    const cap = window.Capacitor;
-    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
-    const sysBars = cap.Plugins?.SystemBars;
+    if (!window.isCapacitorNativeApp()) return;
+    const sysBars = window.Capacitor?.Plugins?.SystemBars;
     if (sysBars && typeof sysBars.setVisible === "function") {
       sysBars.setVisible({ statusBar: false, navigationBar: false }).catch(() => {});
     }
@@ -556,8 +566,8 @@ function applyCapacitorImmersiveMode() {
 let capacitorNativeBridgeReady = false;
 function initCapacitorNativeBridge() {
   if (capacitorNativeBridgeReady) return;
+  if (!window.isCapacitorNativeApp()) return;
   const cap = window.Capacitor;
-  if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
   capacitorNativeBridgeReady = true;
 
   applyCapacitorImmersiveMode();
@@ -626,8 +636,8 @@ function performCleanAppExit() {
   }
 
   try {
-    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) {
-      const capApp = window.Capacitor.Plugins?.App;
+    if (window.isCapacitorNativeApp()) {
+      const capApp = window.Capacitor?.Plugins?.App;
       if (capApp && typeof capApp.exitApp === "function") {
         capApp.exitApp();
         return;
@@ -907,6 +917,7 @@ function unlockQuizAudio() {
     if (p && typeof p.then === "function") {
       p.then(() => {
         state.audioUnlocked = true;
+        preloadClickSfxBuffer();
         if (state.audioEl.src === SILENT_AUDIO_URI && (state.audioRequestSeq || 0) === seqAtStart && !state.audioPending) {
           try {
             state.audioEl.pause();
@@ -1156,6 +1167,9 @@ const bgmState = {
     return a;
   }),
   clickIdx: 0,
+  clickCtx: null,
+  clickBuf: null,
+  clickBufLoading: false,
   muted: localStorage.getItem("mk_bgm_muted") === "true",
   currentType: "none"
 };
@@ -1258,9 +1272,51 @@ window.stopArcadeGameBgm = function () {
   }
 };
 
+function getClickAudioCtx() {
+  if (appExited) return null;
+  if (!bgmState.clickCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    bgmState.clickCtx = new Ctx({ latencyHint: "interactive" });
+  }
+  if (bgmState.clickCtx.state === "suspended") {
+    bgmState.clickCtx.resume().catch(() => {});
+  }
+  return bgmState.clickCtx;
+}
+
+function preloadClickSfxBuffer() {
+  if (appExited || bgmState.clickBuf || bgmState.clickBufLoading) return;
+  const ctx = getClickAudioCtx();
+  if (!ctx || typeof fetch !== "function") return;
+  bgmState.clickBufLoading = true;
+  fetch("./bgm/click.wav")
+    .then(res => (res.ok ? res.arrayBuffer() : Promise.reject(new Error("click fetch failed"))))
+    .then(raw => ctx.decodeAudioData(raw))
+    .then(decoded => {
+      bgmState.clickBuf = decoded;
+      bgmState.clickBufLoading = false;
+    })
+    .catch(() => {
+      bgmState.clickBufLoading = false;
+    });
+}
+
 window.playClickSfx = function () {
   if (isAppAudioBlocked()) return;
   try {
+    const ctx = getClickAudioCtx();
+    if (ctx && bgmState.clickBuf) {
+      const src = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.45;
+      src.buffer = bgmState.clickBuf;
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(0);
+      return;
+    }
+    preloadClickSfxBuffer();
     const sfx = bgmState.clickPool[bgmState.clickIdx];
     bgmState.clickIdx = (bgmState.clickIdx + 1) % bgmState.clickPool.length;
     sfx.currentTime = 0;
@@ -2777,6 +2833,7 @@ window.addEventListener("load", syncHomeCornerFloatingButtons);
 document.addEventListener("DOMContentLoaded", () => {
   initEvents();
   initCapacitorNativeBridge();
+  preloadClickSfxBuffer();
   if (typeof window.__markMusickingBootReady === "function") {
     window.__markMusickingBootReady();
   }
@@ -2784,10 +2841,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setTimeout(relocateCoupangAdBanner, 450);
   setTimeout(relocateCoupangAdBanner, 1500);
   // PWA & PWABuilder Android APK 전용: Capacitor 네이티브 앱 내부에서는 로컬 번들 제공을 위해 SW 등록 생략
-  const isCapNative = Boolean(
-    window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()
-  );
-  if ("serviceWorker" in navigator && !isCapNative) {
+  if ("serviceWorker" in navigator && !window.isCapacitorNativeApp()) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 });
