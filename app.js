@@ -622,6 +622,110 @@ function applyCapacitorImmersiveMode() {
 }
 
 let capacitorNativeBridgeReady = false;
+let playUpdateCheckInFlight = false;
+let lastPlayUpdateCheckAt = 0;
+let playUpdateDismissedThisSession = false;
+let flexibleUpdateListenerBound = false;
+let flexibleUpdatePromptShown = false;
+
+window.checkPlayStoreInAppUpdate = async function (opts = {}) {
+  const force = Boolean(opts && opts.force);
+  if (appExited || !window.isCapacitorNativeApp()) return;
+  const appUpdate = window.Capacitor?.Plugins?.AppUpdate;
+  if (!appUpdate || typeof appUpdate.getAppUpdateInfo !== "function") return;
+  if (playUpdateCheckInFlight) return;
+
+  const busyScreens = ["gameScreen", "judgeScreen", "battlePlayScreen", "arcadePlayScreen", "fishingScreen"];
+  if (!force && busyScreens.includes(state.currentScreen)) return;
+
+  const now = Date.now();
+  if (!force) {
+    if (playUpdateDismissedThisSession) return;
+    if (now - lastPlayUpdateCheckAt < 10 * 60 * 1000) return;
+  }
+
+  playUpdateCheckInFlight = true;
+  lastPlayUpdateCheckAt = now;
+  try {
+    const info = await appUpdate.getAppUpdateInfo();
+    if (!info) return;
+
+    // 유연한(Flexible) 업데이트 다운로드 완료 상태(11)인 경우 재시작 설치 안내
+    if (Number(info.installStatus) === 11 && typeof appUpdate.completeFlexibleUpdate === "function") {
+      if (!flexibleUpdatePromptShown || force) {
+        flexibleUpdatePromptShown = true;
+        if (typeof gameConfirm === "function") {
+          gameConfirm(
+            "새 버전 다운로드가 완료되었습니다!\n지금 앱을 다시 시작해 최신 버전을 적용할까요?",
+            () => {
+              appUpdate.completeFlexibleUpdate().catch(() => {});
+            },
+            "📲 업데이트 설치 준비 완료"
+          );
+        } else {
+          await appUpdate.completeFlexibleUpdate();
+        }
+      }
+      return;
+    }
+
+    // AppUpdateAvailability: UPDATE_AVAILABLE = 2, UPDATE_IN_PROGRESS = 3
+    const avail = Number(info.updateAvailability);
+    if (avail !== 2 && avail !== 3) return;
+
+    if ((avail === 2 || avail === 3) && info.immediateUpdateAllowed && typeof appUpdate.performImmediateUpdate === "function") {
+      const res = await appUpdate.performImmediateUpdate();
+      // CANCELED(1) / FAILED(2) 시 동일 세션 내 무한 재팝업 방지
+      if (res && res.code !== undefined && Number(res.code) !== 0) {
+        playUpdateDismissedThisSession = true;
+      }
+      return;
+    }
+
+    if (avail === 2 && info.flexibleUpdateAllowed && typeof appUpdate.startFlexibleUpdate === "function") {
+      if (!flexibleUpdateListenerBound && typeof appUpdate.addListener === "function") {
+        flexibleUpdateListenerBound = true;
+        appUpdate.addListener("onFlexibleUpdateStateChange", st => {
+          if (st && Number(st.installStatus) === 11 && !flexibleUpdatePromptShown) {
+            flexibleUpdatePromptShown = true;
+            if (typeof gameConfirm === "function") {
+              gameConfirm(
+                "새 버전 다운로드가 완료되었습니다!\n지금 앱을 다시 시작해 적용할까요?",
+                () => {
+                  appUpdate.completeFlexibleUpdate().catch(() => {});
+                },
+                "📲 업데이트 설치 준비 완료"
+              );
+            }
+          }
+        }).catch(() => {});
+      }
+      const flexRes = await appUpdate.startFlexibleUpdate();
+      if (flexRes && flexRes.code !== undefined && Number(flexRes.code) !== 0) {
+        playUpdateDismissedThisSession = true;
+      }
+      return;
+    }
+
+    if (avail === 2 && typeof appUpdate.openAppStore === "function") {
+      playUpdateDismissedThisSession = true;
+      if (typeof gameConfirm === "function") {
+        gameConfirm(
+          "새로운 음악왕 업데이트가 출시되었습니다!\nGoogle Play 스토어에서 최신 버전으로 업데이트할까요?",
+          () => {
+            appUpdate.openAppStore().catch(() => {});
+          },
+          "🚀 새 버전 업데이트 안내"
+        );
+      }
+    }
+  } catch (e) {
+    // 오프라인·사이드로드 APK·Play 스토어 미지원 기기에서는 조용히 무시
+  } finally {
+    playUpdateCheckInFlight = false;
+  }
+};
+
 function initCapacitorNativeBridge() {
   if (capacitorNativeBridgeReady) return;
   if (!window.isCapacitorNativeApp()) return;
@@ -632,6 +736,10 @@ function initCapacitorNativeBridge() {
   try {
     cap.Plugins?.SplashScreen?.hide({ fadeOutDuration: 240 }).catch(() => {});
   } catch (e) {}
+
+  setTimeout(() => {
+    window.checkPlayStoreInAppUpdate();
+  }, 900);
 
   const appPlugin = cap.Plugins?.App;
   if (appPlugin && typeof appPlugin.addListener === "function") {
@@ -650,6 +758,7 @@ function initCapacitorNativeBridge() {
           if (typeof recoverAppForegroundState === "function") {
             recoverAppForegroundState();
           }
+          window.checkPlayStoreInAppUpdate();
         } else {
           if (typeof handleFishingVisibilityChange === "function") {
             handleFishingVisibilityChange(true);
