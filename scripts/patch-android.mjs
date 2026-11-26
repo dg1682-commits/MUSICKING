@@ -40,17 +40,39 @@ if (fs.existsSync(appGradlePath)) {
   console.log(`[patch-android] Patched app/build.gradle (versionCode=${versionCode}, versionName=${versionName}, signed=${hasKeystoreProps})`);
 }
 
-// 3) AndroidManifest.xml -> 세로 화면(portrait) 고정
+// 3) AndroidManifest.xml -> 세로 화면(portrait) 고정 + 키보드 adjustNothing(독립 플로팅 입력바 기준 통일)
 const manifestPath = path.join(androidDir, "app", "src", "main", "AndroidManifest.xml");
 if (fs.existsSync(manifestPath)) {
   let xml = fs.readFileSync(manifestPath, "utf8");
+  let manifestChanged = false;
   if (!xml.includes("android:screenOrientation=")) {
     xml = xml.replace(
       /(<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*)/,
       `$1\n            android:screenOrientation="portrait"`
     );
-    fs.writeFileSync(manifestPath, xml, "utf8");
+    manifestChanged = true;
     console.log("[patch-android] Set MainActivity screenOrientation=portrait");
+  }
+  const activityRegex = /<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*>/;
+  const actMatch = xml.match(activityRegex);
+  if (actMatch) {
+    let actTag = actMatch[0];
+    if (/android:windowSoftInputMode="[^"]*"/.test(actTag)) {
+      if (!/android:windowSoftInputMode="adjustNothing"/.test(actTag)) {
+        actTag = actTag.replace(/android:windowSoftInputMode="[^"]*"/, 'android:windowSoftInputMode="adjustNothing"');
+        xml = xml.replace(activityRegex, actTag);
+        manifestChanged = true;
+        console.log("[patch-android] Updated MainActivity windowSoftInputMode=adjustNothing");
+      }
+    } else {
+      actTag = actTag.replace(/>$/, '\n            android:windowSoftInputMode="adjustNothing">');
+      xml = xml.replace(activityRegex, actTag);
+      manifestChanged = true;
+      console.log("[patch-android] Set MainActivity windowSoftInputMode=adjustNothing");
+    }
+  }
+  if (manifestChanged) {
+    fs.writeFileSync(manifestPath, xml, "utf8");
   }
 }
 

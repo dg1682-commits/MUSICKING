@@ -486,7 +486,19 @@ const plazaState = {
   usedBattleItems: new Set(),
   battleDoubleActive: false,
   item3SecActivatedQIdx: null,
-  isUsing3Sec: false
+  isUsing3Sec: false,
+  battleChoicesByKey: new Map(),
+  battlePickedArtist: null,
+  battlePickedTitle: null,
+  battlePenaltyUntil: 0,
+  battlePenaltyTimer: null,
+  battleAdvanceTimeoutId: null,
+  battleAnswerInFlight: false,
+  battleLastRevealHandledKey: null
+};
+
+window.isCurrentBattleHardMode = function () {
+  return String(plazaState.currentRoom?.game_config?.difficulty || "normal") === "hard";
 };
 
 window.selectSignupGender = function (gender) {
@@ -4523,13 +4535,15 @@ window.refreshRoomsList = async function () {
     .map(room => {
       const maxP = room.room_type === "1v1" ? 2 : 4;
       const curP = room.players.length;
-      const cfg = room.game_config || { mode: "behind", stage: 1, decade: "ALL", itemMode: "notem" };
+      const cfg = room.game_config || { mode: "behind", stage: 1, decade: "ALL", itemMode: "notem", difficulty: "normal" };
       const modeName = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[cfg.mode] || "비하인드";
       const itemTag = cfg.itemMode === "item" ? "🎒아이템전" : "🚫노템전";
+      const diffTag = cfg.difficulty === "hard" ? "🔥고수" : "😊일반";
       return `
       <div class="pixel-list-item">
         <div>
           <span class="badge primary" style="margin-right:4px;">${room.room_type === "1v1" ? "1:1" : "4인"}</span>
+          <span class="badge ${cfg.difficulty === "hard" ? "is-hard-badge" : "is-normal-badge"}" style="margin-right:4px;">${diffTag}</span>
           <span class="badge accent" style="margin-right:4px;">${modeName}·${cfg.stage || 1}단계</span>
           <span class="badge ${cfg.itemMode === "item" ? "gold" : ""}" style="margin-right:4px;">${itemTag}</span>
           <strong>${room.title}</strong>
@@ -4547,7 +4561,8 @@ const createRoomState = {
   decade: "ALL",
   mode: "behind",
   stage: 1,
-  itemMode: "notem"
+  itemMode: "notem",
+  difficulty: "normal"
 };
 
 window.openCreateRoomModal = function (defaultType = "1v1") {
@@ -4563,6 +4578,7 @@ window.openCreateRoomModal = function (defaultType = "1v1") {
   selectRoomConfig("mode", createRoomState.mode);
   selectRoomConfig("stage", createRoomState.stage);
   selectRoomConfig("itemMode", createRoomState.itemMode || "notem");
+  selectRoomConfig("difficulty", createRoomState.difficulty || "normal");
   openModal("createRoomModal");
 };
 
@@ -4571,6 +4587,17 @@ window.selectRoomConfig = function (key, val) {
   document.querySelectorAll(`[data-room-${key}]`).forEach(el => {
     el.classList.toggle("active", el.getAttribute(`data-room-${key}`) === String(val));
   });
+  if (key === "difficulty") {
+    const tog = document.getElementById("createRoomDiffToggle");
+    if (tog) {
+      tog.dataset.quizDiff = String(val);
+      tog.querySelectorAll(".diff-toggle-btn").forEach(btn => {
+        const match = btn.getAttribute("data-diff") === String(val);
+        btn.classList.toggle("active", match);
+        btn.classList.toggle("is-selected", match);
+      });
+    }
+  }
 };
 
 window.confirmCreateOnlineRoom = async function () {
@@ -4607,7 +4634,8 @@ window.confirmCreateOnlineRoom = async function () {
         decade: createRoomState.decade,
         mode: createRoomState.mode,
         stage: createRoomState.stage,
-        itemMode: createRoomState.itemMode || "notem"
+        itemMode: createRoomState.itemMode || "notem",
+        difficulty: createRoomState.difficulty || "normal"
       },
       status: "waiting",
       players: initialPlayers,
@@ -4751,13 +4779,25 @@ function subscribeToBattleRoom(room) {
   plazaState.roomPollTimer = setInterval(async () => {
     if (!plazaState.currentRoom || !sbClient) return;
     try {
-      const { data: latest } = await sbClient
+      const latest = await sbClient
         .from("rooms")
         .select("*")
         .eq("id", plazaState.currentRoom.id)
-        .maybeSingle();
+        .maybeSingle()
+        .then(res => res && res.data);
       if (!latest) return;
       const cur = plazaState.currentRoom;
+      const sameMatch = JSON.stringify(latest.question_ids || []) === JSON.stringify(cur.question_ids || []);
+      if (sameMatch && cur.status === "playing") {
+        const curQ = Number(cur.current_q_index || 0);
+        const latestQ = Number(latest.current_q_index || 0);
+        if (latestQ < curQ && latest.status === "playing") return;
+        const curRev = cur.game_config?._activeReveal;
+        const latRev = latest.game_config?._activeReveal;
+        if (latestQ === curQ && curRev && Number(curRev.qIdx) === curQ && !latRev && Date.now() - Number(curRev.at || 0) < 4000) {
+          return;
+        }
+      }
       const changed =
         latest.status !== cur.status ||
         latest.current_q_index !== cur.current_q_index ||
@@ -4994,7 +5034,8 @@ const roomSettingsModalDraft = {
   decade: "ALL",
   mode: "behind",
   stage: 1,
-  itemMode: "notem"
+  itemMode: "notem",
+  difficulty: "normal"
 };
 
 window.openRoomSettingsModal = function () {
@@ -5005,11 +5046,13 @@ window.openRoomSettingsModal = function () {
   roomSettingsModalDraft.mode = cfg.mode || "behind";
   roomSettingsModalDraft.stage = Number(cfg.stage || 1);
   roomSettingsModalDraft.itemMode = cfg.itemMode || "notem";
+  roomSettingsModalDraft.difficulty = cfg.difficulty === "hard" ? "hard" : "normal";
 
   selectEditRoomConfig("decade", roomSettingsModalDraft.decade);
   selectEditRoomConfig("mode", roomSettingsModalDraft.mode);
   selectEditRoomConfig("stage", roomSettingsModalDraft.stage);
   selectEditRoomConfig("itemMode", roomSettingsModalDraft.itemMode);
+  selectEditRoomConfig("difficulty", roomSettingsModalDraft.difficulty);
   openModal("roomSettingsModal");
 };
 
@@ -5018,6 +5061,17 @@ window.selectEditRoomConfig = function (key, val) {
   document.querySelectorAll(`[data-edit-room-${key}]`).forEach(el => {
     el.classList.toggle("active", el.getAttribute(`data-edit-room-${key}`) === String(val));
   });
+  if (key === "difficulty") {
+    const tog = document.getElementById("editRoomDiffToggle");
+    if (tog) {
+      tog.dataset.quizDiff = String(val);
+      tog.querySelectorAll(".diff-toggle-btn").forEach(btn => {
+        const match = btn.getAttribute("data-diff") === String(val);
+        btn.classList.toggle("active", match);
+        btn.classList.toggle("is-selected", match);
+      });
+    }
+  }
 };
 
 window.applyRoomSettingsModal = async function () {
@@ -5025,10 +5079,238 @@ window.applyRoomSettingsModal = async function () {
   await updateBattleRoomSettingsByHost({ ...roomSettingsModalDraft });
 };
 
+window.setBattleRoomDifficultyByHost = async function (diff) {
+  const room = plazaState.currentRoom;
+  if (!room || room.status !== "waiting") return;
+  if (room.host_id !== userState.id) {
+    showGlobalQuickNoticeToast("방장만 난이도를 변경할 수 있습니다!", "info");
+    return;
+  }
+  const nextDiff = diff === "hard" ? "hard" : "normal";
+  if ((room.game_config?.difficulty || "normal") === nextDiff) return;
+  await updateBattleRoomSettingsByHost({ difficulty: nextDiff });
+};
+
+function clearBattlePenaltyLock() {
+  plazaState.battlePenaltyUntil = 0;
+  if (plazaState.battlePenaltyTimer) {
+    clearInterval(plazaState.battlePenaltyTimer);
+    plazaState.battlePenaltyTimer = null;
+  }
+  const ban = document.getElementById("battlePenaltyBanner");
+  if (ban) ban.classList.add("hidden");
+  document.querySelectorAll("#battleChoiceGrid .quiz-choice-btn").forEach(btn => {
+    btn.classList.remove("is-penalty-locked");
+    if (!btn.classList.contains("is-eliminated")) {
+      btn.disabled = false;
+    }
+  });
+}
+
+function clearBattleAdvanceTimeout() {
+  if (plazaState.battleAdvanceTimeoutId) {
+    clearTimeout(plazaState.battleAdvanceTimeoutId);
+    plazaState.battleAdvanceTimeoutId = null;
+  }
+}
+
+function startBattlePenaltyLock(durationMs = 5000) {
+  clearBattlePenaltyLock();
+  plazaState.battlePenaltyUntil = Date.now() + durationMs;
+  const syncBanner = () => {
+    const remMs = Math.max(0, (Number(plazaState.battlePenaltyUntil) || 0) - Date.now());
+    const ban = document.getElementById("battlePenaltyBanner");
+    const secEl = document.getElementById("battlePenaltySec");
+    if (remMs <= 0) {
+      clearBattlePenaltyLock();
+      const room = plazaState.currentRoom;
+      if (room && room.status === "playing") renderBattlePlayScreen(room);
+      return;
+    }
+    if (ban) ban.classList.remove("hidden");
+    if (secEl) secEl.textContent = String(Math.ceil(remMs / 1000));
+    document.querySelectorAll("#battleChoiceGrid .quiz-choice-btn").forEach(btn => {
+      btn.classList.add("is-penalty-locked");
+      btn.disabled = true;
+    });
+  };
+  syncBanner();
+  plazaState.battlePenaltyTimer = setInterval(syncBanner, 200);
+}
+
+function getBattleChoiceStateForRound(room, q, curIdx, stage) {
+  const cfg = room.game_config || {};
+  const cacheKey = `${room.id}_${plazaState.activeMatchKey || ""}_${curIdx}_${q.id}_${stage}`;
+  if (!plazaState.battleChoicesByKey) plazaState.battleChoicesByKey = new Map();
+  if (plazaState.battleChoicesByKey.has(cacheKey)) {
+    return plazaState.battleChoicesByKey.get(cacheKey);
+  }
+  let choiceData = null;
+  const compactList = Array.isArray(cfg._roundChoices) ? cfg._roundChoices : null;
+  const compact = compactList && compactList[curIdx] ? compactList[curIdx] : null;
+  if (compact && typeof window.buildChoiceStateFromCompact === "function") {
+    choiceData = window.buildChoiceStateFromCompact(compact, q, stage);
+  } else if (typeof window.buildQuizChoicesForQuestion === "function") {
+    const dec = cfg.decade && cfg.decade !== "ALL" ? cfg.decade : null;
+    const prefPool = dec ? QUESTIONS_DB.filter(item => item.decade === dec) : QUESTIONS_DB;
+    choiceData = window.buildQuizChoicesForQuestion(q, stage, prefPool, `${room.id}_${q.id}_${curIdx}_${stage}`);
+  }
+  if (choiceData) {
+    plazaState.battleChoicesByKey.set(cacheKey, choiceData);
+  }
+  return choiceData;
+}
+
+async function advanceOnlineBattleAfterReveal(expectedRoomId, expectedMatchKey, expectedCurIdx, toastText) {
+  const room = plazaState.currentRoom;
+  if (!room || room.id !== expectedRoomId || room.status !== "playing") return;
+  if (plazaState.activeMatchKey !== expectedMatchKey) return;
+  if ((room.current_q_index || 0) !== expectedCurIdx) return;
+
+  const isLast = expectedCurIdx + 1 >= (room.question_ids || []).length;
+  room.game_config = { ...(room.game_config || {}), _activeReveal: null };
+  if (isLast) {
+    room.status = "finished";
+  } else {
+    room.current_q_index = expectedCurIdx + 1;
+  }
+  plazaState.pendingRoundToast = toastText;
+
+  await sbClient
+    .from("rooms")
+    .update({
+      current_q_index: room.current_q_index,
+      status: room.status,
+      game_config: room.game_config
+    })
+    .eq("id", room.id);
+
+  if (plazaState.roomChannel) {
+    plazaState.roomChannel.send({
+      type: "broadcast",
+      event: "room_update",
+      payload: { ...room, _lastEventText: toastText }
+    });
+  }
+  renderBattleRoomState(room);
+}
+
+function renderOnlineBattleChoices(room, q, curIdx, stage) {
+  const cfg = room.game_config || {};
+  const isHardDiff = String(cfg.difficulty || "normal") === "hard";
+  const playScreenEl = document.getElementById("battlePlayScreen");
+  const inputBox = document.getElementById("battlePlayInputBox");
+  const choiceWrap = document.getElementById("battleChoiceWrap");
+  const choiceGrid = document.getElementById("battleChoiceGrid");
+  const choiceGuide = document.getElementById("battleChoiceGuide");
+  const typingRow = document.getElementById("battleTypingInputRow");
+  const submitBtn = document.getElementById("battleSubmitBtn");
+  const winnerBanner = document.getElementById("battleWinnerRevealBanner");
+  const penaltyBanner = document.getElementById("battlePenaltyBanner");
+
+  if (playScreenEl) {
+    playScreenEl.classList.toggle("is-choice-mode", !isHardDiff);
+    playScreenEl.classList.toggle("has-3stage-choices", !isHardDiff && stage === 3);
+  }
+  if (inputBox) inputBox.classList.toggle("is-choice-mode", !isHardDiff);
+
+  const diffBadge = document.getElementById("battlePlayDiffBadge");
+  if (diffBadge) {
+    diffBadge.textContent = isHardDiff ? "🔥 고수×2" : "😊 일반";
+    diffBadge.classList.toggle("is-hard-badge", isHardDiff);
+    diffBadge.classList.toggle("is-normal-badge", !isHardDiff);
+  }
+
+  if (isHardDiff) {
+    if (choiceWrap) choiceWrap.classList.add("hidden");
+    if (typingRow) typingRow.classList.remove("hidden");
+    if (submitBtn) submitBtn.classList.remove("hidden");
+    if (winnerBanner) winnerBanner.classList.add("hidden");
+    if (penaltyBanner) penaltyBanner.classList.add("hidden");
+    return;
+  }
+
+  if (choiceWrap) choiceWrap.classList.remove("hidden");
+  if (typingRow) typingRow.classList.add("hidden");
+  if (submitBtn) submitBtn.classList.add("hidden");
+
+  const activeRev =
+    cfg._activeReveal && Number(cfg._activeReveal.qIdx) === curIdx ? cfg._activeReveal : null;
+
+  if (activeRev) {
+    clearBattlePenaltyLock();
+    if (winnerBanner) {
+      winnerBanner.classList.remove("hidden");
+      winnerBanner.textContent = `🎉 [${activeRev.winnerNick || "도전자"}] 정답! (${activeRev.songLabel || `${q.artist} - ${q.title}`} · +${activeRev.points || 100}점)`;
+    }
+    const matchKey = `${room.id}_${(room.question_ids || []).join(",")}`;
+    const revealKey = `${room.id}_${matchKey}_${curIdx}`;
+    const isSelfWinner = String(activeRev.winnerId || "") === String(userState.id || "");
+    const ageMs = Date.now() - (Number(activeRev.at) || Date.now());
+    const canHostFailsafe = room.host_id === userState.id && ageMs >= 2600;
+    if ((isSelfWinner || canHostFailsafe) && plazaState.battleLastRevealHandledKey !== revealKey) {
+      plazaState.battleLastRevealHandledKey = revealKey;
+      clearBattleAdvanceTimeout();
+      const delayMs = canHostFailsafe ? 80 : 1350;
+      const toastMsg = `🎉 [${activeRev.winnerNick || "도전자"}] 정답! (${q.artist} - ${q.title})`;
+      plazaState.battleAdvanceTimeoutId = setTimeout(() => {
+        advanceOnlineBattleAfterReveal(room.id, matchKey, curIdx, toastMsg);
+      }, delayMs);
+    }
+  } else {
+    if (winnerBanner) winnerBanner.classList.add("hidden");
+  }
+
+  const penaltyLocked = !activeRev && Date.now() < (Number(plazaState.battlePenaltyUntil) || 0);
+  if (penaltyBanner) penaltyBanner.classList.toggle("hidden", !penaltyLocked);
+
+  const choiceData = getBattleChoiceStateForRound(room, q, curIdx, stage);
+  if (choiceGrid && choiceData && typeof window.renderQuizChoiceGrid === "function") {
+    window.renderQuizChoiceGrid({
+      containerEl: choiceGrid,
+      guideEl: choiceGuide,
+      choiceData,
+      stage,
+      pickedArtist: plazaState.battlePickedArtist,
+      pickedTitle: plazaState.battlePickedTitle,
+      winnerReveal: activeRev,
+      penaltyLocked,
+      onSelectSingle: label => {
+        submitOnlineBattleChoice({ singleChoiceVal: label });
+      },
+      onSelectStage3Artist: label => {
+        if (Date.now() < (Number(plazaState.battlePenaltyUntil) || 0)) return;
+        if (plazaState.battlePickedTitle) {
+          const pickedA = label;
+          const pickedT = plazaState.battlePickedTitle;
+          plazaState.battlePickedArtist = pickedA;
+          submitOnlineBattleChoice({ artistVal: pickedA, titleVal: pickedT });
+          return;
+        }
+        plazaState.battlePickedArtist = plazaState.battlePickedArtist === label ? null : label;
+        renderOnlineBattleChoices(room, q, curIdx, stage);
+      },
+      onSelectStage3Title: label => {
+        if (Date.now() < (Number(plazaState.battlePenaltyUntil) || 0)) return;
+        if (plazaState.battlePickedArtist) {
+          const pickedA = plazaState.battlePickedArtist;
+          const pickedT = label;
+          plazaState.battlePickedTitle = pickedT;
+          submitOnlineBattleChoice({ artistVal: pickedA, titleVal: pickedT });
+          return;
+        }
+        plazaState.battlePickedTitle = plazaState.battlePickedTitle === label ? null : label;
+        renderOnlineBattleChoices(room, q, curIdx, stage);
+      }
+    });
+  }
+}
+
 function renderBattleRoomState(room) {
   document.getElementById("battleRoomTitle").textContent = `[${room.room_type === "1v1" ? "1:1 선착순" : "4인 점수제"}] ${room.title}`;
 
-  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem" };
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem", difficulty: "normal" };
+  const diff = cfg.difficulty === "hard" ? "hard" : "normal";
   const decLabel = cfg.decade === "ALL" ? "전연대" : String(cfg.decade).replace("s", "년대");
   const modeLabel = { behind: "📖 비하인드", lyrics: "📝 가사", onesec: "⚡ 1초듣기" }[cfg.mode] || "📖 비하인드";
   const stageLabel = `${cfg.stage || 1}단계(${cfg.stage === 2 ? "가수" : cfg.stage === 3 ? "가수+노래" : "노래"})`;
@@ -5037,9 +5319,21 @@ function renderBattleRoomState(room) {
   const maxP = room.room_type === "1v1" ? 2 : 4;
   const curP = Array.isArray(room.players) ? room.players.length : 0;
 
+  const diffTogEl = document.getElementById("battleRoomDiffToggle");
+  if (diffTogEl) {
+    diffTogEl.dataset.quizDiff = diff;
+    diffTogEl.classList.toggle("is-readonly", !isHost || room.status !== "waiting");
+    diffTogEl.querySelectorAll(".diff-toggle-btn").forEach(btn => {
+      const match = btn.getAttribute("data-diff") === diff;
+      btn.classList.toggle("active", match);
+      btn.classList.toggle("is-selected", match);
+    });
+  }
+
   const configBar = document.getElementById("battleRoomConfigBar");
   if (configBar) {
     configBar.innerHTML = `
+      <span class="badge ${diff === "hard" ? "is-hard-badge" : "is-normal-badge"}">${diff === "hard" ? "🔥 고수×2" : "😊 일반"}</span>
       <span class="badge">${decLabel}</span>
       <span class="badge primary">${modeLabel}</span>
       <span class="badge accent">${stageLabel}</span>
@@ -5084,6 +5378,12 @@ function renderBattleRoomState(room) {
     plazaState.battleDoubleActive = false;
     plazaState.item3SecActivatedQIdx = null;
     plazaState.isUsing3Sec = false;
+    plazaState.battleChoicesByKey = new Map();
+    plazaState.battlePickedArtist = null;
+    plazaState.battlePickedTitle = null;
+    plazaState.battleLastRevealHandledKey = null;
+    clearBattlePenaltyLock();
+    clearBattleAdvanceTimeout();
     if (startBtn) startBtn.classList.toggle("hidden", !isHost);
     if (waitBanner) waitBanner.classList.toggle("hidden", isHost);
     if (typeof state !== "undefined" && state.currentScreen === "battlePlayScreen") {
@@ -5123,6 +5423,12 @@ function renderBattlePlayScreen(room) {
     plazaState.battleDoubleActive = false;
     plazaState.item3SecActivatedQIdx = null;
     plazaState.isUsing3Sec = false;
+    plazaState.battleChoicesByKey = new Map();
+    plazaState.battlePickedArtist = null;
+    plazaState.battlePickedTitle = null;
+    plazaState.battleLastRevealHandledKey = null;
+    clearBattlePenaltyLock();
+    clearBattleAdvanceTimeout();
   }
 
   const prevIdx = plazaState.lastRenderedQIndex;
@@ -5134,6 +5440,11 @@ function renderBattlePlayScreen(room) {
     const tInp = document.getElementById("battleTitleInput");
     if (aInp) aInp.value = "";
     if (tInp) tInp.value = "";
+    plazaState.battlePickedArtist = null;
+    plazaState.battlePickedTitle = null;
+    plazaState.battleLastRevealHandledKey = null;
+    clearBattlePenaltyLock();
+    clearBattleAdvanceTimeout();
   }
 
   if (roundChanged && room.status === "playing") {
@@ -5173,7 +5484,21 @@ function renderBattlePlayScreen(room) {
   const artistGroup = document.getElementById("battleArtistInputGroup");
   const titleGroup = document.getElementById("battleTitleInputGroup");
 
+  const playScreenEl = document.getElementById("battlePlayScreen");
+  const diffBadgeTop = document.getElementById("battlePlayDiffBadge");
+  const isHardDiffBanner = String(cfg.difficulty || "normal") === "hard";
+  if (diffBadgeTop) {
+    diffBadgeTop.textContent = isHardDiffBanner ? "🔥 고수×2" : "😊 일반";
+    diffBadgeTop.classList.toggle("is-hard-badge", isHardDiffBanner);
+    diffBadgeTop.classList.toggle("is-normal-badge", !isHardDiffBanner);
+  }
+
   if (room.status === "finished") {
+    clearBattlePenaltyLock();
+    clearBattleAdvanceTimeout();
+    if (playScreenEl) {
+      playScreenEl.classList.remove("is-choice-mode", "has-3stage-choices");
+    }
     if (typeof stopAudio === "function") stopAudio();
     if (inputBox) inputBox.classList.add("hidden");
     if (finishedBox) finishedBox.classList.remove("hidden");
@@ -5294,10 +5619,13 @@ function renderBattlePlayScreen(room) {
       const me = (room.players || []).find(p => p.id === userState.id);
       const myScore = me ? Number(me.score) || 0 : 0;
       const isWinner = !!(winner && winner.id === userState.id && myScore > 0);
+      const isHardDiff = String(cfg.difficulty || "normal") === "hard";
+      const diffMult = isHardDiff ? 2 : 1;
       const baseEarnedCd = isWinner ? 30 : myScore > 0 ? 10 : 0;
       const doubleMult = plazaState.battleDoubleActive ? 2 : 1;
-      const earnedCd = baseEarnedCd * doubleMult;
+      const earnedCd = baseEarnedCd * diffMult * doubleMult;
       const expBefore = Number(userState.exp) || 0;
+      // myScore는 고수 난이도에서 문제당 ×2 점수(200점)가 이미 반영되어 있으므로 0.1배 × 더블어택으로 곱연산 완성
       const gainExp = Math.round(myScore * 0.1) * doubleMult;
       userState.exp = expBefore + gainExp;
       if (earnedCd > 0) userState.cdCoins += earnedCd;
@@ -5378,7 +5706,8 @@ function renderBattlePlayScreen(room) {
     artistGroup.classList.remove("hidden");
     titleGroup.classList.add("hidden");
   } else {
-    hintTextEl.textContent = "🔥 가수 + 노래 모두 맞히기!";
+    const isHardMode = String(cfg.difficulty || "normal") === "hard";
+    hintTextEl.textContent = isHardMode ? "🔥 가수 + 노래 모두 맞히기!" : "🔥 가수 + 노래 차례로 터치 (2번째 즉시 판정!)";
     artistGroup.classList.remove("hidden");
     titleGroup.classList.remove("hidden");
     document.querySelector("#battleTitleInputGroup label").textContent = "🎵 노래 제목";
@@ -5405,6 +5734,7 @@ function renderBattlePlayScreen(room) {
       playOnlineBattleAudio(0, true);
     }
   }
+  renderOnlineBattleChoices(room, q, curIdx, stage);
   if (typeof renderBattlePlayItemBar === "function") {
     renderBattlePlayItemBar(room);
   }
@@ -5431,15 +5761,33 @@ window.hostStartOnlineBattle = async function () {
   const room = plazaState.currentRoom;
   if (!room) return;
   if (typeof unlockQuizAudio === "function") unlockQuizAudio();
-  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1 };
+  const cfg = room.game_config || { decade: "ALL", mode: "behind", stage: 1, difficulty: "normal" };
+  const diff = String(cfg.difficulty || "normal") === "hard" ? "hard" : "normal";
+  const stage = Number(cfg.stage || 1);
   let pool = cfg.decade && cfg.decade !== "ALL" ? QUESTIONS_DB.filter(q => q.decade === cfg.decade) : QUESTIONS_DB;
   if (pool.length < 10) pool = QUESTIONS_DB;
   const nextIds = shuffleArray(pool).slice(0, 10).map(q => q.id);
 
+  let roundChoices = null;
+  if (diff !== "hard" && typeof window.buildQuizChoicesForQuestion === "function" && typeof window.toCompactChoiceData === "function") {
+    const seedSalt = Date.now();
+    roundChoices = nextIds.map((qid, i) => {
+      const qObj = QUESTIONS_DB.find(item => item.id === qid) || QUESTIONS_DB[0];
+      const built = window.buildQuizChoicesForQuestion(qObj, stage, pool, `${room.id}_${qid}_${i}_${seedSalt}`);
+      return window.toCompactChoiceData(built);
+    });
+  }
+
   room.status = "playing";
   room.current_q_index = 0;
   room.question_ids = nextIds;
-  room.game_config = { ...(room.game_config || {}), _roundHistory: [] };
+  room.game_config = {
+    ...(room.game_config || {}),
+    difficulty: diff,
+    _roundHistory: [],
+    _activeReveal: null,
+    _roundChoices: roundChoices
+  };
   room.players = (room.players || []).map(p => ({ ...p, score: 0, passQ: -1 }));
   plazaState.lastRenderedQIndex = null;
   plazaState.activeMatchKey = `${room.id}_${nextIds.join(",")}`;
@@ -5447,6 +5795,12 @@ window.hostStartOnlineBattle = async function () {
   plazaState.battleDoubleActive = false;
   plazaState.item3SecActivatedQIdx = null;
   plazaState.isUsing3Sec = false;
+  plazaState.battleChoicesByKey = new Map();
+  plazaState.battlePickedArtist = null;
+  plazaState.battlePickedTitle = null;
+  plazaState.battleLastRevealHandledKey = null;
+  clearBattlePenaltyLock();
+  clearBattleAdvanceTimeout();
   plazaState.myRoomX = null;
   plazaState.myRoomXRatio = null;
 
@@ -5493,7 +5847,7 @@ window.passOnlineBattleQuestion = async function () {
       winnerNick: "",
       points: 0
     });
-    room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist };
+    room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist, _activeReveal: null };
 
     if (curIdx + 1 >= (room.question_ids || []).length) {
       room.status = "finished";
@@ -5501,6 +5855,8 @@ window.passOnlineBattleQuestion = async function () {
       room.current_q_index = curIdx + 1;
     }
     plazaState.pendingRoundToast = eventText;
+    clearBattlePenaltyLock();
+    clearBattleAdvanceTimeout();
   }
 
   await sbClient
@@ -5537,6 +5893,145 @@ window.handleOnlineBattleInputEnter = function (e, field) {
   submitOnlineBattleAnswer();
 };
 
+async function executeOnlineBattleSubmission({ artistVal = "", titleVal = "", singleChoiceVal = "", fromChoice = false }) {
+  const room = plazaState.currentRoom;
+  if (!room || room.status !== "playing" || plazaState.battleAnswerInFlight) return;
+
+  const cfg = room.game_config || { mode: "behind", stage: 1, difficulty: "normal" };
+  const isHard = String(cfg.difficulty || "normal") === "hard";
+  const stage = Number(cfg.stage || 1);
+  const curIdx = room.current_q_index || 0;
+
+  if (cfg._activeReveal && Number(cfg._activeReveal.qIdx) === curIdx) return;
+  if (!isHard && Date.now() < (Number(plazaState.battlePenaltyUntil) || 0)) return;
+
+  const qId = (room.question_ids || [])[curIdx];
+  const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
+
+  const isCorrect = !isHard && stage !== 3
+    ? (stage === 2 ? isArtistMatch(singleChoiceVal, q) : isTitleMatch(singleChoiceVal, q))
+    : (stage === 1
+        ? isTitleMatch(titleVal, q)
+        : stage === 2
+        ? isArtistMatch(artistVal, q)
+        : isArtistMatch(artistVal, q) && isTitleMatch(titleVal, q));
+
+  plazaState.battleAnswerInFlight = true;
+  try {
+    if (isCorrect) {
+      if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
+      const artistInput = document.getElementById("battleArtistInput");
+      const titleInput = document.getElementById("battleTitleInput");
+      if (artistInput) artistInput.value = "";
+      if (titleInput) titleInput.value = "";
+      plazaState.battlePickedArtist = null;
+      plazaState.battlePickedTitle = null;
+      clearBattlePenaltyLock();
+
+      const roundPts = isHard ? 200 : 100;
+      room.players = (room.players || []).map(p =>
+        p.id === userState.id ? { ...p, score: (p.score || 0) + roundPts, passQ: -1 } : { ...p, passQ: -1 }
+      );
+
+      const prevHist = Array.isArray(room.game_config?._roundHistory)
+        ? room.game_config._roundHistory.filter(h => Number(h?.qIdx) !== curIdx)
+        : [];
+      prevHist.push({
+        qIdx: curIdx,
+        songLabel: `${q.artist} - ${q.title}`,
+        winnerId: userState.id,
+        winnerNick: userState.nickname || "도전자",
+        points: roundPts
+      });
+
+      const eventText = `🎉 [${userState.nickname}] 정답! (${q.artist} - ${q.title}${isHard ? " · 고수×2" : ""})`;
+
+      if (!isHard && fromChoice) {
+        // 일반 난이도(4지선다): 누가 어떤 보기를 눌러 맞췄는지 방 안의 모든 유저에게 1.35초 공개 후 다음 문제 이동
+        room.game_config = {
+          ...(room.game_config || {}),
+          _roundHistory: prevHist,
+          _activeReveal: {
+            qIdx: curIdx,
+            winnerId: userState.id,
+            winnerNick: userState.nickname || "도전자",
+            singleChoice: stage !== 3 ? singleChoiceVal : "",
+            pickedArtist: stage === 3 ? artistVal : "",
+            pickedTitle: stage === 3 ? titleVal : "",
+            points: roundPts,
+            songLabel: `${q.artist} - ${q.title}`,
+            at: Date.now()
+          }
+        };
+
+        await sbClient
+          .from("rooms")
+          .update({
+            players: room.players,
+            current_q_index: room.current_q_index,
+            status: room.status,
+            game_config: room.game_config
+          })
+          .eq("id", room.id);
+
+        if (plazaState.roomChannel) {
+          plazaState.roomChannel.send({
+            type: "broadcast",
+            event: "room_update",
+            payload: room
+          });
+        }
+        renderBattleRoomState(room);
+      } else {
+        plazaState.pendingRoundToast = eventText;
+        room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist, _activeReveal: null };
+
+        if (curIdx + 1 >= (room.question_ids || []).length) {
+          room.status = "finished";
+        } else {
+          room.current_q_index = curIdx + 1;
+        }
+
+        await sbClient
+          .from("rooms")
+          .update({
+            players: room.players,
+            current_q_index: room.current_q_index,
+            status: room.status,
+            game_config: room.game_config
+          })
+          .eq("id", room.id);
+
+        if (plazaState.roomChannel) {
+          plazaState.roomChannel.send({
+            type: "broadcast",
+            event: "room_update",
+            payload: { ...room, _lastEventText: eventText }
+          });
+        }
+        renderBattleRoomState(room);
+      }
+    } else {
+      if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("error");
+      if (!isHard && fromChoice) {
+        plazaState.battlePickedArtist = null;
+        plazaState.battlePickedTitle = null;
+        startBattlePenaltyLock(5000);
+        renderOnlineBattleChoices(room, q, curIdx, stage);
+        showBattleRoundToast("❌ 오답! 5초 동안 선택할 수 없습니다!", true);
+      } else {
+        showBattleRoundToast("❌ 오답입니다! 다시 생각해보세요!", true);
+      }
+    }
+  } finally {
+    plazaState.battleAnswerInFlight = false;
+  }
+}
+
+window.submitOnlineBattleChoice = function (payload) {
+  return executeOnlineBattleSubmission({ ...(payload || {}), fromChoice: true });
+};
+
 window.submitOnlineBattleAnswer = async function () {
   const room = plazaState.currentRoom;
   if (!room || room.status !== "playing") return;
@@ -5555,68 +6050,7 @@ window.submitOnlineBattleAnswer = async function () {
     return;
   }
 
-  const curIdx = room.current_q_index || 0;
-  const qId = (room.question_ids || [])[curIdx];
-  const q = QUESTIONS_DB.find(item => item.id === qId) || QUESTIONS_DB[0];
-
-  const isCorrect =
-    stage === 1
-      ? isTitleMatch(titleVal, q)
-      : stage === 2
-      ? isArtistMatch(artistVal, q)
-      : isArtistMatch(artistVal, q) && isTitleMatch(titleVal, q);
-
-  if (isCorrect) {
-    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
-    if (artistInput) artistInput.value = "";
-    if (titleInput) titleInput.value = "";
-    room.players = (room.players || []).map(p =>
-      p.id === userState.id ? { ...p, score: (p.score || 0) + 100, passQ: -1 } : { ...p, passQ: -1 }
-    );
-
-    const eventText = `🎉 [${userState.nickname}] 정답! (${q.artist} - ${q.title})`;
-    plazaState.pendingRoundToast = eventText;
-
-    const prevHist = Array.isArray(room.game_config?._roundHistory)
-      ? room.game_config._roundHistory.filter(h => Number(h?.qIdx) !== curIdx)
-      : [];
-    prevHist.push({
-      qIdx: curIdx,
-      songLabel: `${q.artist} - ${q.title}`,
-      winnerId: userState.id,
-      winnerNick: userState.nickname || "도전자",
-      points: 100
-    });
-    room.game_config = { ...(room.game_config || {}), _roundHistory: prevHist };
-
-    if (curIdx + 1 >= (room.question_ids || []).length) {
-      room.status = "finished";
-    } else {
-      room.current_q_index = curIdx + 1;
-    }
-
-    await sbClient
-      .from("rooms")
-      .update({
-        players: room.players,
-        current_q_index: room.current_q_index,
-        status: room.status,
-        game_config: room.game_config
-      })
-      .eq("id", room.id);
-
-    if (plazaState.roomChannel) {
-      plazaState.roomChannel.send({
-        type: "broadcast",
-        event: "room_update",
-        payload: { ...room, _lastEventText: eventText }
-      });
-    }
-    renderBattleRoomState(room);
-  } else {
-    if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("error");
-    showBattleRoundToast("❌ 오답입니다! 다시 생각해보세요!", true);
-  }
+  return executeOnlineBattleSubmission({ artistVal, titleVal, fromChoice: false });
 };
 
 window.returnToWaitingRoomFromBattle = async function () {
@@ -5661,6 +6095,12 @@ window.leaveBattleRoom = async function (opts = {}) {
   plazaState.battleDoubleActive = false;
   plazaState.item3SecActivatedQIdx = null;
   plazaState.isUsing3Sec = false;
+  plazaState.battleChoicesByKey = new Map();
+  plazaState.battlePickedArtist = null;
+  plazaState.battlePickedTitle = null;
+  plazaState.battleLastRevealHandledKey = null;
+  clearBattlePenaltyLock();
+  clearBattleAdvanceTimeout();
   plazaState.myRoomX = null;
   plazaState.myRoomXRatio = null;
 
@@ -5710,12 +6150,14 @@ window.updateBattleRoomSettingsByHost = async function (overrideCfg = null) {
   const mode = (overrideCfg && overrideCfg.mode) || document.getElementById("roomEditMode")?.value || room.game_config?.mode || "behind";
   const stage = Number((overrideCfg && overrideCfg.stage) || document.getElementById("roomEditStage")?.value || room.game_config?.stage || 1);
   const itemMode = (overrideCfg && overrideCfg.itemMode) || document.getElementById("roomEditItemMode")?.value || room.game_config?.itemMode || "notem";
+  const difficulty = (overrideCfg && overrideCfg.difficulty) || room.game_config?.difficulty || "normal";
 
-  room.game_config = { decade, mode, stage, itemMode };
+  room.game_config = { decade, mode, stage, itemMode, difficulty };
   const decLabel = decade === "ALL" ? "전연대" : decade.replace("s", "년대");
   const modeLabel = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[mode] || mode;
   const itemLabel = itemMode === "item" ? "아이템전" : "노템전";
-  const sysText = `⚙️ 방장이 설정을 변경했습니다: [${decLabel} · ${modeLabel} · ${stage}단계 · ${itemLabel}]`;
+  const diffLabel = difficulty === "hard" ? "🔥고수×2" : "😊일반";
+  const sysText = `⚙️ 방장이 설정을 변경했습니다: [${diffLabel} · ${decLabel} · ${modeLabel} · ${stage}단계 · ${itemLabel}]`;
 
   await sbClient.from("rooms").update({ game_config: room.game_config }).eq("id", room.id);
   appendRoomChatLine("시스템", sysText);
@@ -5736,10 +6178,12 @@ window.renderBattlePlayItemBar = function (room) {
   }
   bar.classList.remove("hidden");
   const curIdx = room.current_q_index || 0;
-  const allowedIds = ["item_3sec", "item_chosung", "item_double"];
+  const isHard = String(cfg.difficulty || "normal") === "hard";
+  // 멀티 일반모드에서는 오답지우기(초성힌트) 미제공 — 3초듣기·더블어택만 허용
+  const allowedIds = isHard ? ["item_3sec", "item_chosung", "item_double"] : ["item_3sec", "item_double"];
   const equipped = (userState.equippedItems || []).filter(id => allowedIds.includes(id));
   if (equipped.length === 0) {
-    bar.innerHTML = `<span style="font-size:0.75rem; color:#94a3b8;">장착한 공용 아이템이 없습니다 (가방에서 장착 가능)</span>`;
+    bar.innerHTML = `<span style="font-size:0.75rem; color:#94a3b8;">${isHard ? "장착한 공용 아이템이 없습니다 (가방에서 장착 가능)" : "일반 난이도에서는 3초 듣기 · 더블어택만 사용 가능"}</span>`;
     return;
   }
   const used = plazaState.usedBattleItems || new Set();
@@ -5762,6 +6206,11 @@ window.useBattleGameItem = async function (itemId) {
   if (!room || room.status !== "playing") return;
   const cfg = room.game_config || {};
   if (cfg.itemMode !== "item") return;
+  const isHard = String(cfg.difficulty || "normal") === "hard";
+  if (itemId === "item_chosung" && !isHard) {
+    showBattleRoundToast("멀티 일반 난이도에서는 오답지우기/초성 힌트를 사용할 수 없습니다!", true);
+    return;
+  }
   if (!["item_3sec", "item_chosung", "item_double"].includes(itemId)) return;
 
   if (!plazaState.usedBattleItems) plazaState.usedBattleItems = new Set();
@@ -8100,7 +8549,7 @@ window.sendBattleInviteToUser = async function (targetId, targetNick, kindOverri
     roomType: room ? room.room_type : "1v1",
     gameConfig: room
       ? room.game_config
-      : { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem" },
+      : { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem", difficulty: "normal" },
     sentAt: now
   };
 
@@ -8170,13 +8619,14 @@ function showBattleInviteToastNow(inv) {
   const decLabel = !cfg.decade || cfg.decade === "ALL" ? "전연대" : String(cfg.decade).replace("s", "년대");
   const modeLabel = { behind: "비하인드", lyrics: "가사", onesec: "1초듣기" }[cfg.mode] || "비하인드";
   const stageLabel = `${cfg.stage || 1}단계`;
+  const diffLabel = cfg.difficulty === "hard" ? "🔥고수×2" : "😊일반";
   const itemLabel = cfg.itemMode === "item" ? "아이템전" : "노템전";
 
   titleEl.textContent = isRoomInv
     ? `📩 ${inv.fromNick}님이 대결방에 초대했습니다!`
     : `⚔️ ${inv.fromNick}님이 1:1 대결을 요청했습니다!`;
   subEl.textContent = isRoomInv
-    ? `[${inv.roomType === "4p" ? "4인" : "1:1"}] ${decLabel} · ${modeLabel} · ${stageLabel} · ${itemLabel}`
+    ? `[${inv.roomType === "4p" ? "4인" : "1:1"}] ${diffLabel} · ${decLabel} · ${modeLabel} · ${stageLabel} · ${itemLabel}`
     : `수락 시 1:1 대결방 생성 후 입장! (방장이 설정 가능)`;
 
   if (acceptBtn) {
@@ -8387,7 +8837,7 @@ async function handleIncomingBattleInviteReply(payload) {
 
     await prepareLeaveCurrentActivityForBattle();
     const roomTitle = `${userState.nickname || "도전자"} vs ${payload.fromNick || "상대"}`.slice(0, 24);
-    const cfg = { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem" };
+    const cfg = { decade: "ALL", mode: "behind", stage: 1, itemMode: "notem", difficulty: "normal" };
     const shuffledIds = shuffleArray(QUESTIONS_DB).slice(0, 10).map(q => q.id);
     const initialPlayers = [
       {

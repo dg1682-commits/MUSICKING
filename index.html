@@ -164,7 +164,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=24.9" />
+  <link rel="stylesheet" href="style.css?v=25.0" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -642,6 +642,17 @@
     <section id="setupScreen" class="screen-view hidden">
       <div class="card setup-card">
         <div>
+          <div class="difficulty-toggle-row">
+            <div class="difficulty-toggle-group" id="singleDifficultyToggle" role="group" aria-label="퀴즈 난이도 선택">
+              <button type="button" class="diff-toggle-btn active" data-quiz-diff="normal" onclick="selectQuizDifficulty('normal')">
+                😊 일반 <span class="diff-sub">(4지선다)</span>
+              </button>
+              <button type="button" class="diff-toggle-btn" data-quiz-diff="hard" onclick="selectQuizDifficulty('hard')">
+                🔥 고수 <span class="diff-sub">(주관식 ×2)</span>
+              </button>
+            </div>
+          </div>
+
           <button type="button" class="btn random-play-banner-btn" id="randomPlayBtn" onclick="startRandomGame()">
             <span style="font-size:0.95rem;">🎲 랜덤 플레이 (세팅 없이 10문제 바로 시작!)</span>
             <span style="font-size:0.71rem; opacity:0.92; font-weight:700;">전연대 · 문제 모드 & 난이도 단계 완전 랜덤</span>
@@ -706,12 +717,12 @@
             </div>
           </div>
 
-          <div class="special-toggles-row">
+          <div class="special-toggles-row is-single-toggle">
             <div class="toggle-banner" id="toggleTimeAttackBtn">
               <span>⏱️ 타임어택 (점수×2)</span>
               <strong id="timeAttackStateText">OFF</strong>
             </div>
-            <div class="toggle-banner" id="toggleHardModeBtn">
+            <div class="toggle-banner hidden" id="toggleHardModeBtn">
               <span>🔥 찐팬 하드모드</span>
               <strong id="hardModeStateText">OFF</strong>
             </div>
@@ -723,10 +734,10 @@
               <span style="font-size:0.72rem; color:var(--text-sub);">100점당 💿 10 CD 지급!</span>
             </div>
             <div class="score-rule-grid">
-              <div class="score-rule-item"><span>⭕ 기본 정답</span><strong class="score-plus">+100점</strong></div>
-              <div class="score-rule-item"><span>🔥 3단계 보너스</span><strong class="score-plus">+20점</strong></div>
+              <div class="score-rule-item"><span>⭕ 기본 정답</span><strong id="scoreRuleBasePts" class="score-plus">+100점</strong></div>
+              <div class="score-rule-item"><span>🔥 3단계 보너스</span><strong id="scoreRuleStage3Pts" class="score-plus">+20점</strong></div>
               <div class="score-rule-item"><span>⏱️ 타임어택 ON</span><strong class="score-plus">점수 ×2배</strong></div>
-              <div class="score-rule-item"><span>🔤·🔑·🎧 힌트</span><strong class="score-minus">-15~20점</strong></div>
+              <div class="score-rule-item"><span id="scoreRuleHintLabel">❌·🔑·🎧 힌트</span><strong class="score-minus">-15~20점</strong></div>
             </div>
           </div>
         </div>
@@ -745,6 +756,7 @@
           <span class="badge primary" id="badgeDecade">2010년대</span>
           <span class="badge accent" id="badgeMode">비하인드</span>
           <span class="badge" id="badgeStage">1단계</span>
+          <span class="badge" id="badgeDifficulty">😊 일반</span>
           <span class="badge gold hidden" id="badgeTimeAttack">⏱️×2</span>
         </div>
         <div class="score-board">
@@ -778,8 +790,13 @@
         </div>
       </div>
 
-      <div class="card answer-area">
-        <div class="input-row">
+      <div class="card answer-area" id="singleAnswerArea">
+        <div id="singleChoiceWrap" class="hidden">
+          <div id="singleChoiceGuide" class="choice-guide-bar hidden"></div>
+          <div id="singleChoiceGrid" class="quiz-choice-panel"></div>
+        </div>
+
+        <div class="input-row" id="singleTypingInputRow">
           <div class="input-group" id="artistInputGroup">
             <label for="artistInput">🎤 가수 이름</label>
             <input type="text" id="artistInput" class="text-input" placeholder="가수 입력" autocomplete="off" />
@@ -790,7 +807,7 @@
           </div>
         </div>
 
-        <div class="action-row">
+        <div class="action-row" id="singleAnswerActions">
           <button class="btn btn-primary" id="submitAnswerBtn" style="flex:2;">제출하기</button>
           <button class="btn" id="skipQuestionBtn" style="flex:1;">패스(모름)</button>
         </div>
@@ -801,6 +818,7 @@
 
       <div class="hints-bar">
         <button class="hint-btn" id="hintLetterBtn">🔤 글자수 힌트<span class="hint-cost">(-15점)</span></button>
+        <button class="hint-btn hidden" id="hintWrongDelBtn">❌ 오답 지우기<span class="hint-cost">(-15점)</span></button>
         <button class="hint-btn" id="hintKeywordBtn">🔑 단어 힌트<span class="hint-cost">(-15점)</span></button>
         <button class="hint-btn" id="hintAudioBtn">🎧 노래 힌트<span class="hint-cost">(-20점)</span></button>
       </div>
@@ -896,6 +914,14 @@
           <h3 id="battleRoomTitle" style="font-size:0.94rem; font-weight:900;">⚔️ 온라인 대전 방</h3>
         </div>
 
+        <!-- 상단 가운데 난이도 토글 (방장 클릭 전환, 참가자 표시 전용) -->
+        <div class="difficulty-toggle-row is-compact" id="battleRoomDiffToggleWrap">
+          <div class="difficulty-toggle-group" id="battleRoomDiffToggle" data-quiz-diff="normal" role="group" aria-label="멀티 난이도 선택">
+            <button type="button" class="diff-toggle-btn is-selected" data-diff="normal" onclick="setBattleRoomDifficultyByHost('normal')">😊 일반 <span class="diff-sub">(4지선다)</span></button>
+            <button type="button" class="diff-toggle-btn" data-diff="hard" onclick="setBattleRoomDifficultyByHost('hard')">🔥 고수 <span class="diff-sub">(주관식 ×2)</span></button>
+          </div>
+        </div>
+
         <!-- 선택된 게임 모드/연대/단계/아이템전 배지 바 -->
         <div id="battleRoomConfigBar" style="display:flex; justify-content:center; gap:5px; flex-wrap:wrap; flex-shrink:0;"></div>
 
@@ -940,7 +966,8 @@
           <div class="midi-eq-bars"><span></span><span></span><span></span><span></span></div>
           <span id="battlePlayProgress" style="font-size:0.86rem; font-weight:900; color:#7dd3fc;">ROUND 1 / 10</span>
         </div>
-        <div style="display:flex; align-items:center; gap:6px;">
+        <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
+          <span id="battlePlayDiffBadge" class="badge" style="font-size:0.7rem;">😊 일반</span>
           <span class="badge" style="background:rgba(15,23,42,0.7); color:#a7f3d0; border-color:#34d399; font-size:0.7rem;">∞ 무제한</span>
           <span id="battlePlayModeBadge" class="badge primary">📖 비하인드</span>
         </div>
@@ -953,7 +980,7 @@
       <div id="battleRoundToast" class="battle-round-toast hidden"></div>
 
       <!-- 전자 미디 문제 디스플레이 카드 -->
-      <div class="question-card" id="battleQuestionCard" style="flex:1; min-height:110px; max-height:none;">
+      <div class="question-card" id="battleQuestionCard">
         <div class="given-info-banner" id="battlePlayHintBanner">
           <span id="battlePlayHintText">🎤 가수 힌트</span>
           <strong id="battlePlayYearTag">2020년</strong>
@@ -981,7 +1008,13 @@
       <div id="battleItemSlotsBar" class="quick-items-bar hidden"></div>
 
       <div class="card answer-area" id="battlePlayInputBox">
-        <div class="input-row">
+        <div id="battlePenaltyBanner" class="battle-penalty-banner hidden">⏳ 오답 패널티! <span id="battlePenaltySec">5</span>초 후 선택 가능</div>
+        <div id="battleWinnerRevealBanner" class="battle-winner-reveal-banner hidden">🎉 정답!</div>
+        <div id="battleChoiceWrap" class="hidden">
+          <div id="battleChoiceGuide" class="choice-guide-bar hidden">정답을 선택하세요!</div>
+          <div id="battleChoiceGrid" class="quiz-choice-panel"></div>
+        </div>
+        <div class="input-row" id="battleTypingInputRow">
           <div class="input-group hidden" id="battleArtistInputGroup">
             <label for="battleArtistInput">🎤 가수 이름</label>
             <input type="text" id="battleArtistInput" class="text-input" placeholder="가수 입력" autocomplete="off" enterkeyhint="next" onkeydown="handleOnlineBattleInputEnter(event, 'artist')" />
@@ -991,8 +1024,8 @@
             <input type="text" id="battleTitleInput" class="text-input" placeholder="노래/정답 입력!" autocomplete="off" enterkeyhint="send" onkeydown="handleOnlineBattleInputEnter(event, 'title')" />
           </div>
         </div>
-        <div class="action-row">
-          <button class="btn btn-gold" onclick="submitOnlineBattleAnswer()" style="flex:2.2; padding:12px;">⚡ 버저 정답 외치기!</button>
+        <div class="action-row" id="battleActionRow">
+          <button class="btn btn-gold" id="battleSubmitBtn" onclick="submitOnlineBattleAnswer()" style="flex:2.2; padding:12px;">⚡ 버저 정답 외치기!</button>
           <button class="btn battle-pass-btn" id="battlePassBtn" onclick="passOnlineBattleQuestion()" style="flex:1; padding:12px; position:relative;">
             ⏭️ 패스
             <span id="battlePassBadge" class="battle-pass-badge hidden">0</span>
@@ -1583,9 +1616,15 @@
   <!-- ==================== [모달 9] 멀티 방 만들기 (모드·연대·단계 선택) ==================== -->
   <div id="createRoomModal" class="modal-backdrop hidden">
     <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 id="createRoomModalTitle" style="font-size:1.02rem;">⚔️ 대전 방 만들기</h3>
         <button class="header-btn" onclick="closeModal('createRoomModal')">닫기 ✕</button>
+      </div>
+      <div class="difficulty-toggle-row is-modal-top">
+        <div class="difficulty-toggle-group" id="createRoomDiffToggle" data-quiz-diff="normal" role="group" aria-label="대전 난이도 선택">
+          <button type="button" class="diff-toggle-btn is-selected" data-diff="normal" onclick="selectRoomConfig('difficulty', 'normal', this)">😊 일반 <span class="diff-sub">(4지선다)</span></button>
+          <button type="button" class="diff-toggle-btn" data-diff="hard" onclick="selectRoomConfig('difficulty', 'hard', this)">🔥 고수 <span class="diff-sub">(주관식 ×2)</span></button>
+        </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
         <div class="input-group">
@@ -2039,9 +2078,15 @@
   <!-- ==================== [V3.1 모달 K] 대기방 설정 변경 디자인 모달 (시스템 드롭다운 대체) ==================== -->
   <div id="roomSettingsModal" class="modal-backdrop hidden" style="z-index:2270;">
     <div class="modal-content" style="max-width:420px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="font-size:1.02rem; font-weight:900;">⚙️ 대전 방 설정 변경</h3>
         <button type="button" class="header-btn" onclick="closeModal('roomSettingsModal')">닫기 ✕</button>
+      </div>
+      <div class="difficulty-toggle-row is-modal-top">
+        <div class="difficulty-toggle-group" id="editRoomDiffToggle" data-quiz-diff="normal" role="group" aria-label="대전 난이도 변경">
+          <button type="button" class="diff-toggle-btn is-selected" data-diff="normal" onclick="selectEditRoomConfig('difficulty', 'normal', this)">😊 일반 <span class="diff-sub">(4지선다)</span></button>
+          <button type="button" class="diff-toggle-btn" data-diff="hard" onclick="selectEditRoomConfig('difficulty', 'hard', this)">🔥 고수 <span class="diff-sub">(주관식 ×2)</span></button>
+        </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
         <div>
@@ -2219,15 +2264,15 @@
     </div>
   </div>
 
-  <script defer src="data.js?v=24.9"></script>
-  <script defer src="pixel_avatar_v3.js?v=24.9"></script>
-  <script defer src="pixel_avatar.js?v=24.9"></script>
-  <script defer src="online.js?v=24.9"></script>
-  <script defer src="fishing.js?v=24.9"></script>
-  <script defer src="arcade_sfx.js?v=24.9"></script>
-  <script defer src="arcade_games.js?v=24.9"></script>
-  <script defer src="arcade.js?v=24.9"></script>
-  <script defer src="app.js?v=24.9"></script>
+  <script defer src="data.js?v=25.0"></script>
+  <script defer src="pixel_avatar_v3.js?v=25.0"></script>
+  <script defer src="pixel_avatar.js?v=25.0"></script>
+  <script defer src="online.js?v=25.0"></script>
+  <script defer src="fishing.js?v=25.0"></script>
+  <script defer src="arcade_sfx.js?v=25.0"></script>
+  <script defer src="arcade_games.js?v=25.0"></script>
+  <script defer src="arcade.js?v=25.0"></script>
+  <script defer src="app.js?v=25.0"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

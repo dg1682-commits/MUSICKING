@@ -22,6 +22,10 @@
     },
     "SystemBars": {
       "insetsHandling": "css"
+    },
+    "Keyboard": {
+      "resize": "none",
+      "resizeOnFullScreen": false
     }
   }
 }

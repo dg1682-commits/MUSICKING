@@ -10,6 +10,7 @@ const state = {
   mode: "behind",
   stage: 1,
   questionLimit: 10,
+  quizDifficulty: "normal",
   timeAttack: false,
   hardMode: false,
 
@@ -24,6 +25,12 @@ const state = {
   usedHintLetter: false,
   usedHintKeyword: false,
   usedHintAudio: false,
+  usedWrongDelCount: 0,
+  wrongDelCooldownUntil: 0,
+  wrongDelTimerId: null,
+  currentChoices: null,
+  pickedArtist: null,
+  pickedTitle: null,
   questionEnded: false,
   usedItemsInRun: new Set(),
   item3SecActivatedQIdx: null,
@@ -153,7 +160,10 @@ function setupMobileKeyboardViewportHandler() {
   let lockedHeight = initialDims.maxH || 700;
   let lastTextBlurAt = 0;
   let prevKbOpen = false;
+  let prevKbHeight = 0;
   let rootScrollClampQueued = false;
+  let nativeKbHeight = 0;
+  let hasNativeKbListener = false;
 
   const resetRootScroll = () => {
     if (window.scrollX !== 0 || window.scrollY !== 0) {
@@ -190,28 +200,11 @@ function setupMobileKeyboardViewportHandler() {
     }
   };
 
-  const syncFloatingBoxForScreen = (selector, shouldFloat, visibleBottom, maxLift) => {
+  const clearLegacyFloatStyles = selector => {
     const box = document.querySelector(selector);
     if (!box) return;
-    if (!shouldFloat) {
-      delete box.dataset.kbLiftPx;
-      box.style.transform = "";
-      box.classList.remove("is-kb-floating");
-      return;
-    }
-    const prevLift = Number(box.dataset.kbLiftPx || 0);
-    const restingBottom = box.getBoundingClientRect().bottom + prevLift;
-    const needLift = Math.max(0, Math.round(restingBottom - visibleBottom));
-    const safeLift = Math.min(needLift, maxLift);
-    if (safeLift > 0) {
-      box.dataset.kbLiftPx = String(safeLift);
-      box.style.transform = `translate3d(0, -${safeLift}px, 0)`;
-      box.classList.add("is-kb-floating");
-    } else {
-      delete box.dataset.kbLiftPx;
-      box.style.transform = "";
-      box.classList.remove("is-kb-floating");
-    }
+    delete box.dataset.kbLiftPx;
+    if (box.style.transform) box.style.transform = "";
   };
 
   const updateViewport = () => {
@@ -226,7 +219,7 @@ function setupMobileKeyboardViewportHandler() {
       lockedHeight = dims.maxH || lockedHeight;
     } else if (dims.maxH > lockedHeight) {
       lockedHeight = dims.maxH;
-    } else if (!isInputFocused && vkHeight === 0 && Date.now() - lastTextBlurAt > 500) {
+    } else if (!isInputFocused && vkHeight === 0 && nativeKbHeight === 0 && Date.now() - lastTextBlurAt > 500) {
       const shrinkDelta = lockedHeight - dims.maxH;
       const isLikelyDesktop = !("ontouchstart" in window) && (navigator.maxTouchPoints || 0) === 0;
       if ((shrinkDelta > 0 && shrinkDelta < 110) || (isLikelyDesktop && shrinkDelta > 0)) {
@@ -236,16 +229,23 @@ function setupMobileKeyboardViewportHandler() {
 
     const vvShrink = dims.vv ? Math.max(0, lockedHeight - dims.vvH) : 0;
     const innerShrink = Math.max(0, lockedHeight - dims.innerH);
-    const rawKbHeight = Math.max(vkHeight, vvShrink, innerShrink);
+    const vvOffsetTop = dims.vv ? Math.max(0, Math.round(dims.vv.offsetTop || 0)) : 0;
+    const vvFixedLift = dims.vv ? Math.max(0, Math.round(dims.innerH - (vvOffsetTop + dims.vvH))) : 0;
+    const rawKbHeight = Math.max(nativeKbHeight, vkHeight, vvShrink, innerShrink);
     const isKbOpen = rawKbHeight > 70 || (isInputFocused && rawKbHeight > 45);
     const effectiveKb = isKbOpen ? rawKbHeight : 0;
+    // 브라우저/원스토어 H5 웹뷰가 adjustResize로 innerHeight를 이미 줄인 경우 position:fixed 이중 상승 차단
+    const isAdjustResize = innerShrink > 50;
+    const overlayKb = isAdjustResize ? 0 : Math.max(nativeKbHeight, vkHeight);
+    const fixedKbBottom = isKbOpen ? Math.max(vvFixedLift, overlayKb) : 0;
 
-    // 1) 전체 배경 · 쉘 · 낚시터 무대 높이를 고정 px(--app-locked-h)로 잠가 절대 찌그러지지 않게 유지
+    // 1) 전체 배경 · 쉘 · 낚시터 무대 높이를 고정 px(--app-locked-h)로 유지
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty("--app-locked-h", `${lockedHeight}px`);
     rootStyle.setProperty("--kb-height", `${effectiveKb}px`);
+    rootStyle.setProperty("--kb-fixed-bottom", `${fixedKbBottom}px`);
 
-    const safeOffsetTop = dims.vv ? Math.max(0, Math.round(dims.vv.offsetTop || 0)) : 0;
+    const safeOffsetTop = vvOffsetTop;
     shell.style.top = `${safeOffsetTop}px`;
     shell.style.height = `${lockedHeight}px`;
 
@@ -260,41 +260,68 @@ function setupMobileKeyboardViewportHandler() {
       }
     }
 
-    // 2) 전체 레이아웃을 줄이지 않고, 활성 입력창/채팅 바만 키보드 바로 위로 부양
+    // 2) 어떤 키보드(천지인 3×4, 쿼티, Gboard 등)에서도 활성 입력창이 키보드 바로 위 고정 도킹
     const activeInsideModal = Boolean(activeEl && activeEl.closest(".modal-backdrop"));
     document.body.classList.toggle("keyboard-open", isKbOpen);
+
+    let activeFloatEl = null;
 
     const fishingInputBar = document.getElementById("fishingInputBar");
     if (fishingInputBar) {
       const floatFishing = isKbOpen && state.currentScreen === "fishingScreen" && !activeInsideModal;
       fishingInputBar.classList.toggle("is-kb-floating", floatFishing);
+      if (floatFishing) activeFloatEl = fishingInputBar;
     }
 
     const dmInputBar = document.querySelector("#dmChatScreen .kakao-chat-inputbar");
     if (dmInputBar) {
-      dmInputBar.classList.toggle("is-kb-floating", isKbOpen && state.currentScreen === "dmChatScreen" && !activeInsideModal);
+      const floatDm = isKbOpen && state.currentScreen === "dmChatScreen" && !activeInsideModal;
+      dmInputBar.classList.toggle("is-kb-floating", floatDm);
+      if (floatDm) activeFloatEl = dmInputBar;
     }
 
     const roomInputBar = document.querySelector("#battleRoomScreen .room-chat-inputbar");
     if (roomInputBar) {
-      roomInputBar.classList.toggle("is-kb-floating", isKbOpen && state.currentScreen === "battleRoomScreen" && !activeInsideModal);
+      const floatRoom = isKbOpen && state.currentScreen === "battleRoomScreen" && !activeInsideModal;
+      roomInputBar.classList.toggle("is-kb-floating", floatRoom);
+      if (floatRoom) activeFloatEl = roomInputBar;
     }
 
-    const visibleBottom = lockedHeight - effectiveKb - 10;
-    const maxLift = Math.max(0, Math.round(lockedHeight * 0.48));
-    syncFloatingBoxForScreen(
-      "#gameScreen .answer-area",
-      isKbOpen && state.currentScreen === "gameScreen" && !activeInsideModal && effectiveKb > 0,
-      visibleBottom,
-      maxLift
-    );
-    syncFloatingBoxForScreen(
-      "#battlePlayInputBox",
-      isKbOpen && state.currentScreen === "battlePlayScreen" && !activeInsideModal && effectiveKb > 0,
-      visibleBottom,
-      maxLift
-    );
+    clearLegacyFloatStyles("#gameScreen .answer-area");
+    clearLegacyFloatStyles("#battlePlayInputBox");
 
+    const singleAnswerArea = document.querySelector("#gameScreen .answer-area");
+    if (singleAnswerArea) {
+      const shouldFloatSingle =
+        isKbOpen &&
+        isInputFocused &&
+        state.currentScreen === "gameScreen" &&
+        state.quizDifficulty === "hard" &&
+        !activeInsideModal &&
+        effectiveKb > 0;
+      singleAnswerArea.classList.toggle("is-kb-floating", shouldFloatSingle);
+      if (shouldFloatSingle) activeFloatEl = singleAnswerArea;
+    }
+
+    const battleInputBox = document.getElementById("battlePlayInputBox");
+    if (battleInputBox) {
+      const isBattleHard = typeof window.isCurrentBattleHardMode === "function" ? window.isCurrentBattleHardMode() : false;
+      const shouldFloatBattle =
+        isKbOpen &&
+        isInputFocused &&
+        state.currentScreen === "battlePlayScreen" &&
+        isBattleHard &&
+        !activeInsideModal &&
+        effectiveKb > 0;
+      battleInputBox.classList.toggle("is-kb-floating", shouldFloatBattle);
+      if (shouldFloatBattle) activeFloatEl = battleInputBox;
+    }
+
+    const floatBarH = activeFloatEl ? Math.max(48, Math.round(activeFloatEl.offsetHeight || 54)) : 60;
+    const floatPadPx = isKbOpen ? effectiveKb + floatBarH + 10 : 8;
+    rootStyle.setProperty("--kb-float-pad", `${floatPadPx}px`);
+
+    const visibleBottom = lockedHeight - effectiveKb - 10;
     if (isKbOpen && !activeInsideModal && state.currentScreen === "loginScreen" && isInputFocused) {
       const loginHero = document.querySelector("#loginScreen .home-hero");
       if (loginHero && activeEl) {
@@ -305,10 +332,12 @@ function setupMobileKeyboardViewportHandler() {
       }
     }
 
-    if (isKbOpen && !prevKbOpen) {
+    if (isKbOpen && (!prevKbOpen || Math.abs(effectiveKb - prevKbHeight) > 8)) {
       scrollActiveChatToBottom();
+      setTimeout(scrollActiveChatToBottom, 60);
     }
     prevKbOpen = isKbOpen;
+    prevKbHeight = effectiveKb;
 
     resetRootScroll();
   };
@@ -320,6 +349,29 @@ function setupMobileKeyboardViewportHandler() {
     requestAnimationFrame(updateViewport);
     [40, 120, 240, 400].forEach(delay => setTimeout(updateViewport, delay));
   };
+
+  const bindCapacitorKeyboardPlugin = () => {
+    const kbPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard;
+    if (!kbPlugin || hasNativeKbListener || typeof kbPlugin.addListener !== "function") return;
+    hasNativeKbListener = true;
+    const onNativeShow = info => {
+      const h = Math.round(Number(info && info.keyboardHeight) || 0);
+      if (h > 0) {
+        nativeKbHeight = h;
+        scheduleBurstUpdate();
+      }
+    };
+    const onNativeHide = () => {
+      nativeKbHeight = 0;
+      scheduleBurstUpdate();
+    };
+    try { kbPlugin.addListener("keyboardWillShow", onNativeShow); } catch (e) {}
+    try { kbPlugin.addListener("keyboardDidShow", onNativeShow); } catch (e) {}
+    try { kbPlugin.addListener("keyboardWillHide", onNativeHide); } catch (e) {}
+    try { kbPlugin.addListener("keyboardDidHide", onNativeHide); } catch (e) {}
+  };
+  bindCapacitorKeyboardPlugin();
+  setTimeout(bindCapacitorKeyboardPlugin, 500);
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewport);
@@ -356,6 +408,7 @@ function setupMobileKeyboardViewportHandler() {
 
   document.addEventListener("focusin", e => {
     if (isTextInputElement(e.target)) {
+      bindCapacitorKeyboardPlugin();
       resetRootScroll();
       scheduleBurstUpdate();
     }
@@ -363,8 +416,13 @@ function setupMobileKeyboardViewportHandler() {
   document.addEventListener("focusout", e => {
     if (isTextInputElement(e.target)) {
       lastTextBlurAt = Date.now();
-      setTimeout(updateViewport, 80);
-      setTimeout(updateViewport, 240);
+      setTimeout(() => {
+        if (!isTextInputElement(document.activeElement)) {
+          nativeKbHeight = 0;
+        }
+        updateViewport();
+      }, 90);
+      setTimeout(updateViewport, 260);
     }
   });
 
@@ -664,10 +722,10 @@ function performCleanAppExit() {
 
 window.openAdminBackendPage = function () {
   if (typeof closeModal === "function") closeModal("settingsModal");
-  location.replace("admin.html?v=24.6");
+  location.replace("admin.html?v=25.0");
 };
 
-const PATCH_NOTES_LATEST_VERSION = "v24.6";
+const PATCH_NOTES_LATEST_VERSION = "v25.0";
 const PATCH_NOTES_SEEN_STORAGE_KEY = "mk_seen_patch_version";
 
 window.syncPatchNotesNotiDot = function () {
@@ -860,6 +918,314 @@ function buildLetterBoxHint(text) {
   if (typeof buildQuizLetterHint === "function") return buildQuizLetterHint(text);
   return String(text || "").trim();
 }
+
+// ==================== v25.0 공용 객관식 보기 생성 · 오답제거 · 2×2 / 2×4 렌더링 엔진 ====================
+function hashChoiceSeedStr(str) {
+  let h = 2166136261 >>> 0;
+  const s = String(str || "seed");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function createSeededPrng(seedNum) {
+  let a = (Number(seedNum) || 1) >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffleArray(arr, rand) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function pickFourFieldOptions(q, field, preferredPool, rand) {
+  const allDb = typeof getAllQuestions === "function" ? getAllQuestions() : (typeof QUESTIONS_DB !== "undefined" ? QUESTIONS_DB : []);
+  const acceptedList =
+    field === "artist"
+      ? [q.artist, ...(q.artistAliases || [])]
+      : [q.title, ...(q.titleAliases || [])];
+  const forbiddenNorms = new Set(acceptedList.map(normalizeAnswer).filter(Boolean));
+  const correctLabel = String((field === "artist" ? q.artist : q.title) || "").trim();
+  const seenNorms = new Set([normalizeAnswer(correctLabel), ...forbiddenNorms].filter(Boolean));
+
+  const tryCollectFromPool = (poolList, picked) => {
+    const shuffled = seededShuffleArray(poolList, rand);
+    for (const item of shuffled) {
+      if (picked.length >= 3) break;
+      if (!item || item.id === q.id) continue;
+      const val = String((field === "artist" ? item.artist : item.title) || "").trim();
+      if (!val) continue;
+      const itemAllNorms = (
+        field === "artist"
+          ? [item.artist, ...(item.artistAliases || [])]
+          : [item.title, ...(item.titleAliases || [])]
+      )
+        .map(normalizeAnswer)
+        .filter(Boolean);
+      const valNorm = normalizeAnswer(val);
+      if (!valNorm || itemAllNorms.some(n => seenNorms.has(n))) continue;
+      seenNorms.add(valNorm);
+      itemAllNorms.forEach(n => seenNorms.add(n));
+      picked.push(val);
+    }
+  };
+
+  const distractors = [];
+  const sameDecadePool = (Array.isArray(preferredPool) && preferredPool.length > 0 ? preferredPool : allDb).filter(
+    item => item && item.decade === q.decade
+  );
+  tryCollectFromPool(sameDecadePool, distractors);
+  if (distractors.length < 3 && Array.isArray(preferredPool) && preferredPool.length > 0) {
+    tryCollectFromPool(preferredPool, distractors);
+  }
+  if (distractors.length < 3) {
+    tryCollectFromPool(allDb, distractors);
+  }
+  while (distractors.length < 3) {
+    distractors.push(`${field === "artist" ? "아티스트" : "노래"} #${distractors.length + 1}`);
+  }
+
+  return seededShuffleArray([correctLabel, ...distractors.slice(0, 3)], rand).map(label => ({
+    label,
+    eliminated: false
+  }));
+}
+
+window.buildQuizChoicesForQuestion = function (q, stage, preferredPool, seedStr) {
+  if (!q) return null;
+  const st = Number(stage) || 1;
+  const rand = createSeededPrng(hashChoiceSeedStr(seedStr || `${q.id}_${st}_${Date.now()}`));
+  if (st === 3) {
+    return {
+      stage: 3,
+      correctArtist: q.artist,
+      correctTitle: q.title,
+      artists: pickFourFieldOptions(q, "artist", preferredPool, rand),
+      titles: pickFourFieldOptions(q, "title", preferredPool, rand)
+    };
+  }
+  const field = st === 2 ? "artist" : "title";
+  return {
+    stage: st,
+    correctValue: field === "artist" ? q.artist : q.title,
+    options: pickFourFieldOptions(q, field, preferredPool, rand)
+  };
+};
+
+window.toCompactChoiceData = function (choiceData) {
+  if (!choiceData) return null;
+  if (Number(choiceData.stage) === 3) {
+    return {
+      s: 3,
+      arts: (choiceData.artists || []).map(o => o.label),
+      ttls: (choiceData.titles || []).map(o => o.label),
+      ansA: choiceData.correctArtist || "",
+      ansT: choiceData.correctTitle || ""
+    };
+  }
+  return {
+    s: Number(choiceData.stage) || 1,
+    opts: (choiceData.options || []).map(o => o.label),
+    ans: choiceData.correctValue || ""
+  };
+};
+
+window.buildChoiceStateFromCompact = function (compact, q, stage) {
+  if (!compact) return null;
+  const st = Number(compact.s || stage) || 1;
+  if (st === 3) {
+    return {
+      stage: 3,
+      correctArtist: compact.ansA || (q && q.artist) || "",
+      correctTitle: compact.ansT || (q && q.title) || "",
+      artists: (Array.isArray(compact.arts) ? compact.arts : []).map(label => ({ label: String(label), eliminated: false })),
+      titles: (Array.isArray(compact.ttls) ? compact.ttls : []).map(label => ({ label: String(label), eliminated: false }))
+    };
+  }
+  return {
+    stage: st,
+    correctValue: compact.ans || (q ? (st === 2 ? q.artist : q.title) : ""),
+    options: (Array.isArray(compact.opts) ? compact.opts : []).map(label => ({ label: String(label), eliminated: false }))
+  };
+};
+
+window.countRemainingWrongChoices = function (choiceData, q, stage) {
+  if (!choiceData || !q) return 0;
+  const st = Number(choiceData.stage || stage) || 1;
+  if (st === 3) {
+    const remA = (choiceData.artists || []).filter(o => !o.eliminated && !isArtistMatch(o.label, q)).length;
+    const remT = (choiceData.titles || []).filter(o => !o.eliminated && !isTitleMatch(o.label, q)).length;
+    return remA + remT;
+  }
+  return (choiceData.options || []).filter(o => !o.eliminated && !(st === 2 ? isArtistMatch(o.label, q) : isTitleMatch(o.label, q))).length;
+};
+
+window.eliminateWrongChoiceInData = function (choiceData, q, stage) {
+  if (!choiceData || !q) return { changed: false, eliminatedArtists: [], eliminatedTitles: [], eliminatedOptions: [] };
+  const st = Number(choiceData.stage || stage) || 1;
+  if (st === 3) {
+    const eliminatedArtists = [];
+    const eliminatedTitles = [];
+    const wrongA = (choiceData.artists || []).filter(o => !o.eliminated && !isArtistMatch(o.label, q));
+    const wrongT = (choiceData.titles || []).filter(o => !o.eliminated && !isTitleMatch(o.label, q));
+    if (wrongA.length > 0) {
+      const pickA = wrongA[Math.floor(Math.random() * wrongA.length)];
+      pickA.eliminated = true;
+      eliminatedArtists.push(pickA.label);
+    }
+    if (wrongT.length > 0) {
+      const pickT = wrongT[Math.floor(Math.random() * wrongT.length)];
+      pickT.eliminated = true;
+      eliminatedTitles.push(pickT.label);
+    }
+    return {
+      changed: eliminatedArtists.length > 0 || eliminatedTitles.length > 0,
+      eliminatedArtists,
+      eliminatedTitles,
+      eliminatedOptions: []
+    };
+  }
+  const wrongOpts = (choiceData.options || []).filter(
+    o => !o.eliminated && !(st === 2 ? isArtistMatch(o.label, q) : isTitleMatch(o.label, q))
+  );
+  if (wrongOpts.length === 0) {
+    return { changed: false, eliminatedArtists: [], eliminatedTitles: [], eliminatedOptions: [] };
+  }
+  const pick = wrongOpts[Math.floor(Math.random() * wrongOpts.length)];
+  pick.eliminated = true;
+  return {
+    changed: true,
+    eliminatedArtists: [],
+    eliminatedTitles: [],
+    eliminatedOptions: [pick.label]
+  };
+};
+
+window.renderQuizChoiceGrid = function ({
+  containerEl,
+  guideEl,
+  choiceData,
+  stage,
+  pickedArtist,
+  pickedTitle,
+  winnerReveal,
+  penaltyLocked,
+  onSelectSingle,
+  onSelectStage3Artist,
+  onSelectStage3Title
+}) {
+  if (!containerEl || !choiceData) return;
+  const st = Number(choiceData.stage || stage) || 1;
+  const revSingle = winnerReveal && winnerReveal.singleChoice ? normalizeAnswer(winnerReveal.singleChoice) : "";
+  const revArtist = winnerReveal && winnerReveal.pickedArtist ? normalizeAnswer(winnerReveal.pickedArtist) : "";
+  const revTitle = winnerReveal && winnerReveal.pickedTitle ? normalizeAnswer(winnerReveal.pickedTitle) : "";
+  const isRevealActive = Boolean(winnerReveal);
+
+  containerEl.innerHTML = "";
+
+  if (st === 3) {
+    if (guideEl) {
+      guideEl.classList.remove("hidden");
+      if (isRevealActive) {
+        guideEl.textContent = `🎉 ${winnerReveal.winnerNick || "도전자"}님 정답 조합 확인 중!`;
+      } else if (pickedArtist && !pickedTitle) {
+        guideEl.textContent = `🎤 [${pickedArtist}] 선택됨 · 오른쪽 노래를 누르면 즉시 판정!`;
+      } else if (!pickedArtist && pickedTitle) {
+        guideEl.textContent = `🎵 [${pickedTitle}] 선택됨 · 왼쪽 가수를 누르면 즉시 판정!`;
+      } else {
+        guideEl.textContent = "🎤 가수 + 🎵 노래 차례로 터치 (2번째 선택 즉시 판정!)";
+      }
+    }
+
+    const cols = document.createElement("div");
+    cols.className = "choice-3stage-cols";
+
+    const buildCol = (headerText, list, currentPick, revNorm, onClickFn) => {
+      const col = document.createElement("div");
+      col.className = "choice-col";
+      const hdr = document.createElement("div");
+      hdr.className = "choice-col-header";
+      hdr.textContent = headerText;
+      col.appendChild(hdr);
+
+      (list || []).forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "quiz-choice-btn";
+        const span = document.createElement("span");
+        span.className = "quiz-choice-btn-text";
+        span.textContent = opt.label;
+        btn.appendChild(span);
+
+        const isSel = currentPick && currentPick === opt.label;
+        const isRevMatch = isRevealActive && revNorm && normalizeAnswer(opt.label) === revNorm;
+        if (opt.eliminated) btn.classList.add("is-eliminated");
+        if (isSel && !isRevMatch) btn.classList.add("is-selected");
+        if (isRevMatch) btn.classList.add("is-winner-reveal");
+        if (penaltyLocked) btn.classList.add("is-penalty-locked");
+
+        btn.disabled = Boolean(opt.eliminated || penaltyLocked || isRevealActive);
+        btn.addEventListener("click", () => {
+          if (btn.disabled || typeof onClickFn !== "function") return;
+          onClickFn(opt.label, idx, btn);
+        });
+        col.appendChild(btn);
+      });
+      return col;
+    };
+
+    cols.appendChild(buildCol("🎤 가수 선택", choiceData.artists, pickedArtist, revArtist, onSelectStage3Artist));
+    cols.appendChild(buildCol("🎵 노래 선택", choiceData.titles, pickedTitle, revTitle, onSelectStage3Title));
+    containerEl.appendChild(cols);
+    return;
+  }
+
+  if (guideEl) {
+    guideEl.classList.remove("hidden");
+    guideEl.textContent = isRevealActive
+      ? `🎉 ${winnerReveal.winnerNick || "도전자"}님이 고른 정답!`
+      : st === 2
+      ? "🎤 알맞은 가수를 터치하면 즉시 정답 판정!"
+      : "🎵 알맞은 노래 제목을 터치하면 즉시 정답 판정!";
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "choice-grid-2x2";
+  (choiceData.options || []).forEach((opt, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quiz-choice-btn";
+    const span = document.createElement("span");
+    span.className = "quiz-choice-btn-text";
+    span.textContent = opt.label;
+    btn.appendChild(span);
+
+    const isRevMatch = isRevealActive && revSingle && normalizeAnswer(opt.label) === revSingle;
+    if (opt.eliminated) btn.classList.add("is-eliminated");
+    if (isRevMatch) btn.classList.add("is-winner-reveal");
+    if (penaltyLocked) btn.classList.add("is-penalty-locked");
+
+    btn.disabled = Boolean(opt.eliminated || penaltyLocked || isRevealActive);
+    btn.addEventListener("click", () => {
+      if (btn.disabled || typeof onSelectSingle !== "function") return;
+      onSelectSingle(opt.label, idx, btn);
+    });
+    grid.appendChild(btn);
+  });
+  containerEl.appendChild(grid);
+};
 
 async function fetchItunesTrack(q) {
   if (state.itunesCache.has(q.id)) {
@@ -1131,6 +1497,7 @@ window.confirmExitSingleGame = function () {
   gameConfirm(
     "지금 나가면 풀던 문제와 현재 점수가 모두 삭제됩니다.\n정말 게임을 중단하고 나가시겠습니까?",
     () => {
+      if (typeof stopWrongDelCooldownTimer === "function") stopWrongDelCooldownTimer();
       showSetup();
     },
     "⚠️ 게임 중단 경고"
@@ -1804,8 +2171,15 @@ window.updateLobbyCounts = function () {
   const filtered = getFilteredQuestions();
   const countBadge = document.getElementById("availablePoolCount");
   if (countBadge) {
-    countBadge.textContent = `${state.hardMode ? "🔥하드모드 " : ""}총 ${filtered.length}문제`;
+    const diffTag = state.quizDifficulty === "hard" ? "🔥고수×2 " : "";
+    countBadge.textContent = `${diffTag}${state.hardMode ? "하드풀 " : ""}총 ${filtered.length}문제`;
   }
+};
+
+window.selectQuizDifficulty = function (diff) {
+  state.quizDifficulty = diff === "hard" ? "hard" : "normal";
+  syncSetupOptionChips();
+  updateLobbyCounts();
 };
 
 function initEvents() {
@@ -1886,6 +2260,7 @@ function initEvents() {
   safeOn("shareResultBtn", "click", shareResultImage);
 
   safeOn("hintLetterBtn", "click", useLetterHint);
+  safeOn("hintWrongDelBtn", "click", useWrongDeleteHint);
   safeOn("hintKeywordBtn", "click", useKeywordHint);
   safeOn("hintAudioBtn", "click", useAudioHint);
   safeOn("submitAnswerBtn", "click", checkUserAnswer);
@@ -1947,6 +2322,21 @@ function syncSetupOptionChips() {
   document.querySelectorAll("[data-limit]").forEach(el => {
     el.classList.toggle("active", el.getAttribute("data-limit") === String(state.questionLimit));
   });
+
+  const isHard = state.quizDifficulty === "hard";
+  const singleDiffWrap = document.getElementById("singleDifficultyToggle");
+  if (singleDiffWrap) {
+    singleDiffWrap.querySelectorAll(".diff-toggle-btn").forEach(btn => {
+      const val = btn.getAttribute("data-quiz-diff") || btn.getAttribute("data-diff");
+      btn.classList.toggle("active", val === state.quizDifficulty);
+    });
+  }
+  const baseEl = document.getElementById("scoreRuleBasePts");
+  const st3El = document.getElementById("scoreRuleStage3Pts");
+  const hintLbl = document.getElementById("scoreRuleHintLabel");
+  if (baseEl) baseEl.textContent = isHard ? "+200점 (×2)" : "+100점";
+  if (st3El) st3El.textContent = isHard ? "+40점 (×2)" : "+20점";
+  if (hintLbl) hintLbl.textContent = isHard ? "🔤·🔑·🎧 힌트" : "❌·🔑·🎧 힌트";
 }
 
 window.startRandomGame = function () {
@@ -1990,17 +2380,133 @@ window.startGame = function () {
   state.isUsing3Sec = false;
   state.doubleAttackActive = false;
   state.revivedInRun = false;
+  state.usedWrongDelCount = 0;
+  state.wrongDelCooldownUntil = 0;
+  stopWrongDelCooldownTimer();
+  state.currentChoices = null;
+  state.pickedArtist = null;
+  state.pickedTitle = null;
 
   loadCurrentQuestion();
 };
 
+function stopWrongDelCooldownTimer() {
+  if (state.wrongDelTimerId) {
+    clearInterval(state.wrongDelTimerId);
+    state.wrongDelTimerId = null;
+  }
+}
+
+function syncWrongDelButtonUI() {
+  const btn = document.getElementById("hintWrongDelBtn");
+  if (!btn) return;
+  if (state.quizDifficulty !== "normal") {
+    btn.classList.add("hidden");
+    return;
+  }
+  btn.classList.remove("hidden");
+  const remWrong = typeof window.countRemainingWrongChoices === "function"
+    ? window.countRemainingWrongChoices(state.currentChoices, state.currentQ, state.stage)
+    : 0;
+  const remainMs = Math.max(0, (Number(state.wrongDelCooldownUntil) || 0) - Date.now());
+  if (remainMs > 0) {
+    const sec = Math.ceil(remainMs / 1000);
+    btn.disabled = true;
+    btn.classList.add("is-cooldown");
+    btn.classList.remove("used");
+    btn.innerHTML = `⏳ 쿨타임 ${sec}초<span class="hint-cost">(-15점)</span>`;
+    return;
+  }
+  btn.classList.remove("is-cooldown");
+  if (remWrong <= 0) {
+    btn.disabled = true;
+    btn.classList.add("used");
+    btn.innerHTML = `❌ 제거 완료<span class="hint-cost">(-15점)</span>`;
+  } else {
+    btn.disabled = Boolean(state.questionEnded);
+    btn.classList.remove("used");
+    btn.innerHTML = `❌ 오답 지우기<span class="hint-cost">(-15점)</span>`;
+  }
+}
+
+function startWrongDelCooldownTimer() {
+  stopWrongDelCooldownTimer();
+  syncWrongDelButtonUI();
+  state.wrongDelTimerId = setInterval(() => {
+    const remainMs = (Number(state.wrongDelCooldownUntil) || 0) - Date.now();
+    syncWrongDelButtonUI();
+    if (remainMs <= 0 || state.currentScreen !== "gameScreen") {
+      stopWrongDelCooldownTimer();
+    }
+  }, 250);
+}
+
+function handleSingleChoiceSelect(type, label) {
+  if (state.questionEnded || state.quizDifficulty !== "normal") return;
+  const q = state.currentQ;
+  if (!q) return;
+  if (state.stage !== 3) {
+    const ok = state.stage === 2 ? isArtistMatch(label, q) : isTitleMatch(label, q);
+    finalizeQuestion(ok, `내 선택: ${label}`);
+    return;
+  }
+
+  if (type === "artist") {
+    if (state.pickedTitle) {
+      state.pickedArtist = label;
+      const artistOk = isArtistMatch(state.pickedArtist, q);
+      const titleOk = isTitleMatch(state.pickedTitle, q);
+      finalizeQuestion(artistOk && titleOk, `내 선택: ${state.pickedArtist} - ${state.pickedTitle}`);
+      return;
+    }
+    state.pickedArtist = state.pickedArtist === label ? null : label;
+    renderSingleChoices();
+    return;
+  }
+
+  if (type === "title") {
+    if (state.pickedArtist) {
+      state.pickedTitle = label;
+      const artistOk = isArtistMatch(state.pickedArtist, q);
+      const titleOk = isTitleMatch(state.pickedTitle, q);
+      finalizeQuestion(artistOk && titleOk, `내 선택: ${state.pickedArtist} - ${state.pickedTitle}`);
+      return;
+    }
+    state.pickedTitle = state.pickedTitle === label ? null : label;
+    renderSingleChoices();
+  }
+}
+
+function renderSingleChoices() {
+  const grid = document.getElementById("singleChoiceGrid");
+  const guide = document.getElementById("singleChoiceGuide");
+  if (!grid || !state.currentChoices) return;
+  window.renderQuizChoiceGrid({
+    containerEl: grid,
+    guideEl: guide,
+    choiceData: state.currentChoices,
+    stage: state.stage,
+    pickedArtist: state.pickedArtist,
+    pickedTitle: state.pickedTitle,
+    winnerReveal: null,
+    penaltyLocked: false,
+    onSelectSingle: label => handleSingleChoiceSelect("single", label),
+    onSelectStage3Artist: label => handleSingleChoiceSelect("artist", label),
+    onSelectStage3Title: label => handleSingleChoiceSelect("title", label)
+  });
+}
+
 function loadCurrentQuestion() {
   switchScreen("gameScreen");
   const q = state.pool[state.currentIndex];
+  const isNormal = state.quizDifficulty !== "hard";
   state.currentQ = q;
   state.usedHintLetter = false;
   state.usedHintKeyword = false;
   state.usedHintAudio = false;
+  state.usedWrongDelCount = 0;
+  state.pickedArtist = null;
+  state.pickedTitle = null;
   state.questionEnded = false;
   state.oneSecOffsetIndex = 0;
 
@@ -2014,7 +2520,19 @@ function loadCurrentQuestion() {
   document.getElementById("badgeDecade").textContent = `${q.year}년`;
   document.getElementById("badgeMode").textContent = modeNames[state.mode];
   document.getElementById("badgeStage").textContent = stageNames[state.stage];
+  const diffBadge = document.getElementById("badgeDifficulty");
+  if (diffBadge) {
+    diffBadge.textContent = isNormal ? "😊 일반" : "🔥 고수×2";
+    diffBadge.classList.toggle("is-normal-badge", isNormal);
+    diffBadge.classList.toggle("is-hard-badge", !isNormal);
+  }
   document.getElementById("badgeTimeAttack").classList.toggle("hidden", !state.timeAttack);
+
+  const gameScreenEl = document.getElementById("gameScreen");
+  if (gameScreenEl) {
+    gameScreenEl.classList.toggle("is-choice-mode", isNormal);
+    gameScreenEl.classList.toggle("has-3stage-choices", isNormal && state.stage === 3);
+  }
 
   document.getElementById("progressText").textContent = `${state.currentIndex + 1}/${state.pool.length}`;
   document.getElementById("scoreText").textContent = `${state.score}점`;
@@ -2033,7 +2551,7 @@ function loadCurrentQuestion() {
   } else if (state.stage === 2) {
     givenBanner.innerHTML = `<span>🎯 목표</span><strong>이 곡의 가수를 맞히세요!</strong>`;
   } else {
-    givenBanner.innerHTML = `<span>🎯 목표</span><strong>가수와 노래 제목 모두 입력</strong>`;
+    givenBanner.innerHTML = `<span>🎯 목표</span><strong>${isNormal ? "가수 + 노래 차례로 선택!" : "가수와 노래 제목 모두 입력"}</strong>`;
   }
 
   const qContent = document.getElementById("questionContent");
@@ -2041,7 +2559,7 @@ function loadCurrentQuestion() {
   const qTypeTag = document.getElementById("questionTypeTag");
 
   if (state.mode === "behind") {
-    qTypeTag.textContent = state.hardMode ? "🔥 하드모드 비하인드 퀴즈" : "💡 비하인드 스토리 퀴즈";
+    qTypeTag.textContent = !isNormal ? "🔥 고수 비하인드 퀴즈" : "💡 비하인드 스토리 퀴즈";
     qContent.className = "question-content";
     qContent.textContent = q.behindQuestion;
     qContent.classList.remove("hidden");
@@ -2060,11 +2578,14 @@ function loadCurrentQuestion() {
   }
 
   const btnLetter = document.getElementById("hintLetterBtn");
+  const btnWrongDel = document.getElementById("hintWrongDelBtn");
   const btnKeyword = document.getElementById("hintKeywordBtn");
   const btnAudio = document.getElementById("hintAudioBtn");
 
+  btnLetter.classList.toggle("hidden", isNormal);
   btnLetter.disabled = false;
   btnLetter.classList.remove("used");
+  if (btnWrongDel) btnWrongDel.classList.toggle("hidden", !isNormal);
   btnKeyword.disabled = false;
   btnKeyword.classList.remove("used");
 
@@ -2078,6 +2599,10 @@ function loadCurrentQuestion() {
 
   document.getElementById("hintsDisplay").innerHTML = "";
 
+  const answerArea = document.getElementById("singleAnswerArea");
+  const choiceWrap = document.getElementById("singleChoiceWrap");
+  const typingRow = document.getElementById("singleTypingInputRow");
+  const submitBtn = document.getElementById("submitAnswerBtn");
   const artistGroup = document.getElementById("artistInputGroup");
   const titleGroup = document.getElementById("titleInputGroup");
   const artistInput = document.getElementById("artistInput");
@@ -2088,15 +2613,39 @@ function loadCurrentQuestion() {
   artistInput.enterKeyHint = state.stage === 3 ? "next" : "done";
   titleInput.enterKeyHint = "done";
 
-  if (state.stage === 1) {
-    artistGroup.classList.add("hidden");
-    titleGroup.classList.remove("hidden");
-  } else if (state.stage === 2) {
-    artistGroup.classList.remove("hidden");
-    titleGroup.classList.add("hidden");
+  if (answerArea) answerArea.classList.toggle("is-choice-mode", isNormal);
+
+  if (isNormal) {
+    state.currentChoices = window.buildQuizChoicesForQuestion(
+      q,
+      state.stage,
+      getFilteredQuestions(),
+      `${Date.now()}_${q.id}_${state.currentIndex}_${Math.random()}`
+    );
+    if (choiceWrap) choiceWrap.classList.remove("hidden");
+    if (typingRow) typingRow.classList.add("hidden");
+    if (submitBtn) submitBtn.classList.add("hidden");
+    renderSingleChoices();
+    if ((Number(state.wrongDelCooldownUntil) || 0) > Date.now()) {
+      startWrongDelCooldownTimer();
+    } else {
+      syncWrongDelButtonUI();
+    }
   } else {
-    artistGroup.classList.remove("hidden");
-    titleGroup.classList.remove("hidden");
+    state.currentChoices = null;
+    if (choiceWrap) choiceWrap.classList.add("hidden");
+    if (typingRow) typingRow.classList.remove("hidden");
+    if (submitBtn) submitBtn.classList.remove("hidden");
+    if (state.stage === 1) {
+      artistGroup.classList.add("hidden");
+      titleGroup.classList.remove("hidden");
+    } else if (state.stage === 2) {
+      artistGroup.classList.remove("hidden");
+      titleGroup.classList.add("hidden");
+    } else {
+      artistGroup.classList.remove("hidden");
+      titleGroup.classList.remove("hidden");
+    }
   }
 
   startTimeAttackTimer();
@@ -2136,14 +2685,26 @@ window.renderSingleItemSlotsBar = function () {
       let scopeDisabled = false;
       if (id === "item_hourglass" && !state.timeAttack) scopeDisabled = true;
       if ((id === "item_heart" || id === "item_revive") && state.questionLimit !== "infinite") scopeDisabled = true;
+      const isNormalChosung = id === "item_chosung" && state.quizDifficulty !== "hard";
+      if (isNormalChosung && typeof window.countRemainingWrongChoices === "function") {
+        if (window.countRemainingWrongChoices(state.currentChoices, state.currentQ, state.stage) <= 0) {
+          scopeDisabled = true;
+        }
+      }
       const isPassiveRevive = id === "item_revive";
       const disabled = used || (!isSameQ3Sec && cnt <= 0) || scopeDisabled || isPassiveRevive;
       const title = isPassiveRevive
         ? "하트 0 시 자동 발동"
         : isSameQ3Sec
         ? "이 문제에서 추가 차감 없이 다시 듣기"
+        : isNormalChosung
+        ? "일반 난이도: 오답 보기 1개를 즉시 지웁니다 (3단계는 가수+노래 각 1개)"
         : meta.desc;
-      const labelText = isSameQ3Sec ? "🎧 3초 다시듣기 (무료)" : `${meta.name} (${cnt})`;
+      const labelText = isSameQ3Sec
+        ? "🎧 3초 다시듣기 (무료)"
+        : isNormalChosung
+        ? `❌ 오답지우기 (${cnt})`
+        : `${meta.name} (${cnt})`;
       return `<button type="button" class="quick-item-btn ${used ? "is-used" : ""}" ${disabled ? "disabled" : ""} title="${title}" onclick="useSingleGameItem('${id}')">${labelText}</button>`;
     })
     .join("");
@@ -2210,18 +2771,40 @@ window.useSingleGameItem = async function (itemId) {
     return;
   }
 
+  if (itemId === "item_chosung" && state.quizDifficulty !== "hard") {
+    if (!state.currentChoices || typeof window.countRemainingWrongChoices !== "function" || window.countRemainingWrongChoices(state.currentChoices, q, state.stage) <= 0) {
+      gameAlert("더 이상 지울 수 있는 오답 보기가 없습니다!");
+      return;
+    }
+  }
+
   userState.inventory[itemId] = cnt - 1;
   state.usedItemsInRun.add(itemId);
   if (typeof syncProfileToServer === "function") syncProfileToServer();
 
   if (itemId === "item_chosung") {
-    const chosungText =
-      state.stage === 1
-        ? `노래 초성: <strong>${getChosungString(q.title)}</strong>`
-        : state.stage === 2
-        ? `가수 초성: <strong>${getChosungString(q.artist)}</strong>`
-        : `가수: <strong>${getChosungString(q.artist)}</strong> / 노래: <strong>${getChosungString(q.title)}</strong>`;
-    appendHintBox("🔤 초성힌트", chosungText);
+    if (state.quizDifficulty !== "hard" && typeof window.eliminateWrongChoiceInData === "function") {
+      const elim = window.eliminateWrongChoiceInData(state.currentChoices, q, state.stage);
+      if (elim && elim.changed) {
+        if (state.pickedArtist && elim.eliminatedArtists.includes(state.pickedArtist)) state.pickedArtist = null;
+        if (state.pickedTitle && elim.eliminatedTitles.includes(state.pickedTitle)) state.pickedTitle = null;
+        renderSingleChoices();
+        syncWrongDelButtonUI();
+        const msg =
+          state.stage === 3
+            ? "가수 1개 · 노래 1개 오답을 제거했습니다!"
+            : `오답 보기 [${(elim.eliminatedOptions || [])[0] || ""}] 제거 완료!`;
+        appendHintBox("❌ 오답지우기 아이템", msg);
+      }
+    } else {
+      const chosungText =
+        state.stage === 1
+          ? `노래 초성: <strong>${getChosungString(q.title)}</strong>`
+          : state.stage === 2
+          ? `가수 초성: <strong>${getChosungString(q.artist)}</strong>`
+          : `가수: <strong>${getChosungString(q.artist)}</strong> / 노래: <strong>${getChosungString(q.title)}</strong>`;
+      appendHintBox("🔤 초성힌트", chosungText);
+    }
   } else if (itemId === "item_hourglass") {
     state.timeLeftMs = (Number(state.timeLeftMs) || 0) + 10000;
     state.maxTimeMs = Math.max(Number(state.maxTimeMs) || 15000, state.timeLeftMs);
@@ -2250,6 +2833,37 @@ window.playOneSecAltOffset = function () {
   const offset = offsets[state.oneSecOffsetIndex % offsets.length];
   playAudioSnippet(1.0, offset);
 };
+
+function useWrongDeleteHint() {
+  if (state.questionEnded || state.quizDifficulty !== "normal") return;
+  const now = Date.now();
+  if ((Number(state.wrongDelCooldownUntil) || 0) > now) {
+    const remSec = Math.ceil((state.wrongDelCooldownUntil - now) / 1000);
+    gameAlert(`❌ 오답 지우기 쿨타임 중입니다! (${remSec}초 남음)`);
+    return;
+  }
+  const q = state.currentQ;
+  if (!q || !state.currentChoices || typeof window.eliminateWrongChoiceInData !== "function") return;
+  const elim = window.eliminateWrongChoiceInData(state.currentChoices, q, state.stage);
+  if (!elim || !elim.changed) {
+    gameAlert("더 이상 지울 수 있는 오답 보기가 없습니다!");
+    syncWrongDelButtonUI();
+    return;
+  }
+  if (state.pickedArtist && elim.eliminatedArtists.includes(state.pickedArtist)) state.pickedArtist = null;
+  if (state.pickedTitle && elim.eliminatedTitles.includes(state.pickedTitle)) state.pickedTitle = null;
+
+  state.usedWrongDelCount = (Number(state.usedWrongDelCount) || 0) + 1;
+  state.wrongDelCooldownUntil = Date.now() + 20000;
+  renderSingleChoices();
+  startWrongDelCooldownTimer();
+
+  const detail =
+    state.stage === 3
+      ? "오답 가수 1명 + 노래 1곡 제거됨 (쿨타임 20초)"
+      : `오답 [${(elim.eliminatedOptions || [])[0] || ""}] 제거됨 (쿨타임 20초)`;
+  appendHintBox("❌ 오답 지우기", detail);
+}
 
 function useLetterHint() {
   if (state.usedHintLetter || state.questionEnded) return;
@@ -2352,6 +2966,7 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
   stopAudio();
   stopTimeAttackTimer();
   const q = state.currentQ;
+  const isHardDiff = state.quizDifficulty === "hard";
 
   let gained = 0;
   if (isCorrect) {
@@ -2359,8 +2974,11 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
     if (state.usedHintLetter) gained -= 15;
     if (state.usedHintKeyword) gained -= 15;
     if (state.usedHintAudio) gained -= 20;
+    if (state.usedWrongDelCount > 0) gained -= Math.min(45, state.usedWrongDelCount * 15);
+    gained = Math.max(10, gained);
     if (state.stage === 3) gained += 20;
     if (state.timeAttack) gained *= 2;
+    if (isHardDiff) gained *= 2;
     state.score += gained;
     state.streak++;
     if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("success");
@@ -2382,7 +3000,7 @@ async function finalizeQuestion(isCorrect, userSubmitSummary) {
   judgeCard.classList.toggle("is-wrong", !isCorrect);
 
   if (isCorrect) {
-    statusPill.textContent = `⭕ 정답입니다! (+${gained}점${state.timeAttack ? " · 타임어택×2" : ""})`;
+    statusPill.textContent = `⭕ 정답입니다! (+${gained}점${state.timeAttack ? " · 타임어택×2" : ""}${isHardDiff ? " · 고수×2" : ""})`;
   } else {
     statusPill.textContent =
       state.questionLimit === "infinite" && state.hearts <= 0
@@ -2542,8 +3160,10 @@ async function showFinalResult() {
   const stageStr = `${state.stage}단계(${state.stage === 1 ? "노래" : state.stage === 2 ? "가수" : "가수+노래"})`;
   const limitStr = state.questionLimit === "infinite" ? "🔥무한도전" : `${state.questionLimit}문제`;
 
+  const isHardDiff = state.quizDifficulty === "hard";
   const specsBar = document.getElementById("clearedSpecsBar");
   specsBar.innerHTML = `
+    <span class="badge ${isHardDiff ? "is-hard-badge" : "is-normal-badge"}">${isHardDiff ? "🔥고수×2" : "😊일반"}</span>
     <span class="badge primary">${decadeStr}</span>
     <span class="badge accent">${modeStr}</span>
     <span class="badge">${stageStr}</span>
@@ -2556,7 +3176,7 @@ async function showFinalResult() {
     ${infiniteTierLabel ? `<span class="badge" style="background:#ffe4e6; color:#be123c; border-color:#fb7185;">${infiniteTierLabel}</span>` : ""}
   `;
 
-  const rawBaseCd = Math.max(solvedCount > 0 ? 5 : 0, Math.floor(effectiveScore / 10));
+  const rawBaseCd = Math.max(solvedCount > 0 ? (isHardDiff ? 10 : 5) : 0, Math.floor(effectiveScore / 10));
   const rawBaseExp = Math.max(0, Math.round(effectiveScore * 0.1));
   const bonusMult = 1 + totalBonusRate;
   const baseCd = rawBaseCd > 0 ? Math.round(rawBaseCd * bonusMult) : 0;
