@@ -1824,6 +1824,9 @@ window.openShopHubScreen = function () {
   const bagTag = document.getElementById("shopHubFishCount");
   if (bagTag) bagTag.textContent = `🐟 내 어망: ${bag.length}/50마리`;
   switchScreen("shopHubScreen");
+  if (typeof window.drawShopHubBannerArt === "function") {
+    requestAnimationFrame(() => window.drawShopHubBannerArt());
+  }
 };
 
 window.openShopModal = function (initialCat = null) {

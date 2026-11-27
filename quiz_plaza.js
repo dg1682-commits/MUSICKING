@@ -238,6 +238,9 @@ window.openQuizPlazaScreen = async function () {
     return;
   }
   if (typeof switchScreen === "function") switchScreen("quizPlazaScreen");
+  requestAnimationFrame(() => {
+    try { drawQuizPlazaLobbyArt(); } catch (e) {}
+  });
   startQuizPlazaLobbySync();
   await refreshQuizPlazaRoomsList();
 };
@@ -338,6 +341,11 @@ function renderQuizPlazaRoomCards() {
         timeText = remSec > 0 ? `⏳ 입장 ${remSec}초 남음` : "🚀 곧 시작됩니다!";
       }
 
+      const maxP = Math.max(1, Number(room.max_players) || QUIZ_PLAZA_MAX_PLAYERS);
+      const slotDots = Array.from({ length: maxP }, (_, idx) =>
+        `<span class="qplaza-slot-dot ${idx < players.length ? "is-on" : ""}"></span>`
+      ).join("");
+
       return `
         <button type="button" class="qplaza-room-card ${meta.cls} ${isPlaying ? "is-playing" : ""}" ${isPlaying ? "disabled" : ""} onclick="joinQuizPlazaRoom('${escapePlazaHtml(room.room_id)}')">
           <div class="qplaza-room-top">
@@ -345,7 +353,7 @@ function renderQuizPlazaRoomCards() {
             ${statusBadge}
           </div>
           <div class="qplaza-room-mid">
-            <span class="qplaza-player-cnt">👥 유저 ${players.length}/${room.max_players || 8}명 (+AI충원)</span>
+            <span class="qplaza-player-cnt">👥 ${players.length}/${maxP}명 <span class="qplaza-slot-dots">${slotDots}</span></span>
             <span class="qplaza-countdown-txt">${timeText}</span>
           </div>
         </button>
@@ -353,7 +361,7 @@ function renderQuizPlazaRoomCards() {
     }).join("");
 
     return `
-      <div class="qplaza-group-box">
+      <div class="qplaza-group-box ${meta.cls}">
         <div class="qplaza-group-head">
           <strong>${meta.label}</strong>
           <span>${meta.sub}</span>
@@ -411,6 +419,7 @@ window.joinQuizPlazaRoom = async function (roomId) {
     quizPlazaState.isLeavingRoom = false;
     quizPlazaState.lastStageRenderSig = "";
     quizPlazaState.myChoiceLock = false;
+    _lastDrawnPlazaArtSig = "";
 
     if (typeof switchScreen === "function") switchScreen("quizPlazaPlayScreen");
     setupQuizPlazaRoomRuntime(data.room);
@@ -1156,12 +1165,16 @@ function renderQuizPlazaPlayScreen() {
   const room = quizPlazaState.currentRoom;
   if (!room) return;
 
+  const playScreenEl = document.getElementById("quizPlazaPlayScreen");
   const titleEl = document.getElementById("quizPlazaPlayTitle");
   const roundEl = document.getElementById("quizPlazaPlayRoundBadge");
   const timerEl = document.getElementById("quizPlazaPlayTimerPill");
   const waitPane = document.getElementById("quizPlazaWaitingView");
   const stagePane = document.getElementById("quizPlazaGameView");
   const typingBar = document.getElementById("quizPlazaTypingBar");
+
+  const activeTheme = (room.status === "waiting" || !quizPlazaState.game) ? "waiting" : quizPlazaState.game.gameType;
+  if (playScreenEl) playScreenEl.setAttribute("data-plaza-theme", activeTheme);
 
   if (titleEl) titleEl.textContent = room.title || "🎪 퀴즈광장";
   const nowMs = getPlazaServerNowMs();
@@ -1171,6 +1184,7 @@ function renderQuizPlazaPlayScreen() {
     if (waitPane) waitPane.classList.remove("hidden");
     if (stagePane) stagePane.classList.add("hidden");
     if (typingBar) typingBar.classList.add("hidden");
+    try { drawQuizPlazaPlayStageArt("waiting", null); } catch (e) {}
 
     const players = Array.isArray(room.players) ? room.players : [];
     const cdEnd = room.countdown_end_at ? Date.parse(room.countdown_end_at) : 0;
@@ -1277,9 +1291,16 @@ function renderQuizPlazaPlayScreen() {
     }
   }
 
-  if (g.gameType === "ox") renderQuizPlazaOxView(g);
-  else if (g.gameType === "typing") renderQuizPlazaTypingView(g);
-  else if (g.gameType === "climb") renderQuizPlazaClimbView(g);
+  if (g.gameType === "ox") {
+    try { drawQuizPlazaPlayStageArt("ox", g); } catch (e) {}
+    renderQuizPlazaOxView(g);
+  } else if (g.gameType === "typing") {
+    try { drawQuizPlazaPlayStageArt("typing", g); } catch (e) {}
+    renderQuizPlazaTypingView(g);
+  } else if (g.gameType === "climb") {
+    try { drawQuizPlazaPlayStageArt("climb", g); } catch (e) {}
+    renderQuizPlazaClimbView(g);
+  }
 }
 
 function renderQuizPlazaOxView(g) {
@@ -1362,13 +1383,16 @@ function renderQuizPlazaTypingView(g) {
     const sorted = [...g.participants].sort((a, b) => (b.score || 0) - (a.score || 0));
     raceEl.innerHTML = sorted.map(p => {
       const pct = Math.max(0, Math.min(100, Number(p.typingProgress) || 0));
+      const runnerLeft = Math.min(92, Math.max(6, pct));
       const doneTag = p.typingFinishedOrder ? `🏅 ${p.typingFinishedOrder}착` : `${pct}%`;
       const isMe = p.id === userState?.id;
+      const imgUrl = getCachedAvatarDataUrl(p.avatarConfig);
       return `
         <div class="qplaza-race-row ${isMe ? "is-me" : ""}">
           <span class="qplaza-race-nick">${p.isBot ? "🤖 " : ""}${escapePlazaHtml(p.nickname)} (${p.score}점)</span>
           <div class="qplaza-race-track">
             <div class="qplaza-race-fill" style="width:${pct}%;"></div>
+            <img src="${imgUrl}" class="qplaza-race-runner" style="left:${runnerLeft}%;" alt="" />
           </div>
           <span class="qplaza-race-pct">${doneTag}</span>
         </div>
@@ -1442,3 +1466,487 @@ window.addEventListener("pagehide", () => {
     }
   } catch (e) {}
 });
+
+
+// ============================================================================
+// [V4.0 디자인] 퀴즈광장 전용 게임 일러스트 무대 렌더러 (광장 로비 · 대기방 · OX · 타자왕 · 올라강)
+// ============================================================================
+let _lastDrawnPlazaArtSig = "";
+
+window.drawQuizPlazaLobbyArt = function () {
+  const cv = document.getElementById("quizPlazaLobbyCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 680;
+  const H = cv.height || 140;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // 축제 밤하늘 + 서치라이트
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#1e1b4b");
+  sky.addColorStop(1, "#312e81");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  [[W * 0.2, -0.35], [W * 0.8, 0.35]].forEach(([sx, ang]) => {
+    ctx.save();
+    ctx.translate(sx, H);
+    ctx.rotate(ang);
+    const beam = ctx.createLinearGradient(0, 0, 0, -H * 1.4);
+    beam.addColorStop(0, "rgba(253, 224, 71, 0.36)");
+    beam.addColorStop(1, "rgba(253, 224, 71, 0)");
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(-24, 0);
+    ctx.lineTo(-90, -H * 1.3);
+    ctx.lineTo(90, -H * 1.3);
+    ctx.lineTo(24, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // 삼각 만국기 줄
+  const flagCols = ["#f43f5e", "#facc15", "#38bdf8", "#4ade80", "#f97316", "#a855f7"];
+  ctx.strokeStyle = "#fde68a";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 14);
+  ctx.quadraticCurveTo(W / 2, 34, W, 14);
+  ctx.stroke();
+  for (let i = 0; i < 12; i++) {
+    const fx = (W / 12) * i + 14;
+    const t = fx / W;
+    const fy = (1 - t) * (1 - t) * 14 + 2 * (1 - t) * t * 34 + t * t * 14;
+    ctx.fillStyle = flagCols[i % flagCols.length];
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx + 22, fy + 2);
+    ctx.lineTo(fx + 11, fy + 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 중앙 황금 아치 간판
+  ctx.fillStyle = "#b45309";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - 155, 42, 310, 74, 18);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#fef08a";
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - 146, 49, 292, 60, 13);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#1e1b18";
+  ctx.font = "900 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🎪 QUIZ PLAZA 🏆", W / 2, 79);
+
+  // 좌우 미니 엠블럼 (O/X & 타자 & 등반)
+  [
+    [82, 82, "#3b82f6", "O/X"],
+    [W - 82, 82, "#10b981", "WIN!"]
+  ].forEach(([cx, cy, bg, txt]) => {
+    ctx.fillStyle = bg;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 16px sans-serif";
+    ctx.fillText(txt, cx, cy + 1);
+  });
+
+  ctx.restore();
+};
+
+function drawQuizPlazaPlayStageArt(theme, g) {
+  const roundKey = g ? `${g.roundIdx}_${g.phase}` : "wait";
+  const sig = `${theme}_${roundKey}`;
+  if (sig === _lastDrawnPlazaArtSig && theme !== "ox") return;
+  _lastDrawnPlazaArtSig = sig;
+
+  if (theme === "waiting") drawQuizPlazaWaitingArt();
+  else if (theme === "ox") drawQuizPlazaOxArt();
+  else if (theme === "typing") drawQuizPlazaTypingArt();
+  else if (theme === "climb") drawQuizPlazaClimbArt();
+}
+
+function drawQuizPlazaWaitingArt() {
+  const cv = document.getElementById("quizPlazaWaitBgCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 640;
+  const H = cv.height || 130;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#2563eb");
+  sky.addColorStop(0.68, "#60a5fa");
+  sky.addColorStop(0.7, "#fde047");
+  sky.addColorStop(1, "#f59e0b");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // 무대 바닥 판자선
+  ctx.strokeStyle = "#78350f";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.69);
+  ctx.lineTo(W, H * 0.69);
+  ctx.stroke();
+
+  // 광장 줄무늬 천막
+  const stripes = ["#ef4444", "#fef08a"];
+  const sw = W / 10;
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = stripes[i % 2];
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3;
+    ctx.fillRect(i * sw, 0, sw, 18);
+    ctx.strokeRect(i * sw, 0, sw, 18);
+    ctx.beginPath();
+    ctx.arc(i * sw + sw / 2, 18, sw / 2, 0, Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 중앙 트로피 무대 배너
+  ctx.fillStyle = "#1e1b4b";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - 145, 42, 290, 48, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#fde047";
+  ctx.font = "900 22px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("✨ 도전자 집결 무대 ✨", W / 2, 66);
+
+  ctx.restore();
+}
+
+function drawQuizPlazaOxArt() {
+  const cv = document.getElementById("quizPlazaOxBgCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 640;
+  const H = cv.height || 360;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // 1) 어두운 아레나 천장 + 스포트라이트
+  const arenaBg = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+  arenaBg.addColorStop(0, "#0f172a");
+  arenaBg.addColorStop(1, "#1e293b");
+  ctx.fillStyle = arenaBg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 관중석 실루엣
+  ctx.fillStyle = "#334155";
+  for (let x = 18; x < W; x += 28) {
+    ctx.beginPath();
+    ctx.arc(x, H * 0.34 + ((x % 3) * 4), 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 스포트라이트 2줄기
+  [[W * 0.25, "#60a5fa"], [W * 0.75, "#fb7185"]].forEach(([sx, col]) => {
+    const g = ctx.createRadialGradient(sx, 20, 8, sx, H * 0.55, H * 0.52);
+    g.addColorStop(0, col + "55");
+    g.addColorStop(1, col + "00");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H * 0.85);
+  });
+
+  // 2) 권투 링 매트 (좌 Blue O vs 우 Red X)
+  const matTop = H * 0.34;
+  ctx.fillStyle = "#dbeafe";
+  ctx.fillRect(0, matTop, W / 2, H - matTop);
+  ctx.fillStyle = "#fee2e2";
+  ctx.fillRect(W / 2, matTop, W / 2, H - matTop);
+
+  // 중앙 경계선 & VS 원판
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(W / 2, matTop);
+  ctx.lineTo(W / 2, H);
+  ctx.stroke();
+
+  // 링 바닥 큰 O / X 마크
+  ctx.save();
+  ctx.strokeStyle = "rgba(37, 99, 235, 0.35)";
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.arc(W * 0.25, H * 0.67, 56, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(220, 38, 38, 0.35)";
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.75 - 42, H * 0.67 - 42);
+  ctx.lineTo(W * 0.75 + 42, H * 0.67 + 42);
+  ctx.moveTo(W * 0.75 + 42, H * 0.67 - 42);
+  ctx.lineTo(W * 0.75 - 42, H * 0.67 + 42);
+  ctx.stroke();
+  ctx.restore();
+
+  // 링 로프 3줄 + 좌우 코너 포스트
+  [H * 0.20, H * 0.26, H * 0.32].forEach((ry, idx) => {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(16, ry);
+    ctx.lineTo(W - 16, ry);
+    ctx.stroke();
+    ctx.strokeStyle = idx === 1 ? "#fef08a" : "#ffffff";
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+  });
+
+  [
+    [14, "#2563eb", "O"],
+    [W - 34, "#dc2626", "X"]
+  ].forEach(([px, col, lbl]) => {
+    ctx.fillStyle = col;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.roundRect(px, H * 0.14, 20, H * 0.26, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(lbl, px + 10, H * 0.19);
+  });
+
+  // 중앙 VS 메달
+  ctx.fillStyle = "#facc15";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(W / 2, H * 0.34, 22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#1e1b18";
+  ctx.font = "900 14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("VS", W / 2, H * 0.34 + 1);
+
+  ctx.restore();
+}
+
+function drawQuizPlazaTypingArt() {
+  const cv = document.getElementById("quizPlazaTypingBgCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 640;
+  const H = cv.height || 120;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // 사막 노을 하늘
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
+  sky.addColorStop(0, "#ea580c");
+  sky.addColorStop(0.55, "#fb923c");
+  sky.addColorStop(1, "#fef08a");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // 커다란 사막 태양
+  ctx.fillStyle = "#fffbeb";
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(W * 0.80, H * 0.36, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // 사막 궁전 실루엣
+  ctx.fillStyle = "#b45309";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3;
+  // 좌우 첨탑 + 중앙 돔
+  ctx.fillRect(W * 0.28, H * 0.34, 14, 48);
+  ctx.strokeRect(W * 0.28, H * 0.34, 14, 48);
+  ctx.fillRect(W * 0.62, H * 0.34, 14, 48);
+  ctx.strokeRect(W * 0.62, H * 0.34, 14, 48);
+  ctx.fillStyle = "#fde047";
+  ctx.beginPath();
+  ctx.arc(W * 0.48, H * 0.56, 36, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#d97706";
+  ctx.fillRect(W * 0.35, H * 0.56, W * 0.26, 34);
+  ctx.strokeRect(W * 0.35, H * 0.56, W * 0.26, 34);
+
+  // 앞 모래언덕
+  ctx.fillStyle = "#f59e0b";
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.80);
+  ctx.quadraticCurveTo(W * 0.28, H * 0.55, W * 0.58, H * 0.78);
+  ctx.quadraticCurveTo(W * 0.82, H * 0.62, W, H * 0.76);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 야자수
+  ctx.strokeStyle = "#78350f";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.12, H * 0.90);
+  ctx.quadraticCurveTo(W * 0.14, H * 0.60, W * 0.17, H * 0.38);
+  ctx.stroke();
+  ctx.fillStyle = "#16a34a";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2.5;
+  [-0.6, 0, 0.6].forEach(ang => {
+    ctx.save();
+    ctx.translate(W * 0.17, H * 0.38);
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.ellipse(14, 0, 16, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // 간판 뱃지
+  ctx.fillStyle = "rgba(30, 27, 24, 0.75)";
+  ctx.beginPath();
+  ctx.roundRect(12, 10, 146, 28, 999);
+  ctx.fill();
+  ctx.fillStyle = "#fde047";
+  ctx.font = "900 13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🏜️ 사막 타자왕 레이스", 85, 24);
+
+  ctx.restore();
+}
+
+function drawQuizPlazaClimbArt() {
+  const cv = document.getElementById("quizPlazaClimbBgCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 640;
+  const H = cv.height || 120;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // 맑은 하늘 & 푸른 산맥
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+  sky.addColorStop(0, "#0ea5e9");
+  sky.addColorStop(1, "#bae6fd");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#22c55e";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.64);
+  ctx.lineTo(W * 0.25, H * 0.28);
+  ctx.lineTo(W * 0.48, H * 0.54);
+  ctx.lineTo(W * 0.76, H * 0.20);
+  ctx.lineTo(W, H * 0.56);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 흐르는 강물
+  const river = ctx.createLinearGradient(0, H * 0.58, 0, H);
+  river.addColorStop(0, "#0284c7");
+  river.addColorStop(1, "#0369a1");
+  ctx.fillStyle = river;
+  ctx.fillRect(0, H * 0.60, W, H * 0.40);
+  ctx.strokeStyle = outline;
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.60);
+  ctx.lineTo(W, H * 0.60);
+  ctx.stroke();
+
+  // 징검다리 & 나무 10계단 스텝 + 황금 깃발
+  for (let i = 0; i < 10; i++) {
+    const sx = 44 + i * ((W - 110) / 9);
+    const sy = H * 0.78 - i * 3.8;
+    ctx.fillStyle = i === 9 ? "#fde047" : "#f5f5f4";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, 18, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 10번째 정상 황금 깃발
+  const flagX = 44 + 9 * ((W - 110) / 9);
+  const flagY = H * 0.78 - 9 * 3.8;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagY - 2);
+  ctx.lineTo(flagX, flagY - 36);
+  ctx.stroke();
+  ctx.fillStyle = "#ef4444";
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagY - 36);
+  ctx.lineTo(flagX + 26, flagY - 28);
+  ctx.lineTo(flagX, flagY - 20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(15, 23, 42, 0.74)";
+  ctx.beginPath();
+  ctx.roundRect(12, 10, 146, 28, 999);
+  ctx.fill();
+  ctx.fillStyle = "#bae6fd";
+  ctx.font = "900 13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🏞️ 올라강 10계단", 85, 24);
+
+  ctx.restore();
+}

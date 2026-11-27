@@ -6344,22 +6344,85 @@ body.midi-play-theme .hint-btn.is-cooldown {
 /* ============================================================================
    [V4.0] 손낚시 · 어망 · 물고기 도감 · 낚시 상점 · 상점 허브 · 퀴즈광장
    ============================================================================ */
-.play-hub-banner.is-shop-general {
-  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-  border-color: #fb7185;
-}
-.play-hub-banner.is-shop-fishing {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  border-color: #0284c7;
-}
-.play-hub-banner.is-quiz-plaza {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-color: #d97706;
-}
-#shopHubScreen .play-hub-list {
+.shop-hub-card {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 10px;
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0fdf4 46%, #fef9c3 100%);
+}
+.shop-hub-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.shop-hub-title {
+  font-size: 1.04rem;
+  font-weight: 900;
+  color: #1e1b18;
+}
+.shop-hub-stage-banner {
+  border: 3px solid #1e1b18;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #38bdf8;
+  box-shadow: 0 4px 0 #1e1b18;
+  flex-shrink: 0;
+}
+#shopHubBannerCanvas {
+  width: 100%;
+  height: 112px;
+  display: block;
+}
+.shop-hub-fish-tag {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fef08a;
+  color: #1e1b18 !important;
+  border: 1.5px solid #1e1b18;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+}
+
+/* 허브 배너 고대비 가독성 보장 (노란 배경엔 짙은 글씨, 비비드 배경엔 흰 글씨) */
+.play-hub-banner.is-shop-general {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  border-color: #1e1b18;
+  color: #ffffff !important;
+}
+.play-hub-banner.is-shop-general .play-hub-text strong,
+.play-hub-banner.is-shop-general .play-hub-text span,
+.play-hub-banner.is-shop-general .play-hub-arrow {
+  color: #ffffff !important;
+  text-shadow: 0 1px 0 rgba(30, 27, 24, 0.45);
+}
+.play-hub-banner.is-shop-fishing {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  border-color: #1e1b18;
+  color: #ffffff !important;
+}
+.play-hub-banner.is-shop-fishing .play-hub-text strong,
+.play-hub-banner.is-shop-fishing .play-hub-text span,
+.play-hub-banner.is-shop-fishing .play-hub-arrow {
+  color: #ffffff !important;
+  text-shadow: 0 1px 0 rgba(30, 27, 24, 0.45);
+}
+.play-hub-banner.is-quiz-plaza {
+  background: linear-gradient(135deg, #fde047 0%, #f59e0b 100%);
+  border-color: #1e1b18;
+  color: #1e1b18 !important;
+}
+.play-hub-banner.is-quiz-plaza .play-hub-text strong,
+.play-hub-banner.is-quiz-plaza .play-hub-text span,
+.play-hub-banner.is-quiz-plaza .play-hub-arrow {
+  color: #1e1b18 !important;
+  text-shadow: none;
 }
 
 /* 낚시터 좌측 상단 손낚시/도감 버튼 */
@@ -6385,12 +6448,12 @@ body.midi-play-theme .hint-btn.is-cooldown {
   background: linear-gradient(135deg, #bae6fd, #38bdf8);
 }
 
-/* 손낚시 풀스크린 오버레이 */
+/* 손낚시 풀스크린 오버레이 (나무 부두 컨트롤 데크) */
 .manual-fishing-overlay {
   position: absolute;
   inset: 0;
   z-index: 95;
-  background: #0369a1;
+  background: linear-gradient(180deg, #0284c7 0%, #0369a1 68%, #92400e 69%, #78350f 100%);
   display: flex;
   flex-direction: column;
   padding: max(8px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
@@ -6632,9 +6695,10 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .fish-grade-pill.is-A { background: #e9d5ff; color: #6b21a8; }
 .fish-grade-pill.is-S { background: #fef08a; color: #b45309; }
 .fish-max-badge {
-  background: #f59e0b;
-  color: #fff;
-  padding: 1px 5px;
+  background: linear-gradient(135deg, #fde047, #f59e0b);
+  color: #1e1b18 !important;
+  border: 1.5px solid #1e1b18;
+  padding: 1px 6px;
   border-radius: 999px;
   font-size: 0.64rem;
   font-weight: 900;
@@ -6820,13 +6884,46 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .fish-dex-rank-row.is-me, .fish-rank-row.is-me { background: #fef08a; border: 1.5px solid #d97706; }
 .fish-rank-row.is-max-row { border: 1.5px solid #eab308; background: #fefce8; }
 
-/* 퀴즈광장 대기실 & 인게임 */
-.qplaza-lobby-card, .qplaza-play-card {
+/* 퀴즈광장 대기실 & 인게임 게임 무대 스타일링 */
+.qplaza-lobby-card {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px;
+  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 30%, #fef3c7 30.5%, #fde68a 100%);
+}
+.qplaza-lobby-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.qplaza-lobby-title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fde047;
+  text-shadow: 0 2px 0 #1e1b18;
+}
+.qplaza-lobby-sub {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #e0e7ff;
+  margin-top: 1px;
+}
+.qplaza-lobby-banner-wrap {
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1e1b4b;
+  box-shadow: 0 4px 0 #1e1b18;
+  flex-shrink: 0;
+}
+#quizPlazaLobbyCanvas {
+  width: 100%;
+  height: 86px;
+  display: block;
 }
 .qplaza-lobby-scroll {
   flex: 1;
@@ -6838,83 +6935,215 @@ body.midi-play-theme .hint-btn.is-cooldown {
   padding-right: 2px;
 }
 .qplaza-group-box {
-  border: 2.5px solid #1e1b18;
+  border: 3px solid #1e1b18;
   border-radius: 14px;
   padding: 9px;
-  background: #f8fafc;
+  background: #fffdf9;
+  box-shadow: 0 4px 0 #1e1b18;
+}
+.qplaza-group-box.is-ox {
+  background: linear-gradient(135deg, #eff6ff 0%, #fff1f2 100%);
+}
+.qplaza-group-box.is-typing {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+.qplaza-group-box.is-climb {
+  background: linear-gradient(135deg, #ecfeff 0%, #dcfce7 100%);
 }
 .qplaza-group-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 7px; }
-.qplaza-group-head strong { font-size: 0.9rem; }
-.qplaza-group-head span { font-size: 0.71rem; color: #475569; font-weight: 700; }
+.qplaza-group-head strong { font-size: 0.92rem; color: #1e1b18; }
+.qplaza-group-head span { font-size: 0.71rem; color: #475569; font-weight: 800; }
 .qplaza-group-cards { display: flex; flex-direction: column; gap: 6px; }
 .qplaza-room-card {
   width: 100%;
   text-align: left;
-  border: 2px solid #1e1b18;
-  border-radius: 11px;
-  padding: 8px 10px;
+  border: 2.5px solid #1e1b18;
+  border-radius: 12px;
+  padding: 9px 10px;
   background: #ffffff;
-  box-shadow: 0 2px 0 #1e1b18;
+  color: #1e1b18;
+  box-shadow: 0 3px 0 #1e1b18;
   cursor: pointer;
+  transition: transform 0.08s ease;
 }
-.qplaza-room-card.is-playing { opacity: 0.62; cursor: not-allowed; background: #e2e8f0; }
+.qplaza-room-card:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #1e1b18;
+}
+.qplaza-room-card.is-playing { opacity: 0.65; cursor: not-allowed; background: #e2e8f0; }
 .qplaza-room-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.qplaza-room-title { font-size: 0.86rem; font-weight: 900; color: #1e1b18; }
+.qplaza-room-title { font-size: 0.88rem; font-weight: 900; color: #1e1b18; }
 .qplaza-status-pill {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 900;
   border: 1.5px solid #1e1b18;
 }
-.qplaza-status-pill.is-wait { background: #bbf7d0; color: #166534; }
+.qplaza-status-pill.is-wait { background: #bbf7d0; color: #14532d; }
 .qplaza-status-pill.is-play { background: #fecaca; color: #991b1b; }
-.qplaza-room-mid { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.72rem; font-weight: 800; color: #475569; }
+.qplaza-room-mid { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 5px; font-size: 0.72rem; font-weight: 800; color: #334155; }
+.qplaza-player-cnt { display: inline-flex; align-items: center; gap: 5px; }
+.qplaza-slot-dots { display: inline-flex; gap: 2px; }
+.qplaza-slot-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  border: 1px solid #64748b;
+}
+.qplaza-slot-dot.is-on {
+  background: #facc15;
+  border-color: #1e1b18;
+}
+
+/* 퀴즈광장 인게임 / 대기방 테마별 배경 */
+.qplaza-play-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: linear-gradient(180deg, #1d4ed8 0%, #3b82f6 22%, #fffbeb 22.5%, #fef3c7 100%);
+}
+#quizPlazaPlayScreen[data-plaza-theme="ox"] .qplaza-play-card {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+}
+#quizPlazaPlayScreen[data-plaza-theme="typing"] .qplaza-play-card {
+  background: linear-gradient(180deg, #9a3412 0%, #ea580c 24%, #fef3c7 24.5%, #fde68a 100%);
+}
+#quizPlazaPlayScreen[data-plaza-theme="climb"] .qplaza-play-card {
+  background: linear-gradient(180deg, #0369a1 0%, #0ea5e9 24%, #e0f2fe 24.5%, #bbf7d0 100%);
+}
 .qplaza-play-topbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.qplaza-round-badge { font-size: 0.71rem; font-weight: 900; color: #2563eb; }
+.qplaza-play-title {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 0 #1e1b18;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qplaza-round-badge {
+  display: inline-block;
+  margin-top: 1px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.68);
+  color: #fde047;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
 .qplaza-timer-pill {
-  background: #fef08a;
-  border: 2px solid #1e1b18;
+  background: linear-gradient(135deg, #fde047, #f59e0b);
+  color: #1e1b18;
+  border: 2.5px solid #1e1b18;
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.78rem;
   font-weight: 900;
+  box-shadow: 0 2px 0 #1e1b18;
   flex-shrink: 0;
 }
+.qplaza-waiting-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qplaza-wait-stage-banner {
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #2563eb;
+  box-shadow: 0 3px 0 #1e1b18;
+  flex-shrink: 0;
+}
+#quizPlazaWaitBgCanvas {
+  width: 100%;
+  height: 76px;
+  display: block;
+}
 .qplaza-wait-banner {
-  background: #dbeafe;
-  border: 2px solid #2563eb;
-  border-radius: 10px;
-  padding: 8px;
+  background: linear-gradient(135deg, #fef9c3, #fde047);
+  border: 2.5px solid #1e1b18;
+  border-radius: 11px;
+  padding: 7px 10px;
   text-align: center;
   font-size: 0.8rem;
   font-weight: 900;
-  color: #1e3a8a;
-  margin-bottom: 8px;
+  color: #1e1b18;
+  box-shadow: 0 2px 0 #1e1b18;
+  flex-shrink: 0;
 }
 .qplaza-wait-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 7px;
+  flex: 1;
+  align-content: start;
 }
 .qplaza-wait-slot {
-  border: 2px solid #1e1b18;
-  border-radius: 10px;
-  padding: 6px 4px;
+  border: 2.5px solid #1e1b18;
+  border-radius: 12px;
+  padding: 7px 4px;
   text-align: center;
-  background: #f8fafc;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  color: #1e1b18;
+  box-shadow: 0 3px 0 #1e1b18;
 }
-.qplaza-wait-slot.is-me { background: #fef9c3; border-color: #d97706; }
-.qplaza-wait-slot.is-empty { opacity: 0.62; border-style: dashed; }
+.qplaza-wait-slot.is-me {
+  background: linear-gradient(180deg, #fef9c3 0%, #fde047 100%);
+  border-color: #1e1b18;
+}
+.qplaza-wait-slot.is-empty {
+  background: rgba(255, 255, 255, 0.72);
+  border-style: dashed;
+  border-color: #64748b;
+  box-shadow: none;
+  color: #475569;
+}
 .qplaza-slot-av { width: 46px; height: 46px; object-fit: contain; display: block; margin: 0 auto 3px; }
 .qplaza-slot-nick { font-size: 0.68rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qplaza-game-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.qplaza-arena { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.qplaza-ox-question-box, .qplaza-climb-qbox, .qplaza-typing-stage {
-  background: #fffbeb;
-  border: 2.5px solid #1e1b18;
-  border-radius: 13px;
+.qplaza-arena { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 7px; }
+.qplaza-ox-question-box {
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
   padding: 10px 12px;
+  box-shadow: 0 3px 0 #1e1b18;
+}
+.qplaza-climb-qbox {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  padding: 9px 11px;
+  box-shadow: 0 3px 0 #1e1b18;
+}
+.qplaza-typing-vista, .qplaza-climb-vista {
+  border: 3px solid #1e1b18;
+  border-radius: 13px;
+  overflow: hidden;
+  box-shadow: 0 3px 0 #1e1b18;
+  flex-shrink: 0;
+}
+#quizPlazaTypingBgCanvas, #quizPlazaClimbBgCanvas {
+  width: 100%;
+  height: 72px;
+  display: block;
+}
+.qplaza-typing-stage {
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border: 3px solid #b45309;
+  outline: 2px solid #1e1b18;
+  border-radius: 14px;
+  padding: 9px 12px;
+  box-shadow: 0 3px 0 #1e1b18;
 }
 .qplaza-question-txt { font-size: 0.94rem; font-weight: 900; color: #1e1b18; line-height: 1.4; word-break: keep-all; }
 .qplaza-note-txt { font-size: 0.78rem; font-weight: 800; color: #0369a1; margin-top: 5px; }
@@ -6923,34 +7152,42 @@ body.midi-play-theme .hint-btn.is-cooldown {
   flex: 1;
   min-height: 170px;
   border: 3px solid #1e1b18;
-  border-radius: 14px;
-  background: linear-gradient(90deg, #dbeafe 0%, #dbeafe 50%, #fee2e2 50%, #fee2e2 100%);
+  border-radius: 16px;
+  background: #0f172a;
+  box-shadow: 0 4px 0 #1e1b18;
   overflow: hidden;
 }
-.qplaza-ox-zone { position: absolute; top: 8px; font-size: 1rem; font-weight: 900; opacity: 0.65; }
-.qplaza-ox-zone.is-o { left: 16%; color: #1d4ed8; }
-.qplaza-ox-zone.is-x { right: 16%; color: #b91c1c; }
-.qplaza-ox-actors { position: absolute; inset: 0; }
+.qplaza-arena-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 0;
+}
+.qplaza-ox-actors { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .qplaza-ring-actor { position: absolute; transform: translate(-50%, -50%); text-align: center; transition: left 0.25s ease; }
-.qplaza-ring-actor.is-me .qplaza-actor-nick { background: #facc15; color: #1e1b18; }
-.qplaza-actor-img { width: 42px; height: 42px; display: block; margin: 0 auto; }
-.qplaza-actor-nick { display: inline-block; font-size: 0.62rem; font-weight: 900; background: rgba(15, 23, 42, 0.78); color: #fff; padding: 1px 5px; border-radius: 6px; white-space: nowrap; }
-.qplaza-spec-bar { background: #334155; color: #f8fafc; padding: 7px 10px; border-radius: 10px; font-size: 0.76rem; font-weight: 800; text-align: center; }
+.qplaza-ring-actor.is-me .qplaza-actor-nick { background: #facc15; color: #1e1b18; border: 1.5px solid #1e1b18; }
+.qplaza-actor-img { width: 44px; height: 44px; display: block; margin: 0 auto; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); }
+.qplaza-actor-nick { display: inline-block; font-size: 0.62rem; font-weight: 900; background: rgba(15, 23, 42, 0.82); color: #fff; padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+.qplaza-spec-bar { background: #1e293b; color: #fde047; border: 2px solid #facc15; padding: 7px 10px; border-radius: 10px; font-size: 0.76rem; font-weight: 800; text-align: center; }
 .qplaza-ox-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qplaza-ox-btn {
   padding: 13px 8px;
   border: 3px solid #1e1b18;
-  border-radius: 13px;
+  border-radius: 14px;
   font-size: 1rem;
   font-weight: 900;
+  box-shadow: 0 4px 0 #1e1b18;
   cursor: pointer;
 }
-.qplaza-ox-btn.is-o { background: #93c5fd; color: #1e3a8a; }
-.qplaza-ox-btn.is-x { background: #fca5a5; color: #7f1d1d; }
-.qplaza-ox-btn.is-picked { box-shadow: 0 0 0 3px #facc15; transform: scale(1.02); }
+.qplaza-ox-btn.is-o { background: linear-gradient(180deg, #93c5fd, #3b82f6); color: #ffffff; text-shadow: 0 1.5px 0 #1e3a8a; }
+.qplaza-ox-btn.is-x { background: linear-gradient(180deg, #fca5a5, #ef4444); color: #ffffff; text-shadow: 0 1.5px 0 #7f1d1d; }
+.qplaza-ox-btn.is-picked { box-shadow: 0 0 0 3px #facc15, 0 4px 0 #1e1b18; transform: scale(1.02); }
 .qplaza-typing-tag { font-size: 0.74rem; font-weight: 900; color: #b45309; margin-bottom: 4px; }
 .qplaza-typing-target { font-size: 0.96rem; font-weight: 900; color: #1e1b18; line-height: 1.45; word-break: keep-all; }
-.qplaza-typing-author { font-size: 0.74rem; font-weight: 800; color: #64748b; margin-top: 3px; text-align: right; }
+.qplaza-typing-author { font-size: 0.74rem; font-weight: 800; color: #78350f; margin-top: 3px; text-align: right; }
 .qplaza-typing-feedback { margin-top: 7px; font-size: 0.88rem; font-weight: 800; line-height: 1.45; word-break: break-all; }
 .qt-ch { color: #94a3b8; }
 .qt-ch.is-ok { color: #15803d; }
@@ -6963,37 +7200,64 @@ body.midi-play-theme .hint-btn.is-cooldown {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 2px solid #1e1b18;
+  background: rgba(255, 255, 255, 0.72);
 }
 .qplaza-race-row, .qplaza-climb-lane {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 7px;
+  padding: 5px 8px;
   border-radius: 9px;
-  background: #f1f5f9;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
   font-size: 0.72rem;
   font-weight: 800;
 }
-.qplaza-race-row.is-me, .qplaza-climb-lane.is-me { background: #fef9c3; border: 1.5px solid #d97706; }
+.qplaza-race-row.is-me, .qplaza-climb-lane.is-me { background: #fef9c3; border: 2px solid #d97706; }
 .qplaza-race-nick, .qplaza-climb-name { width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
-.qplaza-race-track, .qplaza-climb-bar {
+.qplaza-race-track {
   position: relative;
   flex: 1;
-  height: 16px;
+  height: 20px;
   border-radius: 999px;
-  background: #cbd5e1;
-  overflow: hidden;
+  background: linear-gradient(90deg, #fde68a, #fed7aa);
+  border: 1.5px solid #b45309;
+  overflow: visible;
 }
-.qplaza-race-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); transition: width 0.15s linear; }
+.qplaza-race-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #fb923c, #ea580c); transition: width 0.15s linear; }
+.qplaza-race-runner {
+  position: absolute;
+  top: -5px;
+  width: 26px;
+  height: 26px;
+  transform: translateX(-50%);
+  object-fit: contain;
+  transition: left 0.15s linear;
+  pointer-events: none;
+}
+.qplaza-climb-bar {
+  position: relative;
+  flex: 1;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #bae6fd, #38bdf8);
+  border: 1.5px solid #0284c7;
+  overflow: visible;
+}
 .qplaza-climb-avatar { position: absolute; top: -6px; width: 28px; height: 28px; transform: translateX(-50%); transition: left 0.25s ease; }
 .qplaza-climb-avatar img { width: 100%; height: 100%; object-fit: contain; }
 .qplaza-race-pct, .qplaza-climb-step { width: 42px; text-align: right; flex-shrink: 0; }
 .qplaza-climb-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .qplaza-climb-choice-btn {
   padding: 9px 7px;
-  border: 2px solid #1e1b18;
-  border-radius: 10px;
+  border: 2.5px solid #1e1b18;
+  border-radius: 11px;
   background: #ffffff;
+  color: #1e1b18;
+  box-shadow: 0 3px 0 #1e1b18;
   font-size: 0.78rem;
   font-weight: 900;
   text-align: left;
@@ -7004,18 +7268,26 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .qplaza-climb-choice-btn.is-wrong { background: #fecaca; border-color: #dc2626; }
 .qplaza-finish-panel { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
 .qplaza-finish-summary {
-  background: #fef08a;
-  border: 2.5px solid #1e1b18;
-  border-radius: 12px;
-  padding: 10px;
-  font-size: 0.84rem;
+  background: linear-gradient(135deg, #fef9c3, #fde047);
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  padding: 11px;
+  font-size: 0.86rem;
   font-weight: 900;
   white-space: pre-line;
   text-align: center;
+  box-shadow: 0 3px 0 #1e1b18;
 }
 .qplaza-finish-ranks { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-.qplaza-fin-row { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 9px; background: #f1f5f9; font-size: 0.78rem; font-weight: 800; }
-.qplaza-fin-row.is-me { background: #fef9c3; border: 1.5px solid #d97706; }
+.qplaza-fin-row { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 9px; background: #ffffff; border: 1.5px solid #cbd5e1; font-size: 0.78rem; font-weight: 800; }
+.qplaza-fin-row.is-me { background: #fef9c3; border: 2px solid #d97706; }
+
+@media (max-height: 700px) {
+  #shopHubBannerCanvas { height: 86px; }
+  #quizPlazaLobbyCanvas { height: 70px; }
+  #quizPlazaWaitBgCanvas { height: 62px; }
+  #quizPlazaTypingBgCanvas, #quizPlazaClimbBgCanvas { height: 58px; }
+}
 
 /* 타자왕 플로팅 입력 바 (모바일 키보드 바로 위 고정) */
 .quiz-plaza-typing-bar {
@@ -7064,6 +7336,7 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .qplaza-fin-row,
 .qplaza-finish-summary,
 .qplaza-climb-choice-btn,
-.qplaza-timer-pill {
+.qplaza-timer-pill,
+.qplaza-room-card {
   color: #1e1b18;
 }

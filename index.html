@@ -164,7 +164,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=26.0" />
+  <link rel="stylesheet" href="style.css?v=26.1" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -501,9 +501,9 @@
             <div class="play-hub-ico">🎪</div>
             <div class="play-hub-text">
               <strong>퀴즈광장 (OX·타자왕·올라강)</strong>
-              <span>최대 10인 실시간 광장 퀴즈! 서버 30초 카운트다운 · CD/EXP 4:1 대보상</span>
+              <span>최대 8인 실시간 광장 퀴즈! 30초 카운트다운 · CD/EXP 4:1 보상</span>
             </div>
-            <span class="badge" style="background:#f59e0b; color:#fff;">V4.0 NEW</span>
+            <span class="badge" style="background:#dc2626; color:#ffffff; border-color:#1e1b18;">V4.0 NEW</span>
           </button>
         </div>
 
@@ -513,13 +513,18 @@
 
     <!-- ==================== [V4.0 화면] 상점 · 옷장 선택 허브 (#shopHubScreen) ==================== -->
     <section id="shopHubScreen" class="screen-view hidden">
-      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="card shop-hub-card">
+        <div class="shop-hub-topbar">
           <button class="apf-back-circle" onclick="showHome()" title="메인으로 돌아가기" style="width:36px; height:36px; font-size:1rem;">⬅</button>
-          <h3 style="font-size:1.05rem; font-weight:900;">🛍️ 상점 · 옷장</h3>
-          <span class="cd-pill" style="padding:3px 8px; font-size:0.74rem;" title="보유 CD">💿 <strong id="shopHubCdBalance">0</strong></span>
+          <h3 class="shop-hub-title">🛍️ 상점 거리 · 옷장</h3>
+          <span class="cd-pill" style="padding:3px 9px; font-size:0.74rem;" title="보유 CD">💿 <strong id="shopHubCdBalance">0</strong></span>
         </div>
-        <div class="play-hub-banners">
+
+        <div class="shop-hub-stage-banner">
+          <canvas id="shopHubBannerCanvas" width="680" height="190"></canvas>
+        </div>
+
+        <div class="play-hub-banners" style="gap:10px;">
           <button type="button" class="play-hub-banner is-shop-general" onclick="openShopModal()">
             <div class="play-hub-ico">👗</div>
             <div class="play-hub-text">
@@ -533,7 +538,7 @@
             <div class="play-hub-text">
               <strong>호수가 낚시 상점</strong>
               <span>낚싯대 · 미끼 구매 및 어망 물고기 판매 (CD+EXP)</span>
-              <span id="shopHubFishCount" style="font-size:0.7rem; color:#0369a1; font-weight:900; margin-top:2px;">🐟 내 어망: 0/50마리</span>
+              <span id="shopHubFishCount" class="shop-hub-fish-tag">🐟 내 어망: 0/50마리</span>
             </div>
             <span class="play-hub-arrow">➔</span>
           </button>
@@ -545,30 +550,37 @@
     <!-- ==================== [V4.0 화면] 퀴즈광장 대기실 방 목록 (#quizPlazaScreen) ==================== -->
     <section id="quizPlazaScreen" class="screen-view hidden">
       <div class="card qplaza-lobby-card">
-        <div class="screen-header" style="margin-bottom:8px;">
-          <div>
-            <h3>🎪 퀴즈광장</h3>
-            <p style="font-size:0.74rem; color:var(--text-sub); margin-top:2px;">유저 입장 시 30초 카운트 후 AI 봇과 함께 자동 시작됩니다!</p>
+        <div class="qplaza-lobby-topbar">
+          <button class="apf-back-circle" onclick="closeQuizPlazaLobby()" title="나가기" style="width:34px; height:34px; font-size:0.95rem;">⬅</button>
+          <div style="flex:1; min-width:0;">
+            <h3 class="qplaza-lobby-title">🎪 음악왕 퀴즈광장</h3>
+            <p class="qplaza-lobby-sub">입장 시 30초 카운트다운 · 빈자리는 AI 봇 자동 투입!</p>
           </div>
-          <button type="button" class="header-btn" onclick="closeQuizPlazaLobby()">← 나가기</button>
+          <span class="badge gold" style="font-size:0.7rem; flex-shrink:0;">CD:EXP = 4:1</span>
+        </div>
+        <div class="qplaza-lobby-banner-wrap">
+          <canvas id="quizPlazaLobbyCanvas" width="680" height="140"></canvas>
         </div>
         <div id="quizPlazaRoomsGrid" class="qplaza-lobby-scroll"></div>
       </div>
     </section>
 
     <!-- ==================== [V4.0 화면] 퀴즈광장 인게임 / 대기방 (#quizPlazaPlayScreen) ==================== -->
-    <section id="quizPlazaPlayScreen" class="screen-view hidden">
+    <section id="quizPlazaPlayScreen" class="screen-view hidden" data-plaza-theme="waiting">
       <div class="card qplaza-play-card">
         <div class="qplaza-play-topbar">
           <button type="button" class="header-btn" onclick="confirmExitQuizPlazaPlay()">← 나가기</button>
           <div style="flex:1; min-width:0; text-align:center;">
-            <strong id="quizPlazaPlayTitle" style="font-size:0.9rem; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🎪 퀴즈광장</strong>
+            <strong id="quizPlazaPlayTitle" class="qplaza-play-title">🎪 퀴즈광장</strong>
             <span id="quizPlazaPlayRoundBadge" class="qplaza-round-badge">대기중</span>
           </div>
           <div id="quizPlazaPlayTimerPill" class="qplaza-timer-pill">⏳ 30초</div>
         </div>
 
         <div id="quizPlazaWaitingView" class="qplaza-waiting-view">
+          <div class="qplaza-wait-stage-banner">
+            <canvas id="quizPlazaWaitBgCanvas" width="640" height="130"></canvas>
+          </div>
           <div id="quizPlazaWaitCountdownText" class="qplaza-wait-banner">⏳ 30초 후 자동 시작 (빈자리는 AI 봇 자동 투입)</div>
           <div id="quizPlazaWaitPlayersGrid" class="qplaza-wait-grid"></div>
         </div>
@@ -580,8 +592,7 @@
               <div id="quizPlazaOxNoteText" class="qplaza-note-txt hidden"></div>
             </div>
             <div class="qplaza-ox-ring">
-              <div class="qplaza-ox-zone is-o">⭕ O</div>
-              <div class="qplaza-ox-zone is-x">❌ X</div>
+              <canvas id="quizPlazaOxBgCanvas" width="640" height="360" class="qplaza-arena-canvas"></canvas>
               <div id="quizPlazaOxActorsLayer" class="qplaza-ox-actors"></div>
             </div>
             <div id="quizPlazaOxSpectatorBar" class="qplaza-spec-bar hidden">👻 탈락하여 관전 중입니다 (끝나면 다시 대기실로 돌아갈 수 있습니다)</div>
@@ -592,6 +603,9 @@
           </div>
 
           <div id="quizPlazaTypingArena" class="qplaza-arena hidden">
+            <div class="qplaza-typing-vista">
+              <canvas id="quizPlazaTypingBgCanvas" width="640" height="120"></canvas>
+            </div>
             <div class="qplaza-typing-stage">
               <div id="quizPlazaTypingTypeTag" class="qplaza-typing-tag">📜 문장</div>
               <div id="quizPlazaTypingTargetText" class="qplaza-typing-target"></div>
@@ -602,6 +616,9 @@
           </div>
 
           <div id="quizPlazaClimbArena" class="qplaza-arena hidden">
+            <div class="qplaza-climb-vista">
+              <canvas id="quizPlazaClimbBgCanvas" width="640" height="120"></canvas>
+            </div>
             <div class="qplaza-climb-qbox">
               <div id="quizPlazaClimbQuestionText" class="qplaza-question-txt"></div>
             </div>
@@ -2516,20 +2533,20 @@
     </div>
   </div>
 
-  <script defer src="data.js?v=26.0"></script>
-  <script defer src="ox_questions.js?v=26.0"></script>
-  <script defer src="climb_questions.js?v=26.0"></script>
-  <script defer src="typing_questions.js?v=26.0"></script>
-  <script defer src="pixel_avatar_v3.js?v=26.0"></script>
-  <script defer src="pixel_avatar.js?v=26.0"></script>
-  <script defer src="online.js?v=26.0"></script>
-  <script defer src="fishing.js?v=26.0"></script>
-  <script defer src="fishing_manual.js?v=26.0"></script>
-  <script defer src="quiz_plaza.js?v=26.0"></script>
-  <script defer src="arcade_sfx.js?v=26.0"></script>
-  <script defer src="arcade_games.js?v=26.0"></script>
-  <script defer src="arcade.js?v=26.0"></script>
-  <script defer src="app.js?v=26.0"></script>
+  <script defer src="data.js?v=26.1"></script>
+  <script defer src="ox_questions.js?v=26.1"></script>
+  <script defer src="climb_questions.js?v=26.1"></script>
+  <script defer src="typing_questions.js?v=26.1"></script>
+  <script defer src="pixel_avatar_v3.js?v=26.1"></script>
+  <script defer src="pixel_avatar.js?v=26.1"></script>
+  <script defer src="online.js?v=26.1"></script>
+  <script defer src="fishing.js?v=26.1"></script>
+  <script defer src="fishing_manual.js?v=26.1"></script>
+  <script defer src="quiz_plaza.js?v=26.1"></script>
+  <script defer src="arcade_sfx.js?v=26.1"></script>
+  <script defer src="arcade_games.js?v=26.1"></script>
+  <script defer src="arcade.js?v=26.1"></script>
+  <script defer src="app.js?v=26.1"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

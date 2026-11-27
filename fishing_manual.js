@@ -1862,3 +1862,111 @@ window.sellAllFishFromBag = function () {
     doSellAll();
   }
 };
+
+
+// ============================================================================
+// [V4.0 디자인] 상점 허브 거리 파노라마 캔버스 일러스트 (#shopHubBannerCanvas)
+// ============================================================================
+window.drawShopHubBannerArt = function () {
+  const cv = document.getElementById("shopHubBannerCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width || 680;
+  const H = cv.height || 190;
+  const outline = "#1e1b18";
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // 1) 하늘 + 구름 + 호수/잔디 바닥
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+  sky.addColorStop(0, "#38bdf8");
+  sky.addColorStop(1, "#bae6fd");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.68);
+
+  // 구름 2개
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3;
+  [[W * 0.24, 34], [W * 0.72, 28]].forEach(([cx, cy]) => {
+    ctx.beginPath();
+    ctx.arc(cx - 18, cy + 4, 13, 0, Math.PI * 2);
+    ctx.arc(cx, cy - 2, 16, 0, Math.PI * 2);
+    ctx.arc(cx + 18, cy + 4, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // 2) 왼쪽 일반 상점 (분홍 부티크 건물) + 오른쪽 호수가 낚시상점 (청록 매점)
+  const drawStorefront = (x, y, w, h, roofCols, wallCol, title) => {
+    ctx.fillStyle = wallCol;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(x, y + 26, w, h - 26, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // 창문/진열대
+    ctx.fillStyle = "#fef9c3";
+    ctx.beginPath();
+    ctx.roundRect(x + 16, y + 48, w - 32, h - 62, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    // 간판
+    ctx.fillStyle = "#1e1b18";
+    ctx.font = "900 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(title, x + w / 2, y + 48 + (h - 62) / 2);
+
+    // 줄무늬 어닝
+    const sw = w / 6;
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = roofCols[i % 2];
+      ctx.beginPath();
+      ctx.rect(x + i * sw, y + 8, sw, 20);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x + i * sw + sw / 2, y + 28, sw / 2, 0, Math.PI);
+      ctx.fill();
+      ctx.stroke();
+    }
+  };
+
+  drawStorefront(28, 30, 210, 128, ["#f43f5e", "#ffffff"], "#ffe4e6", "👗 FASHION SHOP");
+  drawStorefront(W - 238, 30, 210, 128, ["#0284c7", "#fef08a"], "#e0f2fe", "🏪 낚시 매점");
+
+  // 바닥 잔디·돌길
+  ctx.fillStyle = "#4ade80";
+  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  ctx.fillStyle = "#fde68a";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3.5;
+  ctx.fillRect(0, H * 0.74, W, H * 0.16);
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.74);
+  ctx.lineTo(W, H * 0.74);
+  ctx.stroke();
+
+  // 중앙 미니 내 아바타 배치
+  if (typeof renderPixelAvatar === "function" && typeof userState !== "undefined") {
+    const off = document.createElement("canvas");
+    off.width = 240;
+    off.height = 240;
+    try {
+      const cfg = typeof sanitizeAvatarConfigShape === "function"
+        ? sanitizeAvatarConfigShape(userState.avatarConfig)
+        : userState.avatarConfig;
+      renderPixelAvatar(off, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true });
+      ctx.drawImage(off, W / 2 - 58, 36, 116, 116);
+    } catch (e) {}
+  }
+
+  ctx.restore();
+};
