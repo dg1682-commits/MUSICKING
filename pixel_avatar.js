@@ -7,27 +7,400 @@
 // ============================================================================
 
 const EXP_LEVEL_TABLE = [
-  { level: 1,  reqExp: 0,      title: "🐣 방구석 리스너" },
-  { level: 2,  reqExp: 1000,   title: "🎧 이어폰 유망주" },
-  { level: 3,  reqExp: 2500,   title: "🎵 흥얼대는 루키" },
-  { level: 4,  reqExp: 4500,   title: "🎤 코인노래방 단골" },
-  { level: 5,  reqExp: 7000,   title: "📻 심야 라디오 DJ" },
-  { level: 6,  reqExp: 10000,  title: "🎸 홍대 인디 루키" },
-  { level: 7,  reqExp: 14000,  title: "🥁 리듬 비트메이커" },
-  { level: 8,  reqExp: 19000,  title: "💿 음반 콜렉터" },
-  { level: 9,  reqExp: 25000,  title: "🎹 스튜디오 세션맨" },
-  { level: 10, reqExp: 32000,  title: "🌟 데뷔 직전 연습생" },
-  { level: 11, reqExp: 40500,  title: "📺 음방 1위 후보" },
-  { level: 12, reqExp: 50500,  title: "💃 떼창 엔딩요정" },
-  { level: 13, reqExp: 62000,  title: "🏆 골든디스크 신인왕" },
-  { level: 14, reqExp: 75000,  title: "🔊 음원차트 올킬러" },
-  { level: 15, reqExp: 90000,  title: "🎙️ 고척돔 매진 보컬" },
-  { level: 16, reqExp: 107000, title: "🎼 천재 히트 작곡가" },
-  { level: 17, reqExp: 126500, title: "🌍 빌보드 핫100 스타" },
-  { level: 18, reqExp: 148500, title: "⚡ 1초 컷 가요 마스터" },
-  { level: 19, reqExp: 173000, title: "💎 살아있는 K-POP 백과" },
-  { level: 20, reqExp: 200000, title: "👑 대한민국 전설의 음악왕" }
+  { level: 1,  reqExp: 0,      title: "해골" },
+  { level: 2,  reqExp: 1000,   title: "총알 I" },
+  { level: 3,  reqExp: 2500,   title: "총알 II" },
+  { level: 4,  reqExp: 4500,   title: "총알 III" },
+  { level: 5,  reqExp: 7000,   title: "미사일 I" },
+  { level: 6,  reqExp: 10000,  title: "미사일 II" },
+  { level: 7,  reqExp: 14000,  title: "미사일 III" },
+  { level: 8,  reqExp: 19000,  title: "동별" },
+  { level: 9,  reqExp: 25000,  title: "은별" },
+  { level: 10, reqExp: 32000,  title: "금별" },
+  { level: 11, reqExp: 40500,  title: "금쌍별" },
+  { level: 12, reqExp: 50500,  title: "동메달" },
+  { level: 13, reqExp: 62000,  title: "은메달" },
+  { level: 14, reqExp: 75000,  title: "금메달" },
+  { level: 15, reqExp: 90000,  title: "동훈장" },
+  { level: 16, reqExp: 107000, title: "은훈장" },
+  { level: 17, reqExp: 126500, title: "금훈장" },
+  { level: 18, reqExp: 148500, title: "동왕관" },
+  { level: 19, reqExp: 173000, title: "은왕관" },
+  { level: 20, reqExp: 200000, title: "금왕관" },
+  { level: 21, reqExp: 235000, title: "별왕관" }
 ];
+
+// ============================================================================
+// [V3.2] 음악왕 21단계 계급 아이콘 렌더러 & HTML/Canvas 캐시
+// ============================================================================
+const _musicRankCanvasCache = new Map();
+const _musicRankUrlCache = new Map();
+
+function drawMusicRankStarPath(ctx, cx, cy, outerR, innerR) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? outerR : innerR;
+    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+    const x = cx + Math.cos(ang) * rad;
+    const y = cy + Math.sin(ang) * rad;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function getMusicRankMetalPalette(tier) {
+  if (tier === "bronze") {
+    return { light: "#fdba74", mid: "#d97706", dark: "#78350f", rim: "#92400e", gem: "#ef4444" };
+  }
+  if (tier === "silver") {
+    return { light: "#f8fafc", mid: "#cbd5e1", dark: "#475569", rim: "#64748b", gem: "#38bdf8" };
+  }
+  return { light: "#fef08a", mid: "#eab308", dark: "#854d0e", rim: "#a16207", gem: "#e11d48" };
+}
+
+function drawMusicRankIcon(ctx, rawLevel = 1, size = 32) {
+  const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
+  const outline = "#1e1b18";
+  const sc = size / 32;
+
+  ctx.save();
+  ctx.scale(sc, sc);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  if (lv === 1) {
+    // 1. 해골
+    ctx.fillStyle = "#f8fafc";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.1;
+    ctx.beginPath();
+    ctx.arc(16, 13.5, 9.5, Math.PI * 0.85, Math.PI * 2.15, false);
+    ctx.lineTo(22.5, 22);
+    ctx.lineTo(21.5, 27.5);
+    ctx.lineTo(10.5, 27.5);
+    ctx.lineTo(9.5, 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#1e1b18";
+    ctx.beginPath();
+    ctx.ellipse(12, 13.8, 2.7, 3.1, -0.15, 0, Math.PI * 2);
+    ctx.ellipse(20, 13.8, 2.7, 3.1, 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(16, 16.5);
+    ctx.lineTo(14.5, 19.6);
+    ctx.lineTo(17.5, 19.6);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(13, 23); ctx.lineTo(13, 27);
+    ctx.moveTo(16, 23); ctx.lineTo(16, 27);
+    ctx.moveTo(19, 23); ctx.lineTo(19, 27);
+    ctx.stroke();
+  } else if (lv >= 2 && lv <= 4) {
+    // 2~4. 총알 I / II / III
+    const cnt = lv - 1;
+    const xs = cnt === 1 ? [16] : cnt === 2 ? [11.2, 20.8] : [7.6, 16, 24.4];
+    const bw = cnt === 3 ? 5.6 : 6.8;
+    xs.forEach(cx => {
+      ctx.fillStyle = "#ea580c";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(cx, 3.5);
+      ctx.quadraticCurveTo(cx + bw * 0.55, 8.5, cx + bw * 0.48, 12.5);
+      ctx.lineTo(cx - bw * 0.48, 12.5);
+      ctx.quadraticCurveTo(cx - bw * 0.55, 8.5, cx, 3.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      ctx.rect(cx - bw * 0.5, 12.2, bw, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#fef9c3";
+      ctx.fillRect(cx - bw * 0.28, 13.4, bw * 0.24, 10.5);
+      ctx.fillStyle = "#854d0e";
+      ctx.fillRect(cx - bw * 0.56, 25.4, bw * 1.12, 2.8);
+      ctx.strokeRect(cx - bw * 0.56, 25.4, bw * 1.12, 2.8);
+    });
+  } else if (lv >= 5 && lv <= 7) {
+    // 5~7. 미사일 I / II / III
+    const cnt = lv - 4;
+    const xs = cnt === 1 ? [16] : cnt === 2 ? [10.8, 21.2] : [7.2, 16, 24.8];
+    const mw = cnt === 3 ? 5.0 : 6.2;
+    xs.forEach(cx => {
+      ctx.fillStyle = "#f97316";
+      ctx.beginPath();
+      ctx.moveTo(cx - mw * 0.35, 25.5);
+      ctx.lineTo(cx, 29.8);
+      ctx.lineTo(cx + mw * 0.35, 25.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#dc2626";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx - mw * 0.45, 20);
+      ctx.lineTo(cx - mw * 0.92, 26);
+      ctx.lineTo(cx - mw * 0.42, 25.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + mw * 0.45, 20);
+      ctx.lineTo(cx + mw * 0.92, 26);
+      ctx.lineTo(cx + mw * 0.42, 25.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillRect(cx - mw * 0.48, 10.5, mw * 0.96, 15);
+      ctx.strokeRect(cx - mw * 0.48, 10.5, mw * 0.96, 15);
+      ctx.fillStyle = "#2563eb";
+      ctx.fillRect(cx - mw * 0.46, 16, mw * 0.92, 3.2);
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.moveTo(cx, 3);
+      ctx.lineTo(cx + mw * 0.52, 11);
+      ctx.lineTo(cx - mw * 0.52, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+  } else if (lv >= 8 && lv <= 10) {
+    // 8~10. 동별 / 은별 / 금별
+    const pal = getMusicRankMetalPalette(lv === 8 ? "bronze" : lv === 9 ? "silver" : "gold");
+    const g = ctx.createLinearGradient(6, 4, 26, 28);
+    g.addColorStop(0, pal.light);
+    g.addColorStop(0.55, pal.mid);
+    g.addColorStop(1, pal.dark);
+    ctx.fillStyle = g;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2;
+    drawMusicRankStarPath(ctx, 16, 16.5, 12.2, 5.4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = pal.light;
+    drawMusicRankStarPath(ctx, 15.2, 15.4, 5.2, 2.3);
+    ctx.fill();
+  } else if (lv === 11) {
+    // 11. 금쌍별
+    const pal = getMusicRankMetalPalette("gold");
+    [10.2, 21.8].forEach((cx, idx) => {
+      const g = ctx.createLinearGradient(cx - 7, 6, cx + 7, 25);
+      g.addColorStop(0, pal.light);
+      g.addColorStop(0.55, pal.mid);
+      g.addColorStop(1, pal.dark);
+      ctx.fillStyle = g;
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.75;
+      drawMusicRankStarPath(ctx, cx, idx === 0 ? 15.5 : 16.5, 8.2, 3.6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(cx - 2.2, idx === 0 ? 12.8 : 13.8, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else if (lv >= 12 && lv <= 14) {
+    // 12~14. 동메달 / 은메달 / 금메달
+    const pal = getMusicRankMetalPalette(lv === 12 ? "bronze" : lv === 13 ? "silver" : "gold");
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = "#dc2626";
+    ctx.beginPath();
+    ctx.moveTo(8, 3.5); ctx.lineTo(13.5, 3.5); ctx.lineTo(17, 11.5); ctx.lineTo(13.2, 11.5);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#2563eb";
+    ctx.beginPath();
+    ctx.moveTo(24, 3.5); ctx.lineTo(18.5, 3.5); ctx.lineTo(15, 11.5); ctx.lineTo(18.8, 11.5);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = pal.light;
+    ctx.fillRect(14.3, 10.5, 3.4, 3);
+    ctx.strokeRect(14.3, 10.5, 3.4, 3);
+
+    const g = ctx.createRadialGradient(13.5, 18.5, 1.5, 16, 20.5, 9.5);
+    g.addColorStop(0, pal.light);
+    g.addColorStop(0.65, pal.mid);
+    g.addColorStop(1, pal.dark);
+    ctx.fillStyle = g;
+    ctx.lineWidth = 1.9;
+    ctx.beginPath();
+    ctx.arc(16, 20.8, 8.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = pal.dark;
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.arc(16, 20.8, 6.2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = pal.light;
+    drawMusicRankStarPath(ctx, 16, 20.8, 4.3, 1.9);
+    ctx.fill();
+  } else if (lv >= 15 && lv <= 17) {
+    // 15~17. 동훈장 / 은훈장 / 금훈장
+    const pal = getMusicRankMetalPalette(lv === 15 ? "bronze" : lv === 16 ? "silver" : "gold");
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = "#1d4ed8";
+    ctx.fillRect(6, 4.5, 20, 5.2);
+    ctx.fillStyle = "#ef4444";
+    ctx.fillRect(10.5, 4.5, 11, 5.2);
+    ctx.fillStyle = pal.light;
+    ctx.fillRect(14.5, 4.5, 3, 5.2);
+    ctx.strokeRect(6, 4.5, 20, 5.2);
+
+    ctx.fillStyle = pal.mid;
+    ctx.beginPath();
+    ctx.moveTo(16, 11.5); ctx.lineTo(3.5, 13.5); ctx.lineTo(6.5, 19.5); ctx.lineTo(11, 21.5);
+    ctx.lineTo(16, 18.5); ctx.lineTo(21, 21.5); ctx.lineTo(25.5, 19.5); ctx.lineTo(28.5, 13.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const g = ctx.createLinearGradient(10, 12, 22, 28);
+    g.addColorStop(0, pal.light);
+    g.addColorStop(0.55, pal.mid);
+    g.addColorStop(1, pal.dark);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(16, 11.2);
+    ctx.lineTo(22.4, 15.2);
+    ctx.lineTo(21.2, 23.8);
+    ctx.lineTo(16, 28.5);
+    ctx.lineTo(10.8, 23.8);
+    ctx.lineTo(9.6, 15.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = pal.gem;
+    ctx.beginPath();
+    ctx.arc(16, 19.6, 2.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // 18~21. 동왕관 / 은왕관 / 금왕관 / 별왕관
+    const tier = lv === 18 ? "bronze" : lv === 19 ? "silver" : "gold";
+    const pal = getMusicRankMetalPalette(tier);
+    const hasTopStar = lv === 21;
+    const crownBaseY = hasTopStar ? 27.5 : 26;
+    const crownPeakTop = hasTopStar ? 12.2 : 8.5;
+
+    if (hasTopStar) {
+      ctx.fillStyle = "#fef08a";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.6;
+      drawMusicRankStarPath(ctx, 16, 7.2, 6.2, 2.7);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(14.8, 6.0, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "#b91c1c";
+    ctx.beginPath();
+    ctx.moveTo(7, 22);
+    ctx.quadraticCurveTo(16, crownPeakTop - 1, 25, 22);
+    ctx.fill();
+
+    const g = ctx.createLinearGradient(5, crownPeakTop, 27, crownBaseY);
+    g.addColorStop(0, pal.light);
+    g.addColorStop(0.55, pal.mid);
+    g.addColorStop(1, pal.dark);
+    ctx.fillStyle = g;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.85;
+    ctx.beginPath();
+    ctx.moveTo(5.2, crownBaseY - 3.6);
+    ctx.lineTo(4.2, crownPeakTop + 2.4);
+    ctx.lineTo(11, crownPeakTop + 7.2);
+    ctx.lineTo(16, crownPeakTop);
+    ctx.lineTo(21, crownPeakTop + 7.2);
+    ctx.lineTo(27.8, crownPeakTop + 2.4);
+    ctx.lineTo(26.8, crownBaseY - 3.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = pal.rim;
+    ctx.fillRect(5.2, crownBaseY - 3.6, 21.6, 3.8);
+    ctx.strokeRect(5.2, crownBaseY - 3.6, 21.6, 3.8);
+
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(16, crownBaseY - 6.8, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#38bdf8";
+    ctx.beginPath();
+    ctx.arc(10.2, crownBaseY - 6.2, 1.5, 0, Math.PI * 2);
+    ctx.arc(21.8, crownBaseY - 6.2, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function getMusicRankIconCanvas(rawLevel = 1) {
+  const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
+  if (_musicRankCanvasCache.has(lv)) {
+    return _musicRankCanvasCache.get(lv);
+  }
+  const cv = document.createElement("canvas");
+  cv.width = 64;
+  cv.height = 64;
+  const ctx = cv.getContext("2d");
+  if (ctx) drawMusicRankIcon(ctx, lv, 64);
+  _musicRankCanvasCache.set(lv, cv);
+  return cv;
+}
+
+function getMusicRankIconDataUrl(rawLevel = 1) {
+  const lv = Math.max(1, Math.min(21, Math.floor(Number(rawLevel) || 1)));
+  if (_musicRankUrlCache.has(lv)) {
+    return _musicRankUrlCache.get(lv);
+  }
+  const cv = getMusicRankIconCanvas(lv);
+  let url = "";
+  try {
+    url = cv.toDataURL("image/png");
+  } catch (e) {}
+  _musicRankUrlCache.set(lv, url);
+  return url;
+}
+
+window.getMusicRankIconCanvas = getMusicRankIconCanvas;
+window.getMusicRankIconDataUrl = getMusicRankIconDataUrl;
+window.renderMusicRankIconHtml = function (levelOrExp, opts = {}) {
+  const lv =
+    opts && opts.isExp
+      ? getLevelInfo(Number(levelOrExp) || 0).level
+      : Math.max(1, Math.min(21, Math.floor(Number(levelOrExp) || 1)));
+  const info = EXP_LEVEL_TABLE[lv - 1] || EXP_LEVEL_TABLE[0];
+  const url = getMusicRankIconDataUrl(lv);
+  const size = Math.max(12, Math.min(48, Number(opts?.size) || 18));
+  const extra = opts && opts.className ? ` ${opts.className}` : "";
+  if (!url) return "";
+  return `<img src="${url}" alt="${info.title}" title="Lv.${lv} ${info.title}" class="mk-rank-ico${extra}" style="width:${size}px;height:${size}px;" />`;
+};
+window.formatMusicRankBadgeHtml = function (rawExp = 0, opts = {}) {
+  const lv = getLevelInfo(rawExp);
+  const icoHtml = window.renderMusicRankIconHtml(lv.level, { size: opts?.size || 20, className: opts?.className || "" });
+  return `Lv.${lv.level} ${icoHtml} ${lv.title}`;
+};
 
 function getLevelInfo(rawExp = 0) {
   const exp = Math.max(0, Math.floor(Number(rawExp) || 0));
@@ -69,7 +442,7 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 14;
+const SHOP_CATALOG_VERSION = 15;
 
 const GAME_ITEMS_CATALOG = [
   {
@@ -136,12 +509,52 @@ const GAME_ITEMS_CATALOG = [
     scopeLabel: "공용 · 희귀 S",
     maxAdPerDay: 0,
     adRechargeable: false,
-    desc: "사용 시 해당 판에서 획득하는\n최종 점수와 CD 보상을 2배로 만듭니다. (광고 충전 불가)"
+    desc: "사용 시 싱글에서는 최종 점수·EXP·CD가 2배,\n멀티 아이템전에서는 최종 EXP·CD 보상이 2배가 됩니다. (광고 충전 불가)"
+  }
+];
+
+const BAG_SPECIAL_ITEMS_CATALOG = [
+  {
+    id: "welcome_box",
+    name: "🎁 웰컴 패키지 상자",
+    grade: "S+",
+    scope: "bag_open",
+    scopeLabel: "가방 개봉 · 1회 한정",
+    adRechargeable: false,
+    maxAdPerDay: 0,
+    isConsumableOpen: true,
+    desc: "음악왕 환영 선물상자!\n열어보면 💿 1,000 CD + 🎟️ 오락실 동전 2개 +\n🎧 3초 듣기 1개 + 🔤 초성힌트 1개를 즉시 지급합니다!"
+  },
+  {
+    id: "nickname_ticket",
+    name: "✨ 닉네임 변경권",
+    grade: "S",
+    scope: "bag_ticket",
+    scopeLabel: "가방 사용 · 인벤토리",
+    adRechargeable: false,
+    maxAdPerDay: 0,
+    isConsumableTicket: true,
+    desc: "보유한 닉네임 변경권입니다.\n[사용하기] 버튼을 눌러 원하는 새 닉네임으로 변경할 수 있어요!"
+  },
+  {
+    id: "gender_ticket",
+    name: "⚧️ 성별 변경권",
+    grade: "S",
+    scope: "bag_ticket",
+    scopeLabel: "가방 사용 · 인벤토리",
+    adRechargeable: false,
+    maxAdPerDay: 0,
+    isConsumableTicket: true,
+    desc: "보유한 성별 변경권입니다.\n[사용하기] 버튼을 눌러 기본 캐릭터 성별(남↔여)을 전환할 수 있어요!"
   }
 ];
 
 function getGameItemById(id) {
   return GAME_ITEMS_CATALOG.find(item => item.id === id) || null;
+}
+
+function getBagItemMeta(id) {
+  return getGameItemById(id) || BAG_SPECIAL_ITEMS_CATALOG.find(item => item.id === id) || null;
 }
 
 const BASE_AVATAR_SHOP_ITEMS = {
@@ -163,25 +576,25 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "default", name: "바가지 머리", price: 0, grade: "C", desc: "깔끔하게 둥글린 옆라인과 윤기 나는\n귀여운 시그니처 기본 바가지 헤어", color: "#27272a", style: "bowl" },
     { id: "blonde", name: "샤이닝 금발", price: 500, grade: "C", desc: "6:4 아이돌 가르마와 부드러운 레이어드\n금발 머릿결이 눈부신 센터 스타일", color: "#facc15", style: "idol_blonde" },
     { id: "bald", name: "반짝 민머리", price: 1100, grade: "B", desc: "햇빛 받으면 눈이 부실 정도로\n매끈반짝 별빛 광택의 시원한 민머리", color: "#fffdf9", style: "bald" },
-    { id: "monkey_hood", name: "몽키 모자", price: 1600, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 후드", color: "#6b3410", style: "monkey" },
-    { id: "sprout_hat", name: "초록 새싹모자", price: 2100, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 스타일", color: "#4ade80", style: "sprout" },
     { id: "mint_comma", name: "민트 쉼표머리", price: 2700, grade: "B", desc: "이마 위로 둥글게 말려 내려오는\nC자 쉼표 앞머리의 상큼 민트초코 헤어", color: "#2dd4bf", style: "comma" },
     { id: "pink_twin", name: "핑크 양갈래", price: 3100, grade: "A", desc: "하트 가르마 앞머리에 별빛 머리끈으로\n통통 튀게 묶은 과즙미 핑크 양갈래", color: "#f472b6", style: "pink_twin" },
     { id: "pigtails", name: "상큼 양갈래", price: 3500, grade: "A", desc: "부드러운 M자 앞머리와 빨간 리본으로\n풍성하게 내린 다크 브라운 웨이브 양갈래", color: "#451a03", style: "brown_twin" },
     { id: "ponytail", name: "하이 포니테일", price: 3900, grade: "A", desc: "사선 앞머리와 함께 높게 묶어 올려\n경쾌하게 찰랑이는 하이 포니테일", color: "#1e293b", style: "ponytail" },
     { id: "rock_red", name: "불꽃 샤기컷", price: 4200, grade: "A", desc: "타오르는 불꽃처럼 사방으로 뻗친\n거친 스파이크와 레드 투톤 샤기컷", color: "#ef4444", style: "spiky" },
-    { id: "octo_hat", name: "문어 모자", price: 4600, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c", style: "octo" },
     { id: "buns", name: "동글 만두머리", price: 5000, grade: "A", desc: "꽈배기 결이 살아있는 동글 경단 두 개에\n진주 비녀가 꽂힌 앙증맞은 만두머리", color: "#3f2e21", style: "buns" },
     { id: "braids", name: "발랄 삐삐머리", price: 5400, grade: "A", desc: "한올 한올 정교하게 땋아 올린\n개성 만점 발랄한 양쪽 삐삐머리", color: "#92400e", style: "braids" },
     { id: "silver_perm", name: "실버 프로듀서", price: 5800, grade: "A", desc: "풍성한 S컬 웨이브 펌이 몽글몽글\n살아있는 세련된 백금발 프로듀서 헤어", color: "#cbd5e1", style: "perm" },
+    { id: "punk_mohawk", name: "펑키스타일", price: 6600, grade: "S", color: "#ec4899", style: "punk_mohawk", desc: "뾰족뾰족 강렬한 네온 스파이크가\n솟구친 락 펑키 헤어 스타일" },
     { id: "violet_twin", name: "보라빛 요정트윈", price: 8500, grade: "S", desc: "요정 날개 머리핀과 영롱한 퍼플\n그라데이션이 빛나는 몽환적 요정 양갈래", color: "#a855f7", style: "violet_twin" }
   ],
   hat: [
     { id: "none", name: "모자 벗기", price: 0, grade: "C", desc: "아무 모자도 쓰지 않은\n시원하고 깔끔한 기본 상태" },
     { id: "headset", name: "프로 헤드셋", price: 1100, grade: "B", desc: "메탈 밴드와 쿠션 패드가 정밀한\n블루투스 스튜디오 프로 헤드셋", color: "#0ea5e9" },
     { id: "bucket_hat", name: "힙합 버킷햇", price: 1400, grade: "B", desc: "스티치와 레드 포인트 로고 패치가 달린\n90년대 감성 블랙 힙합 버킷햇", color: "#1e293b" },
+    { id: "monkey_hood", name: "몽키 모자", price: 1600, grade: "B", desc: "스티치 라인과 큼직한 원숭이 귀,\n꼭대기 털 포인트가 매력적인 모자", color: "#6b3410" },
     { id: "acorn_hat", name: "도토리 모자", price: 1700, grade: "B", desc: "격자 무늬 도토리 갓과 나무 꼭지가\n귀여운 가을 숲속 도토리 베레모", color: "#854d0e" },
     { id: "propeller_cap", name: "프로펠러 모자", price: 2000, grade: "B", desc: "꼭대기 하늘색 프로펠러가 빙글빙글!\n개구쟁이 알록달록 패널 캡", color: "#ef4444" },
+    { id: "sprout_hat", name: "초록 새싹모자", price: 2100, grade: "B", desc: "잎맥과 물방울까지 선명한\n머리 위 광합성 초록 새싹 모자", color: "#4ade80" },
     { id: "big_ribbon", name: "왕리본 머리핀", price: 2400, grade: "B", desc: "주름 디테일과 화사한 핑크 광택이\n사랑스러운 초대형 빅 리본 머리핀", color: "#f43f5e" },
     { id: "bunny_band", name: "토끼귀 머리띠", price: 2800, grade: "B", desc: "부드러운 안쪽 속귀까지 정교한\n쫑긋쫑긋 핑크 토끼귀 머리띠", color: "#fb7185" },
     { id: "cat_ear", name: "고양이 헤드폰", price: 3100, grade: "A", desc: "LED 핑크 삼각 귀와 푹신한 이어컵이\n돋보이는 인기 만점 고양이 헤드폰", color: "#f43f5e" },
@@ -189,11 +602,11 @@ const BASE_AVATAR_SHOP_ITEMS = {
     { id: "cloud_hat", name: "구름모자", price: 3700, grade: "A", desc: "두둥실 하늘에서 따온 듯 몽글몽글하고\n포근한 구름 모양 모자", color: "#f8fafc" },
     { id: "party_hat", name: "파티모자", price: 4000, grade: "A", desc: "알록달록 땡땡이 패턴과 꼭대기\n보송보송 폼폼이 달린 축하 고깔모자", color: "#f43f5e" },
     { id: "angel", name: "천사의 링", price: 4400, grade: "A", desc: "머리 위에서 은은한 아우라로 빛나는\n순백·황금빛 천사의 헤일로", color: "#facc15" },
+    { id: "octo_hat", name: "문어 모자", price: 4600, grade: "A", desc: "동그란 눈망울과 빨판 달린 다리가\n양옆으로 늘어진 엉뚱발랄 문어 모자", color: "#ea580c" },
     { id: "bear_hood", name: "곰돌이 모자", price: 4800, grade: "A", desc: "포근한 속귀와 앙증맞은 주둥이 코,\n스티치까지 사랑스러운 곰돌이 모자", color: "#92400e" },
     { id: "devil_horn", name: "꼬마 악마뿔", price: 5100, grade: "A", desc: "강렬한 곡선 뿔과 마디 음영이 돋보이는\n락 스피릿 붉은 악마 뿔 머리띠", color: "#e11d48" },
     { id: "sun_hat", name: "태양모자", price: 5400, grade: "A", desc: "사방으로 눈부신 황금빛 햇살이\n반짝반짝 빛나는 태양 크라운 모자", color: "#f59e0b" },
     { id: "star_hat", name: "별 모자", price: 5800, grade: "A", desc: "밤하늘 별빛 비니 위에 커다란\n황금 왕별이 반짝이는 스페셜 모자", color: "#eab308" },
-    { id: "punk_mohawk", name: "펑키스타일", price: 6600, grade: "S", desc: "뾰족뾰족 강렬한 네온 스파이크와\n스터드 밴드가 솟구친 락 펑키 스타일", color: "#ec4899" },
     { id: "tree_hat", name: "트리 모자", price: 7500, grade: "S", desc: "반짝이는 오너먼트와 꼭대기 황금 별이\n장식된 홀리데이 크리스마스 트리 모자", color: "#16a34a" },
     { id: "royal_crown", name: "보석 왕관", price: 8800, grade: "S", desc: "뾰족한 끝마다 영롱한 사파이어·루비가\n반짝이는 클래식 골드 왕관", color: "#fbbf24" },
     { id: "crown", name: "음악왕 왕관", price: 10000, grade: "S", desc: "가요계 모든 문제를 정복한 절대강자의\n루비·에메랄드 풀세팅 황금 왕관", color: "#f59e0b" }
@@ -352,7 +765,7 @@ const BASE_AVATAR_SHOP_ITEMS = {
       price: 20000,
       grade: "S",
       consumable: true,
-      desc: "20,000 CD를 사용하여 내 계정의 닉네임을\n원하는 새 이름으로 즉시 변경합니다."
+      desc: "구매 시 🎒가방 인벤토리에 보관됩니다.\n가방에서 사용 시 닉네임을 변경합니다."
     },
     {
       id: "gender_ticket",
@@ -360,10 +773,26 @@ const BASE_AVATAR_SHOP_ITEMS = {
       price: 20000,
       grade: "S",
       consumable: true,
-      desc: "20,000 CD를 사용하여 기본 캐릭터 성별을\n(남자 ↔ 여자) 즉시 전환합니다."
+      desc: "구매 시 🎒가방 인벤토리에 보관됩니다.\n가방에서 사용 시 캐릭터 성별(남↔여)을 전환합니다."
     }
+  ],
+  effect: typeof V3_EFFECT_ITEMS !== "undefined" ? [...V3_EFFECT_ITEMS] : [
+    { id: "none", name: "이펙트 없음", price: 0, grade: "C", purchasable: false, layer: "none", desc: "기본 상태" }
   ]
 };
+
+if (typeof V3_NEW_SHOP_PARTS !== "undefined") {
+  Object.keys(V3_NEW_SHOP_PARTS).forEach(cat => {
+    if (!Array.isArray(BASE_AVATAR_SHOP_ITEMS[cat])) return;
+    const existingIds = new Set(BASE_AVATAR_SHOP_ITEMS[cat].map(x => x.id));
+    V3_NEW_SHOP_PARTS[cat].forEach(item => {
+      if (item && item.id && !existingIds.has(item.id)) {
+        BASE_AVATAR_SHOP_ITEMS[cat].push({ ...item });
+        existingIds.add(item.id);
+      }
+    });
+  });
+}
 
 let AVATAR_SHOP_ITEMS = JSON.parse(JSON.stringify(BASE_AVATAR_SHOP_ITEMS));
 
@@ -375,11 +804,12 @@ const AVATAR_CONFIG_KEY_BY_CAT = {
   outfit: "outfit",
   acc: "acc",
   wing: "wing",
+  effect: "effect",
   fishing_rod: "fishingRod",
   fishing_bait: "fishingBait"
 };
 
-const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "fishing_rod", "fishing_bait"];
+const EQUIPPABLE_SHOP_CATS = ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "effect", "fishing_rod", "fishing_bait"];
 
 const DEFAULT_AVATAR_CONFIG = {
   gender: "male",
@@ -390,14 +820,41 @@ const DEFAULT_AVATAR_CONFIG = {
   outfit: "basic",
   acc: "mic_silver",
   wing: "none",
+  effect: "none",
   fishingRod: "none",
   fishingBait: "none"
 };
 
+const V3_MOVED_TO_HAT_IDS = new Set(["monkey_hood", "sprout_hat", "octo_hat"]);
+const V3_MOVED_TO_HAIR_IDS = new Set(["punk_mohawk"]);
+
+function migrateLegacyHairHatIds(rawCfg) {
+  const cfg = { ...(rawCfg || {}) };
+  let migrated = false;
+  if (cfg.hat && V3_MOVED_TO_HAIR_IDS.has(cfg.hat)) {
+    const movedId = cfg.hat;
+    if (!cfg.hair || cfg.hair === "default") {
+      cfg.hair = movedId;
+    }
+    cfg.hat = "none";
+    migrated = true;
+  }
+  if (cfg.hair && V3_MOVED_TO_HAT_IDS.has(cfg.hair)) {
+    const movedId = cfg.hair;
+    if (!cfg.hat || cfg.hat === "none") {
+      cfg.hat = movedId;
+    }
+    cfg.hair = "default";
+    migrated = true;
+  }
+  return { cfg, migrated };
+}
+
 function sanitizeAvatarConfigShape(config) {
-  const cfg = { ...DEFAULT_AVATAR_CONFIG, ...(config || {}) };
+  const { cfg: migratedCfg } = migrateLegacyHairHatIds(config);
+  const cfg = { ...DEFAULT_AVATAR_CONFIG, ...migratedCfg };
   if (cfg.face === "singing") cfg.face = "default";
-  ["bg", "hair", "hat", "face", "outfit", "acc", "wing"].forEach(cat => {
+  ["bg", "hair", "hat", "face", "outfit", "acc", "wing", "effect"].forEach(cat => {
     const list = AVATAR_SHOP_ITEMS[cat] || [];
     if (list.length > 0 && !list.some(item => item.id === cfg[cat])) {
       cfg[cat] = DEFAULT_AVATAR_CONFIG[cat] || list[0].id;
@@ -420,19 +877,34 @@ function applyServerShopCatalog(customCatalog, catalogVersion = 0) {
     return;
   }
   Object.keys(BASE_AVATAR_SHOP_ITEMS).forEach(cat => {
+    if (cat === "effect") return;
     const baseList = BASE_AVATAR_SHOP_ITEMS[cat] || [];
     const srvList = Array.isArray(customCatalog[cat]) ? customCatalog[cat] : [];
     const mergedMap = new Map(baseList.map(i => [i.id, { ...i }]));
     srvList.forEach(si => {
       if (!si || !si.id) return;
       if (cat === "face" && si.id === "singing") return;
+      if (cat === "hair" && V3_MOVED_TO_HAT_IDS.has(si.id)) return;
+      if (cat === "hat" && V3_MOVED_TO_HAIR_IDS.has(si.id)) return;
       mergedMap.set(si.id, { ...(mergedMap.get(si.id) || {}), ...si });
     });
     AVATAR_SHOP_ITEMS[cat] = Array.from(mergedMap.values());
   });
+  if (Array.isArray(customCatalog.game_item)) {
+    const srvMap = new Map(customCatalog.game_item.filter(x => x && x.id).map(x => [x.id, x]));
+    GAME_ITEMS_CATALOG.forEach(item => {
+      const ov = srvMap.get(item.id);
+      if (ov) Object.assign(item, ov);
+    });
+  }
 }
 
 function getItemById(category, id) {
+  if (category === "effect") {
+    return typeof getEffectItemById === "function"
+      ? getEffectItemById(id)
+      : (AVATAR_SHOP_ITEMS.effect || [])[0] || { id: "none", name: "이펙트 없음", price: 0, grade: "C", desc: "" };
+  }
   if (category === "fishing_rod" && (!id || id === "none")) {
     return { id: "none", name: "미착용", price: 0, grade: "C", expMultiplier: 1.0, desc: "낚싯대가 장착되어 있지 않습니다." };
   }
@@ -527,6 +999,7 @@ function drawSparkle(ctx, cx, cy, r = 10, fill = "#ffffff") {
 // ============================================================================
 function drawDetailedInstrument(ctx, accItem, cx, cy, scale = 1) {
   if (!accItem || accItem.id === "none") return;
+  if (typeof drawV3Prop === "function" && drawV3Prop(ctx, accItem, cx, cy, scale)) return;
   const outline = "#1e1b18";
   ctx.save();
   ctx.translate(cx, cy);
@@ -869,6 +1342,7 @@ function drawDetailedInstrument(ctx, accItem, cx, cy, scale = 1) {
 // 1. 와이드 파노라마 배경 렌더러 (12종 전종 풀 일러스트 — 홈/상점/아이콘 공용!)
 // ============================================================================
 function renderApfWideBackground(ctx, W, H, bgItem, opts = {}) {
+  if (typeof drawV3Background === "function" && drawV3Background(ctx, W, H, bgItem, opts)) return;
   const id = (bgItem && bgItem.id) || "meadow";
   const c = (bgItem && bgItem.colors) || ["#5ec8f8", "#aee4ff", "#76d32d", "#4d9e12"];
   const isThumb = !!opts.isThumb;
@@ -1210,6 +1684,7 @@ function renderApfWideBackground(ctx, W, H, bgItem, opts = {}) {
 // 고디테일 헤어 렌더러 (15종 개별 일러스트 — 뒷머리 / 앞머리 분리!)
 // ============================================================================
 function drawHairBack(ctx, hairItem) {
+  if (typeof drawV3HairBack === "function" && drawV3HairBack(ctx, hairItem)) return;
   const outline = "#1e1b18";
   const st = hairItem.style || "bowl";
   const hc = hairItem.color || "#27272a";
@@ -1314,6 +1789,7 @@ function drawHairBack(ctx, hairItem) {
 }
 
 function drawHairFront(ctx, hairItem) {
+  if (typeof drawV3HairFront === "function" && drawV3HairFront(ctx, hairItem)) return;
   const outline = "#1e1b18";
   const st = hairItem.style || "bowl";
   const hc = hairItem.color || "#27272a";
@@ -1455,6 +1931,7 @@ function drawHairFront(ctx, hairItem) {
 // 고디테일 의상 렌더러 (15종 전종 — 소매/카라/단추/드레스/멜빵/슈트/신발 공용!)
 // ============================================================================
 function drawDetailedOutfit(ctx, outfitItem, isFemale = false, opts = {}) {
+  if (typeof drawV3Outfit === "function" && drawV3Outfit(ctx, outfitItem, isFemale, opts)) return;
   const id = (outfitItem && outfitItem.id) || "basic";
   const main = (outfitItem && outfitItem.main) || "#ef4444";
   const sub = (outfitItem && outfitItem.sub) || "#ffffff";
@@ -1686,9 +2163,47 @@ function drawDetailedOutfit(ctx, outfitItem, isFemale = false, opts = {}) {
 // ============================================================================
 // 고디테일 얼굴/표정/안경/수염/가면 렌더러 (19종 전종 캐릭터/썸네일 공용!)
 // ============================================================================
-function drawDetailedFace(ctx, faceItem) {
+const NON_BLINK_FACE_IDS = new Set([
+  "frog_eyes",
+  "square_glass",
+  "swirl_glass",
+  "sunglass",
+  "dragonfly_glass",
+  "neon_visor",
+  "xd_laugh",
+  "phantom_mask",
+  "sunglass_aviator",
+  "sunglass_sport"
+]);
+
+function shouldSkipAvatarEyeBlink(cfg = {}) {
+  const hatItem = getItemById("hat", cfg.hat);
+  if (hatItem && hatItem.coversFace) return true;
+  const faceId = String(cfg.face || "default");
+  return NON_BLINK_FACE_IDS.has(faceId);
+}
+
+function drawDetailedFace(ctx, faceItem, faceOpts = {}) {
+  if (typeof drawV3Face === "function" && drawV3Face(ctx, faceItem, faceOpts)) return;
   const id = (faceItem && faceItem.id) || "default";
   const outline = "#1e1b18";
+  const isBlink = Boolean(faceOpts && faceOpts.blink);
+  const drawClosed = (y = 192) => {
+    if (typeof drawAvatarClosedBlinkEyes === "function") {
+      drawAvatarClosedBlinkEyes(ctx, outline, y);
+    } else {
+      ctx.save();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7.5;
+      ctx.lineCap = "round";
+      [190, 290].forEach(ex => {
+        ctx.beginPath();
+        ctx.arc(ex, y - 4, 15, 0.14 * Math.PI, 0.86 * Math.PI);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+  };
 
   // 1) 개구리 눈 (머리 위로 툭 튀어나온 왕눈이 2개 + 얼굴 콧구멍 & 싱긋 미소)
   if (id === "frog_eyes") {
@@ -1753,7 +2268,7 @@ function drawDetailedFace(ctx, faceItem) {
     ctx.beginPath(); ctx.ellipse(304, 196, 56, 48, 0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // 이중 골드 브릿지 & 광택
     ctx.strokeStyle = "#facc15"; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(226, 174); ctx.lineTo(254, 174); ctx.moveTo(230, 190); ctx.lineTo(250, 190); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(226, 174); ctx.lineTo(254, 174); ctx.lineTo(250, 190); ctx.moveTo(230, 190); ctx.lineTo(250, 190); ctx.stroke();
     ctx.strokeStyle = "rgba(255,255,255,0.65)"; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.moveTo(146, 168); ctx.lineTo(176, 214); ctx.moveTo(274, 168); ctx.lineTo(304, 214); ctx.stroke();
   } else if (id === "neon_visor") {
@@ -1763,21 +2278,40 @@ function drawDetailedFace(ctx, faceItem) {
     ctx.strokeStyle = "#f43f5e"; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(168, 174); ctx.lineTo(212, 174); ctx.moveTo(268, 174); ctx.lineTo(312, 174); ctx.stroke();
   } else if (id === "heart_eyes") {
-    [190, 290].forEach(hx => {
-      drawHeart(ctx, hx, 196, 26, "#f43f5e", outline, 5);
-      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(hx - 9, 184, 5, 0, Math.PI * 2); ctx.fill();
-    });
+    if (isBlink) {
+      drawClosed(194);
+    } else {
+      [190, 290].forEach(hx => {
+        drawHeart(ctx, hx, 196, 26, "#f43f5e", outline, 5);
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(hx - 9, 184, 5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
   } else if (id === "star_eyes") {
-    [190, 290].forEach(sx => {
-      drawStar(ctx, sx, 194, 25, 11, 5, "#facc15", outline, 5);
-      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(sx - 5, 188, 4.5, 0, Math.PI * 2); ctx.fill();
-    });
+    if (isBlink) {
+      drawClosed(194);
+    } else {
+      [190, 290].forEach(sx => {
+        drawStar(ctx, sx, 194, 25, 11, 5, "#facc15", outline, 5);
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(sx - 5, 188, 4.5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
   } else if (id === "wink" || id === "wink_kiss") {
     ctx.strokeStyle = outline; ctx.lineWidth = 8.5;
     ctx.beginPath(); ctx.moveTo(166, 180); ctx.lineTo(206, 194); ctx.lineTo(166, 208); ctx.stroke();
-    ctx.fillStyle = outline; ctx.beginPath(); ctx.arc(292, 194, 17, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(286, 187, 6.5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(297, 200, 3, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      ctx.save();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7.5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(290, 190, 15, 0.14 * Math.PI, 0.86 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = outline; ctx.beginPath(); ctx.arc(292, 194, 17, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(286, 187, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(297, 200, 3, 0, Math.PI * 2); ctx.fill();
+    }
     if (id === "wink") {
       drawHeart(ctx, 146, 168, 10, "#fb7185", outline, 3);
     } else {
@@ -1819,10 +2353,14 @@ function drawDetailedFace(ctx, faceItem) {
     // 늠름한 눈 + 눈가 X 흉터 + 볼 반창고
     ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(166, 166); ctx.lineTo(206, 174); ctx.moveTo(274, 174); ctx.lineTo(314, 166); ctx.stroke();
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawClosed(192);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    }
     // 오른쪽 눈 X자 흉터
     ctx.strokeStyle = "#e11d48"; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(304, 164); ctx.lineTo(324, 214); ctx.moveTo(298, 184); ctx.lineTo(324, 180); ctx.stroke();
@@ -1835,25 +2373,37 @@ function drawDetailedFace(ctx, faceItem) {
   } else if (id === "tough_beard") {
     ctx.lineWidth = 8.5;
     ctx.beginPath(); ctx.moveTo(164, 166); ctx.lineTo(208, 174); ctx.moveTo(272, 174); ctx.lineTo(316, 166); ctx.stroke();
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawClosed(192);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    }
   } else if (id === "santa_beard") {
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 190, 14, 0, Math.PI * 2); ctx.arc(290, 190, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 185, 5, 0, Math.PI * 2); ctx.arc(285, 185, 5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawClosed(190);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 190, 14, 0, Math.PI * 2); ctx.arc(290, 190, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 185, 5, 0, Math.PI * 2); ctx.arc(285, 185, 5, 0, Math.PI * 2); ctx.fill();
+    }
     // 빨간 루돌프/산타 코
     ctx.fillStyle = "#ef4444"; ctx.strokeStyle = outline; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(240, 210, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(235, 205, 4, 0, Math.PI * 2); ctx.fill();
   } else if (id === "surprised" || id === "big_smile" || id === "cat_face") {
-    ctx.fillStyle = outline;
-    const r = id === "cat_face" ? 12 : 16;
-    ctx.beginPath(); ctx.arc(190, 192, r, 0, Math.PI * 2); ctx.arc(290, 192, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 186, 5.5, 0, Math.PI * 2); ctx.arc(285, 186, 5.5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawClosed(192);
+    } else {
+      ctx.fillStyle = outline;
+      const r = id === "cat_face" ? 12 : 16;
+      ctx.beginPath(); ctx.arc(190, 192, r, 0, Math.PI * 2); ctx.arc(290, 192, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 186, 5.5, 0, Math.PI * 2); ctx.arc(285, 186, 5.5, 0, Math.PI * 2); ctx.fill();
+    }
     if (id === "cat_face") {
       // 분홍 코 & 고양이 수염
       ctx.fillStyle = "#f472b6"; ctx.beginPath(); ctx.arc(240, 210, 5.5, 0, Math.PI * 2); ctx.fill();
@@ -1868,10 +2418,14 @@ function drawDetailedFace(ctx, faceItem) {
     ctx.lineWidth = 6.5;
     ctx.beginPath(); ctx.moveTo(172, 168); ctx.quadraticCurveTo(190, 162, 208, 168); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(272, 168); ctx.quadraticCurveTo(290, 162, 308, 168); ctx.stroke();
-    ctx.fillStyle = outline;
-    ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    if (isBlink) {
+      drawClosed(192);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.beginPath(); ctx.arc(190, 192, 14, 0, Math.PI * 2); ctx.arc(290, 192, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(185, 187, 5, 0, Math.PI * 2); ctx.arc(285, 187, 5, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   // 3) 입 모양 & 수염 오버레이
@@ -1923,6 +2477,7 @@ function drawDetailedFace(ctx, faceItem) {
 // ============================================================================
 function drawDetailedHat(ctx, hatItem) {
   if (!hatItem || hatItem.id === "none") return;
+  if (typeof drawV3Hat === "function" && drawV3Hat(ctx, hatItem)) return;
   const id = hatItem.id;
   const outline = "#1e1b18";
 
@@ -2090,6 +2645,7 @@ function drawDetailedHat(ctx, hatItem) {
 // ============================================================================
 function drawDetailedWing(ctx, wingItem) {
   if (!wingItem || wingItem.id === "none") return;
+  if (typeof drawV3Wing === "function" && drawV3Wing(ctx, wingItem)) return;
   const id = wingItem.id;
   const outline = "#1e1b18";
   ctx.save();
@@ -2209,6 +2765,156 @@ function drawDetailedWing(ctx, wingItem) {
 // ============================================================================
 // 2. 동글동글 만두형 귀요미 캐릭터 렌더러 (최소 480px 고해상도 · 1:1 정배율!)
 // ============================================================================
+function drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options = {}) {
+  const isFemale = cfg.gender === "female";
+  const hairItem = getItemById("hair", cfg.hair);
+  const hatItem = getItemById("hat", cfg.hat);
+  const faceItem = getItemById("face", cfg.face);
+  const outfitItem = getItemById("outfit", cfg.outfit);
+  const accItem = getItemById("acc", cfg.acc);
+  const wingItem = getItemById("wing", cfg.wing);
+
+  const charSize = Math.min(W, H) * 0.94;
+  const offsetX = options.charCenterX !== undefined ? options.charCenterX - charSize / 2 : (W - charSize) / 2;
+  const offsetY = (H - charSize) / 2 + (options.charOffsetY || 14);
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(charSize / 480, charSize / 480);
+
+  const outline = "#1e1b18";
+  const faceWhite = "#fffdf9";
+  const headOnly = Boolean(options.headOnly);
+  const coversFace = !!(hatItem && hatItem.coversFace);
+  const isMonkeyHat = hatItem?.id === "monkey_hood" || hairItem?.style === "monkey";
+
+  if (!headOnly) {
+    // 발밑 동그란 그림자
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+    ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
+
+    // 날개·동물 친구들 (등 뒤 최후방 레이어)
+    drawDetailedWing(ctx, wingItem);
+  }
+
+  // 뒷머리 (풀페이스 탈/헬멧 또는 원숭이 모자 착용 시 삐져나오지 않게 생략)
+  if (!coversFace && !isMonkeyHat) {
+    drawHairBack(ctx, hairItem);
+  }
+
+  // 의상·다리·신발·소매·장갑 (얼굴 전용 렌더링 시 생략)
+  if (!headOnly) {
+    drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
+  }
+
+  if (!coversFace) {
+    // 양쪽 동글 귀
+    const earR = isMonkeyHat ? 46 : 34;
+    ctx.fillStyle = isMonkeyHat ? "#6b3410" : faceWhite;
+    ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
+    ctx.beginPath(); ctx.arc(105, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(375, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = isMonkeyHat ? "#fffdf9" : "#fda4af";
+    ctx.beginPath();
+    ctx.arc(105, 198, earR * 0.55, 0, Math.PI * 2);
+    ctx.arc(375, 198, earR * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    if (isMonkeyHat) {
+      ctx.strokeStyle = outline; ctx.lineWidth = 5.5; ctx.stroke();
+    }
+
+    // 만두형 동글 얼굴
+    fillRoundRect(ctx, 112, 92, 256, 190, 92, faceWhite, outline, 10);
+
+    // 앞머리 또는 원숭이 모자 얼굴 컷아웃
+    if (hatItem.id === "monkey_hood") {
+      drawDetailedHat(ctx, hatItem);
+    } else if (!isMonkeyHat) {
+      drawHairFront(ctx, hairItem);
+    }
+
+    if (isFemale && hatItem.id === "none") {
+      fillRoundRect(ctx, 312, 96, 52, 32, 12, "#f43f5e", outline, 7);
+      ctx.fillStyle = "#ffe4e6";
+      ctx.beginPath(); ctx.arc(338, 112, 7, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 볼터치
+    ctx.fillStyle = "#fda4af";
+    ctx.beginPath();
+    ctx.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 얼굴 표정·안경·수염·상처·개구리눈·선글라스 (V3.2 눈 깜빡임 옵션 전달)
+    drawDetailedFace(ctx, faceItem, { blink: Boolean(options && options.forceEyeBlink) });
+  }
+
+  // 모자·왕관·헤드셋·풀페이스 탈·헬멧 (원숭이 모자는 얼굴 아래층에서 선처리)
+  if (hatItem.id !== "monkey_hood") {
+    drawDetailedHat(ctx, hatItem);
+  }
+
+  // 정밀 악기·소품 렌더링 결합
+  if (!headOnly) {
+    if (options.fishingIdle) {
+      // [V3.2] 낚시터 전용 손에 쥔 낚싯대(착용 낚싯대 색상 연동 + 낚싯줄·찌)
+      const rodItem = getItemById("fishing_rod", cfg.fishingRod);
+      const rodCol = (rodItem && rodItem.id !== "none" && rodItem.color) ? rodItem.color : "#92400e";
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      // 낚싯대 본체 (손 334,328 -> 대각선 위 446,148)
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 11.5;
+      ctx.beginPath();
+      ctx.moveTo(324, 336);
+      ctx.quadraticCurveTo(388, 232, 444, 152);
+      ctx.stroke();
+      ctx.strokeStyle = rodCol;
+      ctx.lineWidth = 6.5;
+      ctx.beginPath();
+      ctx.moveTo(324, 336);
+      ctx.quadraticCurveTo(388, 232, 444, 152);
+      ctx.stroke();
+      // 가는 초릿대 & 릴 포인트
+      ctx.fillStyle = "#e2e8f0";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(348, 304, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(444, 152);
+      ctx.quadraticCurveTo(458, 160, 462, 182);
+      ctx.lineTo(462, 332);
+      ctx.stroke();
+      // 둥둥 찌
+      ctx.fillStyle = "#ef4444";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(462, 336, 7.5, Math.PI, 0, false);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(462, 336, 7.5, 0, Math.PI, false);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
+    }
+  }
+
+  ctx.restore();
+}
+
 function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {}) {
   if (!canvas) return;
 
@@ -2227,99 +2933,101 @@ function renderPixelAvatar(canvas, config = DEFAULT_AVATAR_CONFIG, options = {})
       canvas.width = targetW;
       canvas.height = targetH;
     }
+  } else if (canvas.width < 120 || canvas.height < 120) {
+    canvas.width = Math.max(480, canvas.width || 480);
+    canvas.height = Math.max(480, canvas.height || 480);
+  }
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const cfg = sanitizeAvatarConfigShape(config);
+  const bgItem = getItemById("bg", cfg.bg);
+  const effectId = cfg.effect && cfg.effect !== "none" ? cfg.effect : "none";
+
+  if (typeof AvatarRenderEngine !== "undefined" && typeof drawV3EffectLayer === "function") {
+    const charSize = Math.min(W, H) * 0.94;
+    const offsetY = (H - charSize) / 2 + (options.charOffsetY || 14);
+    const footAnchorX = options.charCenterX !== undefined ? options.charCenterX : W / 2;
+    const footAnchorY = offsetY + 400 * (charSize / 480);
+    const engineOpts = {
+      transparentBg: !!options.transparentBg,
+      charCenterX: options.charCenterX,
+      charOffsetY: options.charOffsetY,
+      fishingIdle: !!options.fishingIdle,
+      headOnly: !!options.headOnly,
+      idleAnim: !!options.idleAnim,
+      footAnchorX,
+      footAnchorY
+    };
+    const bgOffscreen = !engineOpts.transparentBg
+      ? AvatarRenderEngine.getOrBakeStaticCanvas({ bg: cfg.bg }, W, H, { transparentBg: false }, (off) => {
+          const octx = off.getContext("2d");
+          octx.save();
+          octx.imageSmoothingEnabled = true;
+          octx.clearRect(0, 0, W, H);
+          renderApfWideBackground(octx, W, H, bgItem);
+          octx.restore();
+        })
+      : null;
+
+    const staticBakeOpts = {
+      transparentBg: true,
+      charCenterX: options.charCenterX,
+      charOffsetY: options.charOffsetY,
+      fishingIdle: !!options.fishingIdle,
+      headOnly: !!options.headOnly,
+      forceEyeBlink: false
+    };
+    const charOffscreen = AvatarRenderEngine.getOrBakeStaticCanvas(cfg, W, H, staticBakeOpts, (off) => {
+      const octx = off.getContext("2d");
+      octx.save();
+      octx.imageSmoothingEnabled = true;
+      octx.clearRect(0, 0, W, H);
+      drawStaticAvatarCharacterLayer(octx, W, H, cfg, { ...options, forceEyeBlink: false });
+      octx.restore();
+    });
+
+    const needsBlink = Boolean(options.idleAnim && !options.headOnly && !options.skipEffectLoop && !shouldSkipAvatarEyeBlink(cfg));
+    const charBlinkOffscreen = needsBlink
+      ? AvatarRenderEngine.getOrBakeStaticCanvas(cfg, W, H, { ...staticBakeOpts, forceEyeBlink: true }, (off) => {
+          const octx = off.getContext("2d");
+          octx.save();
+          octx.imageSmoothingEnabled = true;
+          octx.clearRect(0, 0, W, H);
+          drawStaticAvatarCharacterLayer(octx, W, H, cfg, { ...options, forceEyeBlink: true });
+          octx.restore();
+        })
+      : null;
+
+    const tickMs = options.idleFps ? Math.max(28, Math.round(1000 / Number(options.idleFps))) : 33;
+    const entry = {
+      opts: engineOpts,
+      bgOffscreen,
+      charOffscreen,
+      charBlinkOffscreen,
+      effectId,
+      maxParticles: options.maxEffectParticles || 8,
+      tickMs
+    };
+
+    if ((effectId !== "none" || options.idleAnim) && !options.skipEffectLoop) {
+      AvatarRenderEngine.registerCanvas(canvas, entry);
+    } else {
+      AvatarRenderEngine.unregisterCanvas(canvas);
+      const phaseSec = options.staticEffectPhase !== undefined ? options.staticEffectPhase : 0.6;
+      AvatarRenderEngine.renderCompositeFrame(canvas, entry, phaseSec);
+    }
+    return;
   }
 
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
-
-  const cfg = sanitizeAvatarConfigShape(config);
-  const isFemale = cfg.gender === "female";
-
-  const bgItem = getItemById("bg", cfg.bg);
-  const hairItem = getItemById("hair", cfg.hair);
-  const hatItem = getItemById("hat", cfg.hat);
-  const faceItem = getItemById("face", cfg.face);
-  const outfitItem = getItemById("outfit", cfg.outfit);
-  const accItem = getItemById("acc", cfg.acc);
-  const wingItem = getItemById("wing", cfg.wing);
-
   if (!options.transparentBg) {
     renderApfWideBackground(ctx, W, H, bgItem);
   }
-
-  const charSize = Math.min(W, H) * 0.94;
-  const offsetX = options.charCenterX !== undefined ? options.charCenterX - charSize / 2 : (W - charSize) / 2;
-  const offsetY = (H - charSize) / 2 + (options.charOffsetY || 14);
-
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(charSize / 480, charSize / 480);
-
-  const outline = "#1e1b18";
-  const faceWhite = "#fffdf9";
-
-  // 발밑 동그란 그림자
-  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-  ctx.beginPath(); ctx.ellipse(240, 405, 86, 20, 0, 0, Math.PI * 2); ctx.fill();
-
-  // 날개 (등 뒤 최후방 레이어)
-  drawDetailedWing(ctx, wingItem);
-
-  // 뒷머리 (양갈래·삐삐머리·포니테일·샤기·퍼머)
-  drawHairBack(ctx, hairItem);
-
-  // 의상·다리·신발·소매·장갑
-  drawDetailedOutfit(ctx, outfitItem, isFemale, { isThumb: false });
-
-  // 양쪽 동글 귀
-  const isMonkey = hairItem.style === "monkey";
-  const earR = isMonkey ? 46 : 34;
-  ctx.fillStyle = isMonkey ? "#6b3410" : faceWhite;
-  ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
-  ctx.beginPath(); ctx.arc(105, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(375, 198, earR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-  ctx.fillStyle = isMonkey ? "#fffdf9" : "#fda4af";
-  ctx.beginPath();
-  ctx.arc(105, 198, earR * 0.55, 0, Math.PI * 2);
-  ctx.arc(375, 198, earR * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-  if (isMonkey) {
-    ctx.strokeStyle = outline; ctx.lineWidth = 5.5; ctx.stroke();
-  }
-
-  // 만두형 동글 얼굴
-  fillRoundRect(ctx, 112, 92, 256, 190, 92, faceWhite, outline, 10);
-
-  // 앞머리 (15종 개별 일러스트)
-  drawHairFront(ctx, hairItem);
-
-  if (isFemale && hatItem.id === "none") {
-    fillRoundRect(ctx, 312, 96, 52, 32, 12, "#f43f5e", outline, 7);
-    ctx.fillStyle = "#ffe4e6";
-    ctx.beginPath(); ctx.arc(338, 112, 7, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // 볼터치
-  ctx.fillStyle = "#fda4af";
-  ctx.beginPath();
-  ctx.ellipse(164, 222, 24, 13, 0, 0, Math.PI * 2);
-  ctx.ellipse(316, 222, 24, 13, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 얼굴 표정·안경·수염·상처·개구리눈·가면 (19종)
-  drawDetailedFace(ctx, faceItem);
-
-  // 모자·왕관·헤드셋·펑키·트리·구름·태양·별·파티 (20종)
-  drawDetailedHat(ctx, hatItem);
-
-  // 정밀 악기 렌더링 결합! (20종)
-  drawDetailedInstrument(ctx, accItem, 355, 295, 1.32);
-
+  drawStaticAvatarCharacterLayer(ctx, W, H, cfg, options);
   ctx.restore();
 }
 
@@ -2380,7 +3088,25 @@ function renderItemThumbnail(canvas, category, item) {
     if (item.id === "none") {
       ctx.strokeStyle = "#57534e"; ctx.lineWidth = 8;
       ctx.beginPath(); ctx.arc(120, 120, 44, 0, Math.PI * 2); ctx.moveTo(90, 90); ctx.lineTo(150, 150); ctx.stroke();
-    } else if (item.id === "headset" || item.id === "cat_ear") {
+    } else if (item.coversFace) {
+      ctx.save();
+      ctx.translate(120, 134);
+      ctx.scale(0.52, 0.52);
+      ctx.translate(-240, -172);
+      drawDetailedHat(ctx, item);
+      ctx.restore();
+    } else if (item.id === "monkey_hood") {
+      ctx.save();
+      ctx.translate(120, 128);
+      ctx.scale(0.55, 0.55);
+      ctx.translate(-240, -172);
+      ctx.fillStyle = "#6b3410"; ctx.strokeStyle = outline; ctx.lineWidth = 9.5;
+      ctx.beginPath(); ctx.arc(105, 198, 46, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(375, 198, 46, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      fillRoundRect(ctx, 112, 92, 256, 190, 92, "#fffdf9", outline, 10);
+      drawDetailedHat(ctx, item);
+      ctx.restore();
+    } else if (item.id === "headset" || item.id === "cat_ear" || item.id === "cupid_wings") {
       ctx.save();
       ctx.translate(120, 124);
       ctx.scale(0.56, 0.56);
@@ -2390,8 +3116,8 @@ function renderItemThumbnail(canvas, category, item) {
     } else {
       ctx.save();
       ctx.translate(120, 138);
-      ctx.scale(0.74, 0.74);
-      ctx.translate(-240, -68);
+      ctx.scale(0.72, 0.72);
+      ctx.translate(-240, -72);
       drawDetailedHat(ctx, item);
       ctx.restore();
     }
@@ -2402,10 +3128,14 @@ function renderItemThumbnail(canvas, category, item) {
     } else {
       ctx.save();
       ctx.translate(120, 124);
-      ctx.scale(0.56, 0.56);
+      ctx.scale(0.52, 0.52);
       ctx.translate(-240, -292);
       drawDetailedWing(ctx, item);
       ctx.restore();
+    }
+  } else if (category === "effect") {
+    if (typeof drawV3EffectThumbnail === "function") {
+      drawV3EffectThumbnail(ctx, item);
     }
   } else if (category === "outfit") {
     ctx.save();
@@ -2650,10 +3380,49 @@ function renderItemThumbnail(canvas, category, item) {
     renderApfWideBackground(ctx, 212, 204, item, { isThumb: true });
     ctx.restore();
     fillRoundRect(ctx, 14, 18, 212, 204, 26, null, outline, 7);
+  } else if (item.id === "nickname_ticket") {
+    // 명찰 (ID 배지) 아이콘
+    fillRoundRect(ctx, 102, 26, 36, 26, 8, "#64748b", outline, 6);
+    fillRoundRect(ctx, 32, 48, 176, 140, 22, "#ffffff", outline, 8);
+    fillRoundRect(ctx, 32, 48, 176, 36, 18, "#38bdf8", outline, 7);
+    // 왼쪽 미니 프로필 실루엣
+    fillRoundRect(ctx, 48, 100, 52, 66, 12, "#dbeafe", outline, 5);
+    ctx.fillStyle = "#3b82f6";
+    ctx.beginPath(); ctx.arc(74, 122, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(74, 158, 20, Math.PI, 0); ctx.fill();
+    // 오른쪽 이름 줄
+    fillRoundRect(ctx, 114, 106, 76, 14, 6, "#1e293b");
+    fillRoundRect(ctx, 114, 130, 58, 10, 5, "#94a3b8");
+    fillRoundRect(ctx, 114, 150, 44, 10, 5, "#cbd5e1");
   } else {
-    fillRoundRect(ctx, 24, 66, 192, 108, 22, "#fef08a", "#b45309", 9);
-    ctx.fillStyle = "#b45309"; ctx.font = "900 32px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(item.id === "gender_ticket" ? "⚧️ 10000" : "🎫 5000", 120, 132);
+    // 성별 변경권 (남자 캐릭 <-> 여자 캐릭 전환 아이콘)
+    // 왼쪽 남자 캐릭터 미니 헤드
+    ctx.fillStyle = "#38bdf8"; ctx.strokeStyle = outline; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(64, 118, 34, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#fffdf9";
+    ctx.beginPath(); ctx.arc(64, 122, 24, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath(); ctx.arc(64, 106, 24, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.arc(56, 122, 3.5, 0, Math.PI * 2); ctx.arc(72, 122, 3.5, 0, Math.PI * 2); ctx.fill();
+
+    // 오른쪽 여자 캐릭터 미니 헤드 (리본)
+    ctx.fillStyle = "#fb7185"; ctx.strokeStyle = outline; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(176, 118, 34, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#fffdf9";
+    ctx.beginPath(); ctx.arc(176, 122, 24, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#451a03";
+    ctx.beginPath(); ctx.arc(176, 106, 24, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#f43f5e";
+    ctx.beginPath(); ctx.arc(192, 96, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath(); ctx.arc(168, 122, 3.5, 0, Math.PI * 2); ctx.arc(184, 122, 3.5, 0, Math.PI * 2); ctx.fill();
+
+    // 중앙 왕복 화살표 (↔)
+    ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 8; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(100, 118); ctx.lineTo(140, 118); ctx.stroke();
+    ctx.fillStyle = "#f59e0b";
+    ctx.beginPath(); ctx.moveTo(96, 118); ctx.lineTo(110, 106); ctx.lineTo(110, 130); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(144, 118); ctx.lineTo(130, 106); ctx.lineTo(130, 130); ctx.closePath(); ctx.fill();
   }
 
   ctx.restore();

@@ -2,23 +2,54 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta name="color-scheme" content="light only" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>음악왕 - 관리자 백엔드 대시보드</title>
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20.0" />
+  <link rel="stylesheet" href="style.css?v=24.6" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    html, body {
-      overflow-y: auto;
-      height: auto;
-      min-height: 100dvh;
+    html {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 100% !important;
+      max-height: none !important;
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      overscroll-behavior: auto !important;
+      touch-action: auto !important;
+      background: linear-gradient(180deg, #5ec8f8 0%, #aee4ff 52%, #76d32d 52%, #58b018 100%) !important;
+    }
+    body {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 100dvh !important;
+      max-height: none !important;
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      overscroll-behavior: auto !important;
+      touch-action: auto !important;
+      background: transparent !important;
     }
     .admin-container {
       max-width: 980px;
+      width: 100%;
       margin: 0 auto;
       padding: 16px;
+      overflow-x: clip;
     }
     .admin-table {
       width: 100%;
@@ -44,21 +75,194 @@
     }
     .table-scroll {
       max-height: 62dvh;
-      overflow-y: auto;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: auto;
       border: 2px solid var(--pixel-border);
       border-radius: 12px;
       background: #ffffff;
     }
     .admin-tabs-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
       margin-bottom: 14px;
     }
-    @media (max-width: 720px) {
+    .banned-words-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px;
+      min-height: 64px;
+      max-height: 300px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: auto;
+      background: #ffffff;
+      border: 2px solid var(--game-border);
+      border-radius: 12px;
+    }
+    .banned-word-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #fff1f2;
+      border: 1.5px solid #fb7185;
+      color: #9f1239;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .banned-word-chip button {
+      border: none;
+      background: none;
+      color: #e11d48;
+      font-weight: 900;
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 0.82rem;
+    }
+    @media (max-width: 768px) {
+      .admin-container {
+        padding: 10px 8px 36px;
+      }
+      .top-header {
+        height: auto !important;
+        padding: 10px 12px !important;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .top-header .brand {
+        flex: 1 1 100%;
+      }
+      .top-header .brand-title {
+        font-size: 0.92rem;
+        line-height: 1.3;
+        white-space: normal;
+      }
+      .top-header .header-right {
+        width: 100%;
+      }
+      .top-header .header-right .btn {
+        width: 100%;
+      }
+      .card {
+        padding: 12px 10px !important;
+        border-radius: 16px !important;
+      }
+      .card > div:first-child {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      #adminSongsSection .action-row {
+        flex-wrap: wrap;
+      }
+      .text-input {
+        min-width: 0 !important;
+      }
       .admin-tabs-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
       }
+      .admin-tabs-grid .option-chip {
+        padding: 8px 6px;
+      }
+      .admin-tabs-grid .chip-title {
+        font-size: 0.76rem;
+      }
+      .input-row {
+        flex-direction: column !important;
+        grid-template-columns: 1fr !important;
+        gap: 7px;
+      }
+      .option-grid.cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+      #adminDecadeFilter {
+        max-width: none !important;
+        width: 100%;
+      }
+      .table-scroll {
+        max-height: 45dvh;
+        overscroll-behavior: auto;
+        touch-action: pan-x pan-y;
+        -webkit-overflow-scrolling: touch;
+      }
+      .admin-table {
+        min-width: 580px;
+        font-size: 0.78rem;
+      }
+      .admin-table th,
+      .admin-table td {
+        padding: 7px 8px;
+      }
+      .gift-user-checklist {
+        grid-template-columns: 1fr;
+        max-height: 200px;
+      }
+      .modal-content {
+        width: calc(100vw - 16px) !important;
+        max-height: 88dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+        padding: 14px 12px !important;
+      }
+      .store-copy-meta {
+        min-width: 0;
+      }
+    }
+    .gift-user-checklist {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: auto;
+      background: #ffffff;
+      border: 2px solid var(--game-border);
+      border-radius: 12px;
+      padding: 8px;
+    }
+    .gift-user-chk-card {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 9px;
+      border: 1.5px solid #cbd5e1;
+      background: #f8fafc;
+      cursor: pointer;
+      font-size: 0.76rem;
+      min-width: 0;
+    }
+    .gift-user-chk-card.is-checked {
+      background: #fef9c3;
+      border-color: #f59e0b;
+    }
+    .gift-draft-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 32px;
+      padding: 6px;
+      background: #ffffff;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 10px;
+    }
+    .gift-draft-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1.5px solid #93c5fd;
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: #1e3a8a;
     }
     .store-info-grid {
       display: flex;
@@ -105,18 +309,74 @@
       color: #0f172a;
       word-break: break-all;
     }
+    .admin-gate-backdrop {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .admin-gate-card {
+      width: 100%;
+      max-width: 390px;
+      background: #ffffff;
+      border: 3px solid var(--pixel-border);
+      border-radius: 18px;
+      box-shadow: 0 8px 0 rgba(15, 23, 42, 0.2);
+      padding: 22px 18px;
+      text-align: center;
+    }
+    .admin-gate-error {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #fff1f2;
+      border: 1.5px solid #fda4af;
+      color: #be123c;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
+  <!-- ==================== [2차 진입 인증 게이트] ==================== -->
+  <div id="adminAuthGateOverlay" class="admin-gate-backdrop hidden">
+    <div class="admin-gate-card">
+      <div style="font-size:2.1rem; margin-bottom:6px;">🔐</div>
+      <h2 style="font-size:1.12rem; font-weight:900; color:var(--primary-dark); margin-bottom:6px;">관리자 백엔드 2차 인증</h2>
+      <p style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; margin-bottom:14px; word-break:keep-all;">
+        보안을 위해 <strong>'관리자'</strong> 계정 비밀번호를 한 번 더 확인한 뒤 대시보드를 엽니다.
+      </p>
+      <form onsubmit="event.preventDefault(); submitAdminGatePassword();" style="display:flex; flex-direction:column; gap:10px;">
+        <input
+          type="password"
+          id="adminGatePasswordInput"
+          class="text-input"
+          placeholder="관리자 계정 비밀번호 입력"
+          autocomplete="current-password"
+          style="text-align:center;"
+        />
+        <div id="adminGateErrorMsg" class="admin-gate-error hidden"></div>
+        <button type="submit" id="adminGateSubmitBtn" class="btn btn-primary" style="width:100%; padding:11px; font-size:0.9rem;">
+          🔓 확인 후 백엔드 입장
+        </button>
+        <button type="button" class="btn" onclick="returnToGameFromAdmin()" style="width:100%; padding:9px; font-size:0.82rem;">
+          ⬅ 게임 화면으로 돌아가기
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div id="adminContainer" class="admin-container hidden">
     <!-- 상단 바 -->
     <header class="top-header" style="margin-bottom:14px;">
-      <div class="brand" onclick="location.href='index.html'">
+      <div class="brand" onclick="returnToGameFromAdmin()">
         <span style="font-size:1.3rem;">🛠️</span>
         <span class="brand-title">음악왕 관리자 백엔드 센터 (Supabase 연동)</span>
       </div>
       <div class="header-right">
-        <button class="btn btn-primary" onclick="location.href='index.html'" style="padding:6px 12px; font-size:0.8rem;">
+        <button class="btn btn-primary" onclick="returnToGameFromAdmin()" style="padding:6px 12px; font-size:0.8rem;">
           🎮 게임 화면으로 돌아가기
         </button>
       </div>
@@ -133,11 +393,17 @@
       <div class="option-chip" id="tabBtnUsers" onclick="switchAdminTab('users')">
         <span class="chip-title">👥 계정/초기화 관리</span>
       </div>
+      <div class="option-chip" id="tabBtnGifts" onclick="switchAdminTab('gifts')">
+        <span class="chip-title">🎁 선물/보상 발송</span>
+      </div>
       <div class="option-chip" id="tabBtnReports" onclick="switchAdminTab('reports')">
         <span class="chip-title">🚨 신고 내역 조회</span>
       </div>
       <div class="option-chip" id="tabBtnEvents" onclick="switchAdminTab('events')">
         <span class="chip-title">🎉 이벤트 관리</span>
+      </div>
+      <div class="option-chip" id="tabBtnBanned" onclick="switchAdminTab('banned')">
+        <span class="chip-title">🚫 금칙어 관리</span>
       </div>
       <div class="option-chip" id="tabBtnStore" onclick="switchAdminTab('store')">
         <span class="chip-title">📦 스토어 출시 정보</span>
@@ -200,11 +466,14 @@
         <div class="option-chip" data-admin-cat="hat" onclick="selectAdminItemCat('hat')"><span class="chip-title">🎧 모자</span></div>
         <div class="option-chip" data-admin-cat="face" onclick="selectAdminItemCat('face')"><span class="chip-title">😎 얼굴</span></div>
         <div class="option-chip" data-admin-cat="outfit" onclick="selectAdminItemCat('outfit')"><span class="chip-title">👕 의상</span></div>
-        <div class="option-chip" data-admin-cat="acc" onclick="selectAdminItemCat('acc')"><span class="chip-title">🎸 악기</span></div>
+        <div class="option-chip" data-admin-cat="acc" onclick="selectAdminItemCat('acc')"><span class="chip-title">🎒 소품</span></div>
         <div class="option-chip" data-admin-cat="bg" onclick="selectAdminItemCat('bg')"><span class="chip-title">🏞️ 배경</span></div>
+        <div class="option-chip" data-admin-cat="wing" onclick="selectAdminItemCat('wing')"><span class="chip-title">🪽 날개</span></div>
+        <div class="option-chip" data-admin-cat="effect" onclick="selectAdminItemCat('effect')"><span class="chip-title">✨ 이펙트(DB)</span></div>
         <div class="option-chip" data-admin-cat="fishing_rod" onclick="selectAdminItemCat('fishing_rod')"><span class="chip-title">🎣 낚싯대</span></div>
         <div class="option-chip" data-admin-cat="fishing_bait" onclick="selectAdminItemCat('fishing_bait')"><span class="chip-title">🪱 미끼</span></div>
-        <div class="option-chip" data-admin-cat="special" onclick="selectAdminItemCat('special')" style="grid-column:span 4;"><span class="chip-title">🎫 스페셜(닉변권/성별변경)</span></div>
+        <div class="option-chip" data-admin-cat="game_item" onclick="selectAdminItemCat('game_item')"><span class="chip-title">🎒 게임아이템</span></div>
+        <div class="option-chip" data-admin-cat="special" onclick="selectAdminItemCat('special')"><span class="chip-title">🎫 스페셜(닉변/성별)</span></div>
       </div>
 
       <div class="table-scroll">
@@ -214,7 +483,7 @@
               <th>아이템 ID</th>
               <th>아이템 이름</th>
               <th style="width:130px;">가격 (CD)</th>
-              <th style="width:120px;">메인 색상</th>
+              <th id="adminItemAttrColHead" style="width:140px;">메인 색상</th>
               <th style="width:140px;">저장 / 삭제</th>
             </tr>
           </thead>
@@ -242,10 +511,140 @@
               <th>한줄 소개</th>
               <th>보유 CD</th>
               <th>최근 접속일</th>
-              <th style="width:220px;">계정 관리</th>
+              <th style="width:270px;">계정 관리</th>
             </tr>
           </thead>
           <tbody id="adminUsersTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 3-B: 운영자 선물 · 점검/이벤트 보상 발송 ==================== -->
+    <section id="adminGiftsSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:1rem;">🎁 운영자 선물 · 점검/이벤트 보상 발송</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">선택한 유저(복수·전체선택)에게 CD · EXP · 아이템을 보내면 즉시 알림 팝업 및 <strong>🔔 알림함</strong>에서 사유와 함께 수령할 수 있습니다.</p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn" onclick="toggleAdminGiftsSqlPanel()">🛠️ DB SQL 보기/복사</button>
+          <button type="button" class="btn btn-primary" onclick="loadAdminUsers(); loadAdminGiftsHistory();">🔄 새로고침</button>
+        </div>
+      </div>
+
+      <div id="adminGiftsSqlPanel" class="hidden" style="background:#0f172a; color:#e2e8f0; border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+          <strong style="font-size:0.84rem; color:#facc15;">⚠️ Supabase SQL Editor에서 1회 실행이 필요한 `admin_gifts` 생성 SQL</strong>
+          <button type="button" class="btn btn-gold" style="padding:4px 10px; font-size:0.74rem;" onclick="copyAdminGiftsSql()">📋 SQL 전체 복사</button>
+        </div>
+        <pre id="adminGiftsSqlCode" style="margin:0; font-size:0.7rem; line-height:1.45; white-space:pre-wrap; word-break:break-word; max-height:200px; overflow-y:auto; color:#bae6fd;"></pre>
+      </div>
+
+      <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          <strong style="font-size:0.88rem;">1️⃣ 받을 유저 선택 <span id="adminGiftSelectedCountBadge" class="badge gold">0명 선택됨</span></strong>
+          <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
+            <input type="text" id="adminGiftUserSearch" class="text-input" placeholder="닉네임 검색..." style="width:155px; padding:5px 8px; font-size:0.78rem;" oninput="renderAdminGiftUserChecklist()" />
+            <button type="button" class="btn btn-primary" style="padding:5px 9px; font-size:0.74rem;" onclick="selectAllAdminGiftUsers(true)">✅ 전체 선택</button>
+            <button type="button" class="btn" style="padding:5px 9px; font-size:0.74rem;" onclick="selectAllAdminGiftUsers(false)">⬜ 전체 해제</button>
+          </div>
+        </div>
+        <div id="adminGiftUserChecklist" class="gift-user-checklist"></div>
+      </div>
+
+      <div style="background:#fffdf7; border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          <strong style="font-size:0.88rem;">2️⃣ 선물 사유 &amp; 보상 구성</strong>
+          <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <button type="button" class="btn" style="padding:3px 8px; font-size:0.72rem;" onclick="applyGiftReasonPreset('점검 보상', '서버 점검에 협조해주셔서 감사합니다! 소정의 점검 보상을 보내드려요.')">🔧 점검 보상</button>
+            <button type="button" class="btn" style="padding:3px 8px; font-size:0.72rem;" onclick="applyGiftReasonPreset('이벤트 보상', '이벤트 참여 감사합니다! 당첨/참여 보상을 지급해드립니다.')">🎉 이벤트 보상</button>
+            <button type="button" class="btn" style="padding:3px 8px; font-size:0.72rem;" onclick="applyGiftReasonPreset('제보 감사 보상', '오류 및 개선 제보에 감사드립니다! 내용 확인 후 보상을 보내드려요.')">🚨 제보 감사</button>
+            <button type="button" class="btn" style="padding:3px 8px; font-size:0.72rem;" onclick="applyGiftReasonPreset('운영자 깜짝 선물', '항상 음악왕을 즐겨주셔서 진심으로 감사합니다!')">🎁 깜짝 선물</button>
+          </div>
+        </div>
+
+        <div class="input-row" style="margin-bottom:8px;">
+          <div class="input-group">
+            <label>🏷️ 선물 사유 / 제목</label>
+            <input type="text" id="adminGiftTitleInput" class="text-input" placeholder="예: 점검 보상, 이벤트 보상" value="운영자 선물" />
+          </div>
+          <div class="input-group">
+            <label>💬 상세 안내 메시지 (유저 알림창에 표시)</label>
+            <input type="text" id="adminGiftMessageInput" class="text-input" placeholder="예: 금일 점검에 협조해주셔서 감사합니다!" />
+          </div>
+        </div>
+
+        <div class="input-row" style="margin-bottom:10px;">
+          <div class="input-group">
+            <label>💿 지급 CD</label>
+            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+              <input type="number" id="adminGiftCdInput" class="text-input" value="0" min="0" style="width:115px;" />
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftCdInput', 500)">+500</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftCdInput', 1000)">+1,000</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftCdInput', 5000)">+5,000</button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>✨ 지급 경험치 (EXP)</label>
+            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+              <input type="number" id="adminGiftExpInput" class="text-input" value="0" min="0" style="width:115px;" />
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftExpInput', 500)">+500</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftExpInput', 1000)">+1,000</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftExpInput', 5000)">+5,000</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-row" style="margin-bottom:10px;">
+          <div class="input-group">
+            <label>🎟️ 지급 오락실 동전</label>
+            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+              <input type="number" id="adminGiftArcadeCoinInput" class="text-input" value="0" min="0" style="width:115px;" />
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftArcadeCoinInput', 1)">+1</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftArcadeCoinInput', 5)">+5</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftArcadeCoinInput', 10)">+10</button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>🪙 지급 황금주화</label>
+            <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+              <input type="number" id="adminGiftGoldenCoinInput" class="text-input" value="0" min="0" style="width:115px;" />
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftGoldenCoinInput', 10)">+10</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftGoldenCoinInput', 50)">+50</button>
+              <button type="button" class="btn" style="padding:4px 7px; font-size:0.72rem;" onclick="addGiftQuickNumber('adminGiftGoldenCoinInput', 100)">+100</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="display:block; font-size:0.78rem; font-weight:900; margin-bottom:4px;">🎒 아이템 · 코스튬 · ✨ 이펙트 추가</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
+            <select id="adminGiftItemSelect" class="text-input" style="flex:1; min-width:210px;" onchange="onAdminGiftItemSelectChange()"></select>
+            <input type="number" id="adminGiftItemQtyInput" class="text-input" value="1" min="1" max="99" style="width:74px;" title="수량 (소모품만 복수 지급)" />
+            <button type="button" class="btn btn-primary" style="padding:7px 11px; font-size:0.78rem;" onclick="addItemToAdminGiftDraft()">➕ 아이템 추가</button>
+          </div>
+          <div id="adminGiftSelectedItemsBox" class="gift-draft-chips">
+            <span style="font-size:0.75rem; color:var(--text-sub);">추가된 아이템 없음 (필요 시 위에서 선택 후 [➕ 아이템 추가])</span>
+          </div>
+        </div>
+
+        <button type="button" id="adminGiftSendSubmitBtn" class="btn btn-gold" style="width:100%; padding:11px; font-size:0.9rem;" onclick="submitAdminGiftsBatch()">🎁 선택한 유저에게 선물 발송하기</button>
+      </div>
+
+      <h4 style="font-size:0.9rem; font-weight:900; margin-bottom:6px;">📜 최근 운영자 선물 발송 내역 (최근 100건)</h4>
+      <div class="table-scroll" style="max-height:320px;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width:130px;">발송 일시</th>
+              <th style="width:110px;">수신 유저</th>
+              <th>사유 · 내용</th>
+              <th>보상 구성</th>
+              <th style="width:110px;">수령 여부</th>
+              <th style="width:70px;">관리</th>
+            </tr>
+          </thead>
+          <tbody id="adminGiftsHistoryTbody"></tbody>
         </table>
       </div>
     </section>
@@ -282,7 +681,10 @@
           <h3 style="font-size:1rem;">🎉 홈 이벤트 배너 · 내용 관리 (최대 5개 게시 권장)</h3>
           <p style="font-size:0.78rem; color:var(--text-sub);">배너 이미지는 Supabase Storage(<code>event-banners</code>)에 저장되며, 게시/미게시 토글로 즉시 노출 제어됩니다.</p>
         </div>
-        <button class="btn btn-primary" onclick="loadAdminEvents()">🔄 새로고침</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-gold" onclick="restoreDefaultReportEvent()" style="padding:7px 10px; font-size:0.78rem;">🎁 제보 보상 이벤트 복구</button>
+          <button class="btn btn-primary" onclick="loadAdminEvents()">🔄 새로고침</button>
+        </div>
       </div>
 
       <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
@@ -322,6 +724,30 @@
           <tbody id="adminEventsTbody"></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ==================== 탭 4-C: 금칙어 관리 (V2.2) ==================== -->
+    <section id="adminBannedSection" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:1rem;">🚫 채팅 · 닉네임 · 소개글 금칙어 관리 (<span id="adminBannedCount">0</span>개)</h3>
+          <p style="font-size:0.78rem; color:var(--text-sub);">낚시터 채팅, 대전 대기방, 1:1 DM, 회원가입/닉네임 변경, 한줄 소개에 모두 자동 적용됩니다. (추가/삭제 시 서버에 즉시 저장)</p>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="restoreDefaultBannedWords()">🔄 기본 금칙어 합치기</button>
+      </div>
+
+      <div style="background:var(--bg-subtle); border:2px solid var(--game-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div class="action-row" style="margin-bottom:8px; flex-wrap:wrap;">
+          <input type="text" id="adminBannedWordInput" class="text-input" placeholder="금칙어 입력 (쉼표 , 로 여러 개 동시 추가 가능)" style="flex:1; min-width:200px;" onkeydown="if(event.key==='Enter') addAdminBannedWords()" />
+          <button type="button" class="btn btn-gold" style="padding:8px 14px;" onclick="addAdminBannedWords()">➕ 금칙어 추가</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <span style="font-size:0.73rem; color:var(--text-sub);">💡 공백/특수문자 우회(`ㅅ ㅂ`, `시.발`)도 자동 감지합니다. 정상 단어 오차단을 막기 위해 2글자 이상 등록을 권장합니다.</span>
+          <input type="text" id="adminBannedSearchInput" class="text-input" placeholder="등록된 금칙어 검색..." style="width:170px; padding:5px 8px; font-size:0.78rem;" oninput="renderAdminBannedWordsGrid()" />
+        </div>
+      </div>
+
+      <div id="adminBannedWordsGrid" class="banned-words-grid"></div>
     </section>
 
     <!-- ==================== 탭 5: 스토어 심사·출시 필수 제출 정보 ==================== -->
@@ -381,7 +807,7 @@
           <div class="store-copy-row">
             <div class="store-copy-meta">
               <div class="store-copy-label">📱 앱 이름 / 매니페스트 표기 (`manifest.json`)</div>
-              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v10.16)</div>
+              <div class="store-copy-val" id="storeAppName">음악왕 (버전 v24.6)</div>
             </div>
             <button type="button" class="btn" style="padding:5px 10px; font-size:0.74rem;" onclick="copyStoreText('storeAppName', '앱 이름')">📋 복사</button>
           </div>
@@ -530,22 +956,113 @@
     </div>
   </div>
 
-  <script src="data.js?v=20.0"></script>
-  <script src="pixel_avatar.js?v=20.0"></script>
-  <script src="online.js?v=20.0"></script>
+  <script src="data.js?v=24.6"></script>
+  <script src="pixel_avatar_v3.js?v=24.6"></script>
+  <script src="pixel_avatar.js?v=24.6"></script>
+  <script src="online.js?v=24.6"></script>
   <script>
+    const VERIFIED_ADMIN_UID = "8795e0a0-20f2-4134-8b4c-2400f0c27465";
+    const ADMIN_CONFIG_FALLBACK_ID = "0313bd4f-f392-4537-87c1-37483bdc468c";
+
     let adminOverridesList = [];
     let currentAdminItemCat = "hair";
-    let adminConfigRowId = null;
+    let adminConfigRowId = ADMIN_CONFIG_FALLBACK_ID;
+    let verifiedAdminEmail = "";
+    let adminGateUnlocked = false;
+    let adminGateVerifying = false;
+
+    window.returnToGameFromAdmin = function () {
+      location.replace("index.html");
+    };
+
+    async function loadAdminDashboardData() {
+      if (!adminGateUnlocked || !window.__IS_VERIFIED_ADMIN_PAGE__) return;
+      await fetchAdminConfigFromServer();
+      renderAdminSongsTable();
+      renderAdminItemsTable();
+      renderAdminBannedWordsGrid();
+      populateAdminGiftItemSelect();
+      const sqlEl = document.getElementById("adminGiftsSqlCode");
+      if (sqlEl) sqlEl.textContent = ADMIN_GIFTS_SETUP_SQL;
+      await loadAdminUsers();
+      loadAdminReports();
+      loadAdminEvents();
+      loadAdminGiftsHistory();
+    }
+
+    window.submitAdminGatePassword = async function () {
+      if (adminGateVerifying || adminGateUnlocked) return;
+      const pwInput = document.getElementById("adminGatePasswordInput");
+      const errEl = document.getElementById("adminGateErrorMsg");
+      const btn = document.getElementById("adminGateSubmitBtn");
+      const pw = (pwInput?.value || "").trim();
+
+      const showGateErr = msg => {
+        if (!errEl) return;
+        errEl.textContent = msg;
+        errEl.classList.remove("hidden");
+      };
+
+      if (!pw) {
+        showGateErr("관리자 계정 비밀번호를 입력해주세요.");
+        if (pwInput) pwInput.focus();
+        return;
+      }
+      if (!sbClient || !verifiedAdminEmail) {
+        showGateErr("세션 정보를 확인할 수 없습니다. 게임에서 다시 로그인해주세요.");
+        return;
+      }
+
+      adminGateVerifying = true;
+      if (errEl) errEl.classList.add("hidden");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "🔄 관리자 비밀번호 확인 중...";
+      }
+
+      try {
+        const { data, error } = await sbClient.auth.signInWithPassword({
+          email: verifiedAdminEmail,
+          password: pw
+        });
+
+        if (error || !data?.user || data.user.id !== VERIFIED_ADMIN_UID) {
+          showGateErr("❌ 관리자 비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
+          if (pwInput) {
+            pwInput.value = "";
+            pwInput.focus();
+          }
+          return;
+        }
+
+        adminGateUnlocked = true;
+        window.__IS_VERIFIED_ADMIN_PAGE__ = true;
+        if (pwInput) pwInput.value = "";
+        const gateEl = document.getElementById("adminAuthGateOverlay");
+        if (gateEl) gateEl.classList.add("hidden");
+        const containerEl = document.getElementById("adminContainer");
+        if (containerEl) containerEl.classList.remove("hidden");
+        await loadAdminDashboardData();
+      } catch (e) {
+        showGateErr("⚠️ 인증 서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        adminGateVerifying = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "🔓 확인 후 백엔드 입장";
+        }
+      }
+    };
 
     async function initAdminPage() {
-      // [이중 보안] 아이디(닉네임)가 "관리자"로 로그인된 세션인지 서버 검증!
+      // [이중 보안] 실제 관리자 UUID + "관리자" 닉네임 세션인지 1차 서버 검증
       let isAuthorizedAdmin = false;
       if (sbClient) {
         try {
           const { data } = await sbClient.auth.getSession();
-          const uid = data?.session?.user?.id;
-          if (uid) {
+          const sessionUser = data?.session?.user;
+          const uid = sessionUser?.id;
+          if (uid && uid === VERIFIED_ADMIN_UID) {
             const { data: prof } = await sbClient
               .from("profiles")
               .select("nickname")
@@ -553,26 +1070,33 @@
               .maybeSingle();
             if (prof && prof.nickname === "관리자") {
               isAuthorizedAdmin = true;
+              verifiedAdminEmail =
+                sessionUser.email ||
+                (typeof nicknameToEmail === "function" ? nicknameToEmail("관리자") : "u_ad00b9acc790@musicking.com");
             }
           }
         } catch (e) {}
       }
 
       if (!isAuthorizedAdmin) {
+        window.__IS_VERIFIED_ADMIN_PAGE__ = false;
+        adminGateUnlocked = false;
         gameAlert("⛔ [관리자] 계정으로 로그인한 상태에서만 접근할 수 있는 페이지입니다.", "접근 제한");
-        setTimeout(() => { location.href = "index.html"; }, 1400);
+        setTimeout(() => { returnToGameFromAdmin(); }, 1400);
         return;
       }
 
-      window.__IS_VERIFIED_ADMIN_PAGE__ = true;
-      document.getElementById("adminContainer").classList.remove("hidden");
-      await fetchAdminConfigFromServer();
-      renderAdminSongsTable();
-      renderAdminItemsTable();
-      loadAdminUsers();
-      loadAdminReports();
-      loadAdminEvents();
+      // 2차 진입 비밀번호 인증 오버레이 표시 (인증 전까지 대시보드 숨김 유지)
+      const gateEl = document.getElementById("adminAuthGateOverlay");
+      if (gateEl) gateEl.classList.remove("hidden");
+      setTimeout(() => {
+        const pwInput = document.getElementById("adminGatePasswordInput");
+        if (pwInput) pwInput.focus();
+      }, 80);
     }
+
+    let adminBannedWordsCache =
+      typeof DEFAULT_BANNED_WORDS !== "undefined" ? [...DEFAULT_BANNED_WORDS] : [];
 
     async function fetchAdminConfigFromServer() {
       if (!sbClient) return;
@@ -583,9 +1107,18 @@
         .maybeSingle();
 
       if (data) {
-        adminConfigRowId = data.id;
+        adminConfigRowId = data.id || ADMIN_CONFIG_FALLBACK_ID;
         if (data.avatar_config && data.avatar_config.shopCatalog) {
           applyServerShopCatalog(data.avatar_config.shopCatalog, data.avatar_config.catalogVersion || 0);
+        }
+        if (data.avatar_config && Array.isArray(data.avatar_config.bannedWords)) {
+          if (typeof applyServerBannedWords === "function") {
+            applyServerBannedWords(data.avatar_config.bannedWords);
+          }
+          adminBannedWordsCache =
+            typeof getActiveBannedWordsList === "function"
+              ? getActiveBannedWordsList()
+              : [...data.avatar_config.bannedWords];
         }
         if (Array.isArray(data.owned_items)) {
           adminOverridesList = data.owned_items;
@@ -595,52 +1128,142 @@
     }
 
     async function persistAdminConfigToServer() {
-      if (!sbClient) return;
+      if (!sbClient || !adminGateUnlocked || !window.__IS_VERIFIED_ADMIN_PAGE__) return false;
       try {
-        if (!adminConfigRowId) {
-          // 관리자 설정 저장용 계정 생성 또는 조회
-          const email = "admin_system_config@musicking.com";
-          let uid = null;
-          const signInRes = await sbClient.auth.signInWithPassword({ email, password: "AdminConfigPassword123!" });
-          if (signInRes.data?.user) {
-            uid = signInRes.data.user.id;
-          } else {
-            const signUpRes = await sbClient.auth.signUp({ email, password: "AdminConfigPassword123!" });
-            uid = signUpRes.data?.user?.id;
-          }
-          adminConfigRowId = uid;
+        const targetConfigId = adminConfigRowId || ADMIN_CONFIG_FALLBACK_ID;
+        const { error } = await sbClient.from("profiles").upsert({
+          id: targetConfigId,
+          nickname: "__ADMIN_CONFIG__",
+          bio: "시스템 글로벌 설정 데이터",
+          cd_coins: 0,
+          avatar_config: {
+            shopCatalog: {
+              ...AVATAR_SHOP_ITEMS,
+              game_item: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
+            },
+            catalogVersion: SHOP_CATALOG_VERSION,
+            bannedWords: adminBannedWordsCache
+          },
+          owned_items: adminOverridesList,
+          updated_at: new Date().toISOString()
+        });
+        if (error) {
+          gameAlert(`⚠️ 서버 설정 저장 실패: ${error.message}\n(Supabase Stage 2 RLS 정책 적용 여부를 확인해주세요.)`);
+          return false;
         }
-
-        if (adminConfigRowId) {
-          await sbClient.from("profiles").upsert({
-            id: adminConfigRowId,
-            nickname: "__ADMIN_CONFIG__",
-            bio: "시스템 글로벌 설정 데이터",
-            cd_coins: 0,
-            avatar_config: { shopCatalog: AVATAR_SHOP_ITEMS, catalogVersion: SHOP_CATALOG_VERSION },
-            owned_items: adminOverridesList,
-            updated_at: new Date().toISOString()
-          });
-        }
-      } catch (e) {}
+        return true;
+      } catch (e) {
+        gameAlert("⚠️ 서버 설정 저장 중 네트워크 오류가 발생했습니다.");
+        return false;
+      }
     }
+
+    window.renderAdminBannedWordsGrid = function () {
+      const grid = document.getElementById("adminBannedWordsGrid");
+      const countEl = document.getElementById("adminBannedCount");
+      const kw = (document.getElementById("adminBannedSearchInput")?.value || "").trim().toLowerCase();
+      if (countEl) countEl.textContent = String(adminBannedWordsCache.length);
+      if (!grid) return;
+
+      const filtered = adminBannedWordsCache
+        .map((w, idx) => ({ w, idx }))
+        .filter(item => !kw || item.w.toLowerCase().includes(kw));
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="width:100%; text-align:center; padding:14px; font-size:0.8rem; color:var(--text-sub);">${kw ? "검색된 금칙어가 없습니다." : "등록된 금칙어가 없습니다."}</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered
+        .map(
+          item => `
+        <span class="banned-word-chip">
+          <span>${escapeMdHtml(item.w)}</span>
+          <button type="button" title="삭제" onclick="removeAdminBannedWord(${item.idx})">✕</button>
+        </span>
+      `
+        )
+        .join("");
+    };
+
+    window.addAdminBannedWords = async function () {
+      const inp = document.getElementById("adminBannedWordInput");
+      const raw = inp ? inp.value.trim() : "";
+      if (!raw) {
+        gameAlert("추가할 금칙어를 입력해주세요!");
+        return;
+      }
+      const tokens = raw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      const seen = new Set(adminBannedWordsCache.map(w => w.toLowerCase()));
+      let addedCount = 0;
+      tokens.forEach(t => {
+        if (!seen.has(t.toLowerCase())) {
+          seen.add(t.toLowerCase());
+          adminBannedWordsCache.push(t);
+          addedCount += 1;
+        }
+      });
+      if (inp) inp.value = "";
+      if (addedCount === 0) {
+        gameAlert("이미 등록된 금칙어입니다.");
+        return;
+      }
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+      gameAlert(`🚫 금칙어 ${addedCount}개가 추가되어 서버에 저장되었습니다!`);
+    };
+
+    window.removeAdminBannedWord = async function (idx) {
+      if (idx < 0 || idx >= adminBannedWordsCache.length) return;
+      adminBannedWordsCache.splice(idx, 1);
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+    };
+
+    window.restoreDefaultBannedWords = async function () {
+      const seeds = typeof DEFAULT_BANNED_WORDS !== "undefined" ? DEFAULT_BANNED_WORDS : [];
+      const seen = new Set(adminBannedWordsCache.map(w => w.toLowerCase()));
+      let added = 0;
+      seeds.forEach(w => {
+        if (!seen.has(w.toLowerCase())) {
+          seen.add(w.toLowerCase());
+          adminBannedWordsCache.push(w);
+          added += 1;
+        }
+      });
+      if (typeof applyServerBannedWords === "function") applyServerBannedWords(adminBannedWordsCache);
+      await persistAdminConfigToServer();
+      renderAdminBannedWordsGrid();
+      gameAlert(added > 0 ? `✅ 기본 금칙어 ${added}개를 합쳐 서버에 저장했습니다!` : "기본 금칙어가 이미 모두 포함되어 있습니다.");
+    };
 
     function switchAdminTab(tab) {
       document.getElementById("tabBtnSongs").classList.toggle("active", tab === "songs");
       document.getElementById("tabBtnItems").classList.toggle("active", tab === "items");
       document.getElementById("tabBtnUsers").classList.toggle("active", tab === "users");
+      document.getElementById("tabBtnGifts").classList.toggle("active", tab === "gifts");
       document.getElementById("tabBtnReports").classList.toggle("active", tab === "reports");
       document.getElementById("tabBtnEvents").classList.toggle("active", tab === "events");
+      document.getElementById("tabBtnBanned").classList.toggle("active", tab === "banned");
       document.getElementById("tabBtnStore").classList.toggle("active", tab === "store");
 
       document.getElementById("adminSongsSection").classList.toggle("hidden", tab !== "songs");
       document.getElementById("adminItemsSection").classList.toggle("hidden", tab !== "items");
       document.getElementById("adminUsersSection").classList.toggle("hidden", tab !== "users");
+      document.getElementById("adminGiftsSection").classList.toggle("hidden", tab !== "gifts");
       document.getElementById("adminReportsSection").classList.toggle("hidden", tab !== "reports");
       document.getElementById("adminEventsSection").classList.toggle("hidden", tab !== "events");
+      document.getElementById("adminBannedSection").classList.toggle("hidden", tab !== "banned");
       document.getElementById("adminStoreSection").classList.toggle("hidden", tab !== "store");
       if (tab === "reports") loadAdminReports();
       if (tab === "events") loadAdminEvents();
+      if (tab === "banned") renderAdminBannedWordsGrid();
+      if (tab === "gifts") {
+        renderAdminGiftUserChecklist();
+        loadAdminGiftsHistory();
+      }
     }
 
     window.exportQuestionsJson = function () {
@@ -656,18 +1279,38 @@
       URL.revokeObjectURL(url);
     };
 
+    const DEFAULT_ADMIN_REPORT_EVENT = {
+      title: "제보하고 보상받자!",
+      banner_url: "",
+      content:
+        "제보만해도 보상해드립니다! 이용해주셔서 감사합니다. 이용하시다가 음악이나 가사, 1초 듣기 등에 오류가 있거나 잘못되어있는 부분을 '관리자'에게 1:1 DM으로 제보(신고)해주시면 내용 반영 후 건마다 1,000CD 드리겠습니다!",
+      is_published: true,
+      sort_order: 1
+    };
+
     let adminEventsCache = [];
     async function loadAdminEvents() {
       const tbody = document.getElementById("adminEventsTbody");
       if (!tbody || !sbClient) return;
       const { data, error } = await sbClient.from("events").select("*").order("sort_order", { ascending: true }).order("id", { ascending: true });
       if (error) {
-        tbody.innerHTML = `<tr><td colspan="5">이벤트 조회 오류 (테섭 events 테이블 확인)</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">이벤트 조회 오류 (본섭 events 테이블 및 RLS 정책 확인: ${escapeMdHtml(error.message || "")})</td></tr>`;
         return;
       }
       adminEventsCache = data || [];
       if (adminEventsCache.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5">등록된 이벤트가 없습니다.</td></tr>`;
+        try {
+          const { data: seeded, error: seedErr } = await sbClient
+            .from("events")
+            .insert({ ...DEFAULT_ADMIN_REPORT_EVENT, updated_at: new Date().toISOString() })
+            .select("*");
+          if (!seedErr && Array.isArray(seeded) && seeded.length > 0) {
+            adminEventsCache = seeded;
+          }
+        } catch (e) {}
+      }
+      if (adminEventsCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5">등록된 이벤트가 없습니다. 상단 [🎁 제보 보상 이벤트 복구] 버튼을 눌러보세요.</td></tr>`;
         return;
       }
       tbody.innerHTML = adminEventsCache
@@ -679,8 +1322,8 @@
                 ${ev.is_published ? "✅ 게시중" : "⏸ 미게시"}
               </button>
             </td>
-            <td><strong>${ev.title}</strong></td>
-            <td style="font-size:0.76rem; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ev.content}</td>
+            <td><strong>${escapeMdHtml(ev.title)}</strong></td>
+            <td style="font-size:0.76rem; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeMdHtml(ev.content)}</td>
             <td>
               <button class="btn" style="padding:3px 7px; font-size:0.72rem;" onclick="editAdminEvent(${ev.id})">수정</button>
               <button class="btn" style="padding:3px 7px; font-size:0.72rem; color:var(--danger);" onclick="deleteAdminEvent(${ev.id})">삭제</button>
@@ -689,6 +1332,39 @@
         `)
         .join("");
     }
+
+    window.restoreDefaultReportEvent = async function () {
+      if (!sbClient) return;
+      const existing = adminEventsCache.find(ev => /제보|신고/.test(ev.title || ""));
+      if (existing) {
+        const hasContent = String(existing.content || "").trim().length > 0;
+        const { error } = await sbClient
+          .from("events")
+          .update({
+            title: existing.title || DEFAULT_ADMIN_REPORT_EVENT.title,
+            content: hasContent ? existing.content : DEFAULT_ADMIN_REPORT_EVENT.content,
+            is_published: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existing.id);
+        if (error) {
+          gameAlert("복구 실패: " + error.message);
+          return;
+        }
+        await loadAdminEvents();
+        gameAlert("✅ 기존 제보 보상 이벤트를 게시 상태로 복구했습니다!");
+        return;
+      }
+      const { error } = await sbClient
+        .from("events")
+        .insert({ ...DEFAULT_ADMIN_REPORT_EVENT, sort_order: adminEventsCache.length + 1, updated_at: new Date().toISOString() });
+      if (error) {
+        gameAlert("복구 실패: " + error.message);
+        return;
+      }
+      await loadAdminEvents();
+      gameAlert("🎉 [제보하고 보상받자!] 기본 이벤트를 다시 등록했습니다!");
+    };
 
     window.resetAdminEventForm = function () {
       document.getElementById("adminEventEditId").value = "";
@@ -737,10 +1413,15 @@
         return;
       }
       const payload = { title, banner_url, content, is_published, updated_at: new Date().toISOString() };
+      let saveRes = null;
       if (editId) {
-        await sbClient.from("events").update(payload).eq("id", Number(editId));
+        saveRes = await sbClient.from("events").update(payload).eq("id", Number(editId));
       } else {
-        await sbClient.from("events").insert({ ...payload, sort_order: adminEventsCache.length + 1 });
+        saveRes = await sbClient.from("events").insert({ ...payload, sort_order: adminEventsCache.length + 1 });
+      }
+      if (saveRes && saveRes.error) {
+        gameAlert("이벤트 저장 실패: " + saveRes.error.message);
+        return;
       }
       resetAdminEventForm();
       await loadAdminEvents();
@@ -749,13 +1430,21 @@
 
     window.toggleAdminEventPublish = async function (id, nextState) {
       if (!sbClient) return;
-      await sbClient.from("events").update({ is_published: nextState, updated_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await sbClient.from("events").update({ is_published: nextState, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) {
+        gameAlert("게시 상태 변경 실패: " + error.message);
+        return;
+      }
       await loadAdminEvents();
     };
 
     window.deleteAdminEvent = function (id) {
       gameConfirm("이 이벤트를 삭제할까요?", async () => {
-        await sbClient.from("events").delete().eq("id", id);
+        const { error } = await sbClient.from("events").delete().eq("id", id);
+        if (error) {
+          gameAlert("이벤트 삭제 실패: " + error.message);
+          return;
+        }
         await loadAdminEvents();
       });
     };
@@ -918,6 +1607,13 @@
     };
 
     // ==================== 2. 상점 아이템 관리 ====================
+    function getAdminItemList(cat) {
+      if (cat === "game_item") {
+        return typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : [];
+      }
+      return AVATAR_SHOP_ITEMS[cat] || [];
+    }
+
     window.selectAdminItemCat = function (cat) {
       currentAdminItemCat = cat;
       document.querySelectorAll("[data-admin-cat]").forEach(b => {
@@ -927,19 +1623,37 @@
     };
 
     function renderAdminItemsTable() {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat] || [];
+      const list = getAdminItemList(currentAdminItemCat);
+      const isGameItem = currentAdminItemCat === "game_item";
+      const isEffectCat = currentAdminItemCat === "effect";
+      const attrHead = document.getElementById("adminItemAttrColHead");
+      if (attrHead) attrHead.textContent = isGameItem ? "아이템 설명" : "메인 색상";
       const tbody = document.getElementById("adminItemsTbody");
       tbody.innerHTML = list
         .map(
           (item, idx) => `
         <tr>
-          <td><code>${item.id}</code></td>
-          <td><input type="text" class="text-input" id="itemName_${idx}" value="${item.name}" style="padding:5px 8px; font-size:0.8rem;" /></td>
-          <td><input type="number" class="text-input" id="itemPrice_${idx}" value="${item.price}" style="padding:5px 8px; font-size:0.8rem;" /></td>
-          <td><input type="text" class="text-input" id="itemColor_${idx}" value="${item.color || item.main || ""}" placeholder="#hex" style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td><code>${item.id}</code>${item.purchasable === false && !isEffectCat ? `<div style="font-size:0.68rem; color:#be123c; font-weight:900;">(출석한정)</div>` : isEffectCat ? `<div style="font-size:0.68rem; color:#b45309; font-weight:900;">(황금주화)</div>` : ""}</td>
+          <td><input type="text" class="text-input" id="itemName_${idx}" value="${escapeMdHtml(item.name)}" ${isEffectCat ? "disabled" : ""} style="padding:5px 8px; font-size:0.8rem;" /></td>
+          <td><input type="number" class="text-input" id="itemPrice_${idx}" value="${item.price}" ${isEffectCat ? "disabled" : ""} style="padding:5px 8px; font-size:0.8rem;" /></td>
           <td>
-            <button class="btn btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="saveAdminItemRow(${idx})">☁️ 저장</button>
-            <button class="btn" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="deleteAdminItemRow(${idx})">삭제</button>
+            ${
+              isGameItem
+                ? `<input type="text" class="text-input" id="itemColor_${idx}" value="${escapeMdHtml(String(item.desc || "").replace(/\n/g, " "))}" placeholder="아이템 설명" style="padding:5px 8px; font-size:0.75rem;" />`
+                : `<input type="text" class="text-input" id="itemColor_${idx}" value="${escapeMdHtml(item.color || item.main || "")}" placeholder="#hex" ${isEffectCat ? "disabled" : ""} style="padding:5px 8px; font-size:0.8rem;" />`
+            }
+          </td>
+          <td>
+            ${
+              isEffectCat
+                ? `<span style="font-size:0.72rem; color:#64748b; font-weight:800;">DB 카탈로그 관리</span>`
+                : `<button class="btn btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="saveAdminItemRow(${idx})">☁️ 저장</button>
+            ${
+              isGameItem
+                ? ""
+                : `<button class="btn" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="deleteAdminItemRow(${idx})">삭제</button>`
+            }`
+            }
           </td>
         </tr>
       `
@@ -948,21 +1662,35 @@
     }
 
     window.saveAdminItemRow = async function (idx) {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      if (currentAdminItemCat === "effect") {
+        gameAlert("이펙트 가격(황금주화)은 Supabase `v3_effect_catalog` 테이블에서 보안 관리됩니다.");
+        return;
+      }
+      const list = getAdminItemList(currentAdminItemCat);
       if (!list || !list[idx]) return;
       list[idx].name = document.getElementById(`itemName_${idx}`).value.trim();
       list[idx].price = Number(document.getElementById(`itemPrice_${idx}`).value) || 0;
-      const col = document.getElementById(`itemColor_${idx}`).value.trim();
-      if (col) {
-        if (list[idx].main !== undefined) list[idx].main = col;
-        else list[idx].color = col;
+      const colOrDesc = document.getElementById(`itemColor_${idx}`).value.trim();
+      if (currentAdminItemCat === "game_item") {
+        if (colOrDesc) list[idx].desc = colOrDesc;
+      } else if (colOrDesc) {
+        if (list[idx].main !== undefined) list[idx].main = colOrDesc;
+        else list[idx].color = colOrDesc;
       }
       await persistAdminConfigToServer();
       gameAlert(`✅ [${list[idx].name}] 아이템 가격/설정이 수파베이스에 저장되었습니다!`);
     };
 
     window.deleteAdminItemRow = function (idx) {
-      const list = AVATAR_SHOP_ITEMS[currentAdminItemCat];
+      if (currentAdminItemCat === "effect") {
+        gameAlert("이펙트는 DB `v3_effect_catalog`와 연동되어 삭제할 수 없습니다.");
+        return;
+      }
+      if (currentAdminItemCat === "game_item") {
+        gameAlert("게임 아이템 6종은 인게임 시스템과 연동되어 있어 삭제할 수 없습니다. (가격·이름·설명 수정만 지원)");
+        return;
+      }
+      const list = getAdminItemList(currentAdminItemCat);
       if (!list || !list[idx]) return;
       gameConfirm(`[${list[idx].name}] 아이템을 상점에서 삭제할까요?`, async () => {
         list.splice(idx, 1);
@@ -972,6 +1700,14 @@
     };
 
     window.openAddItemModal = function () {
+      if (currentAdminItemCat === "effect") {
+        gameAlert("이펙트는 Supabase `v3_effect_catalog`와 렌더러가 1:1 연동되어 여기서는 신규 추가할 수 없습니다.");
+        return;
+      }
+      if (currentAdminItemCat === "game_item") {
+        gameAlert("게임 아이템 신규 추가는 전용 인게임 효과가 필요하여 현재 기존 6종 가격/설명 수정만 지원됩니다.");
+        return;
+      }
       gamePrompt(`[${currentAdminItemCat}] 카테고리에 추가할 새 아이템 이름을 입력하세요:`, "신규 한정판 파츠", name => {
         if (!name) return;
         gamePrompt("아이템 가격(CD)을 입력하세요:", "80", async priceStr => {
@@ -993,6 +1729,197 @@
     };
 
     // ==================== 3. 계정 정보 및 초기화 관리 ====================
+    let adminUsersCache = [];
+    const adminGiftSelectedIds = new Set();
+    let adminGiftDraftItems = [];
+
+    const ADMIN_GIFTS_SETUP_SQL = `-- [음악왕 V3.1] 운영자 선물(동전·황금주화·이펙트 포함) 테이블 / 보안 트리거 / 수령 RPC SQL
+CREATE TABLE IF NOT EXISTS public.admin_gifts (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  target_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  sender_nickname TEXT NOT NULL DEFAULT '관리자',
+  title TEXT NOT NULL DEFAULT '운영자 선물',
+  message TEXT NOT NULL DEFAULT '',
+  reward_cd INTEGER NOT NULL DEFAULT 0,
+  reward_exp INTEGER NOT NULL DEFAULT 0,
+  reward_arcade_coins INTEGER NOT NULL DEFAULT 0,
+  reward_golden_coins INTEGER NOT NULL DEFAULT 0,
+  reward_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  claimed_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.admin_gifts
+  ADD COLUMN IF NOT EXISTS reward_arcade_coins INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS reward_golden_coins INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_admin_gifts_target_unclaimed
+  ON public.admin_gifts (target_user_id, created_at DESC)
+  WHERE claimed_at IS NULL;
+
+ALTER TABLE public.admin_gifts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "admin_gifts_select_policy" ON public.admin_gifts;
+CREATE POLICY "admin_gifts_select_policy"
+  ON public.admin_gifts FOR SELECT TO authenticated
+  USING (
+    target_user_id = auth.uid()
+    OR auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+  );
+
+DROP POLICY IF EXISTS "admin_gifts_insert_admin_only" ON public.admin_gifts;
+CREATE POLICY "admin_gifts_insert_admin_only"
+  ON public.admin_gifts FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+  );
+
+DROP POLICY IF EXISTS "admin_gifts_update_claim_policy" ON public.admin_gifts;
+CREATE POLICY "admin_gifts_update_claim_policy"
+  ON public.admin_gifts FOR UPDATE TO authenticated
+  USING (
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+    OR (target_user_id = auth.uid() AND claimed_at IS NULL)
+  )
+  WITH CHECK (
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+    OR (target_user_id = auth.uid() AND claimed_at IS NOT NULL)
+  );
+
+DROP POLICY IF EXISTS "admin_gifts_delete_admin_only" ON public.admin_gifts;
+CREATE POLICY "admin_gifts_delete_admin_only"
+  ON public.admin_gifts FOR DELETE TO authenticated
+  USING (
+    auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid
+  );
+
+CREATE OR REPLACE FUNCTION public.protect_admin_gift_claim()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() = '8795e0a0-20f2-4134-8b4c-2400f0c27465'::uuid THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.target_user_id IS DISTINCT FROM OLD.target_user_id
+     OR NEW.sender_nickname IS DISTINCT FROM OLD.sender_nickname
+     OR NEW.title IS DISTINCT FROM OLD.title
+     OR NEW.message IS DISTINCT FROM OLD.message
+     OR NEW.reward_cd IS DISTINCT FROM OLD.reward_cd
+     OR NEW.reward_exp IS DISTINCT FROM OLD.reward_exp
+     OR NEW.reward_arcade_coins IS DISTINCT FROM OLD.reward_arcade_coins
+     OR NEW.reward_golden_coins IS DISTINCT FROM OLD.reward_golden_coins
+     OR NEW.reward_items IS DISTINCT FROM OLD.reward_items
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at
+     OR OLD.claimed_at IS NOT NULL
+     OR NEW.claimed_at IS NULL THEN
+    RAISE EXCEPTION 'Only claimed_at can be set once by the gift recipient';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.claim_admin_gifts(p_gift_ids BIGINT[])
+ RETURNS SETOF public.admin_gifts
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_arcade INTEGER := 0;
+  v_golden INTEGER := 0;
+  v_owned JSONB := '[]'::jsonb;
+  v_add_arcade INTEGER := 0;
+  v_add_golden INTEGER := 0;
+  v_gift public.admin_gifts%ROWTYPE;
+  v_item JSONB;
+  v_eff_id TEXT;
+  v_effects_changed BOOLEAN := FALSE;
+  v_claimed_count INTEGER := 0;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'AUTH_REQUIRED';
+  END IF;
+
+  IF p_gift_ids IS NULL OR COALESCE(array_length(p_gift_ids, 1), 0) = 0 THEN
+    RETURN;
+  END IF;
+
+  SELECT COALESCE(arcade_coins, 0), COALESCE(golden_coins, 0), COALESCE(owned_effects, '[]'::jsonb)
+    INTO v_arcade, v_golden, v_owned
+  FROM public.profiles
+  WHERE id = v_uid
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'PROFILE_NOT_FOUND';
+  END IF;
+
+  IF jsonb_typeof(v_owned) IS DISTINCT FROM 'array' THEN
+    v_owned := '[]'::jsonb;
+  END IF;
+
+  FOR v_gift IN
+    WITH claimed AS (
+      UPDATE public.admin_gifts
+      SET claimed_at = NOW()
+      WHERE id = ANY(p_gift_ids)
+        AND target_user_id = v_uid
+        AND claimed_at IS NULL
+      RETURNING *
+    )
+    SELECT * FROM claimed ORDER BY id ASC
+  LOOP
+    v_claimed_count := v_claimed_count + 1;
+    v_add_arcade := v_add_arcade + GREATEST(0, COALESCE(v_gift.reward_arcade_coins, 0));
+    v_add_golden := v_add_golden + GREATEST(0, COALESCE(v_gift.reward_golden_coins, 0));
+
+    IF jsonb_typeof(COALESCE(v_gift.reward_items, '[]'::jsonb)) = 'array' THEN
+      FOR v_item IN
+        SELECT value
+        FROM jsonb_array_elements(v_gift.reward_items) AS t(value)
+      LOOP
+        IF jsonb_typeof(v_item) = 'object'
+           AND (COALESCE(v_item->>'kind', '') = 'effect' OR COALESCE(v_item->>'category', '') = 'effect') THEN
+          v_eff_id := NULLIF(btrim(COALESCE(v_item->>'id', '')), '');
+          IF v_eff_id IS NOT NULL AND v_eff_id <> 'none' AND NOT (v_owned ? v_eff_id) THEN
+            v_owned := v_owned || to_jsonb(v_eff_id);
+            v_effects_changed := TRUE;
+          END IF;
+        END IF;
+      END LOOP;
+    END IF;
+
+    RETURN NEXT v_gift;
+  END LOOP;
+
+  IF v_claimed_count > 0 AND (v_add_arcade > 0 OR v_add_golden > 0 OR v_effects_changed) THEN
+    UPDATE public.profiles
+    SET arcade_coins = GREATEST(0, COALESCE(arcade_coins, 0)) + v_add_arcade,
+        golden_coins = GREATEST(0, COALESCE(golden_coins, 0)) + v_add_golden,
+        owned_effects = v_owned,
+        updated_at = NOW()
+    WHERE id = v_uid;
+  END IF;
+
+  RETURN;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.claim_admin_gifts(BIGINT[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claim_admin_gifts(BIGINT[]) TO authenticated;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_gifts;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;`;
+
     async function loadAdminUsers() {
       const tbody = document.getElementById("adminUsersTbody");
       if (!sbClient) return;
@@ -1004,29 +1931,406 @@
         .neq("nickname", "__ADMIN_CONFIG__")
         .order("updated_at", { ascending: false });
 
-      if (!users || users.length === 0) {
+      adminUsersCache = Array.isArray(users) ? users : [];
+      renderAdminGiftUserChecklist();
+
+      if (adminUsersCache.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">가입된 유저 계정이 없습니다.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = users
-        .map(
-          u => `
+      tbody.innerHTML = adminUsersCache
+        .map(u => {
+          const safeId = escapeJsSingleArg(u.id);
+          const safeNick = escapeJsSingleArg(u.nickname || "유저");
+          return `
         <tr>
-          <td><strong>${u.nickname}</strong></td>
+          <td><strong>${escapeMdHtml(u.nickname)}</strong></td>
           <td>${u.avatar_config?.gender === "female" ? "👧 여자" : "👦 남자"}</td>
-          <td style="font-size:0.78rem; color:var(--text-sub);">${u.bio || ""}</td>
+          <td style="font-size:0.78rem; color:var(--text-sub);">${escapeMdHtml(u.bio || "")}</td>
           <td><strong style="color:#b45309;">💿 ${u.cd_coins ?? 0}</strong></td>
           <td style="font-size:0.75rem; color:var(--text-sub);">${u.updated_at ? new Date(u.updated_at).toLocaleString() : "-"}</td>
           <td>
-            <button class="btn btn-gold" style="padding:4px 7px; font-size:0.72rem;" onclick="adminGiveCd('${u.id}', '${u.nickname}', ${u.cd_coins || 0})">💿 CD설정</button>
-            <button class="btn" style="padding:4px 7px; font-size:0.72rem; color:var(--danger);" onclick="adminResetAccount('${u.id}', '${u.nickname}')">🔄 계정초기화</button>
+            <button class="btn btn-primary" style="padding:4px 7px; font-size:0.72rem;" onclick="adminQuickGiftToUser('${safeId}')">🎁 선물</button>
+            <button class="btn btn-gold" style="padding:4px 7px; font-size:0.72rem;" onclick="adminGiveCd('${safeId}', '${safeNick}', ${u.cd_coins || 0})">💿 CD설정</button>
+            <button class="btn" style="padding:4px 7px; font-size:0.72rem; color:var(--danger);" onclick="adminResetAccount('${safeId}', '${safeNick}')">🔄 계정초기화</button>
           </td>
         </tr>
-      `
+      `;
+        })
+        .join("");
+    }
+
+    window.adminQuickGiftToUser = function (uid) {
+      adminGiftSelectedIds.clear();
+      if (uid) adminGiftSelectedIds.add(String(uid));
+      switchAdminTab("gifts");
+    };
+
+    window.toggleAdminGiftsSqlPanel = function () {
+      const el = document.getElementById("adminGiftsSqlPanel");
+      if (el) el.classList.toggle("hidden");
+    };
+
+    window.copyAdminGiftsSql = async function () {
+      try {
+        await navigator.clipboard.writeText(ADMIN_GIFTS_SETUP_SQL);
+        gameAlert("📋 Supabase `admin_gifts` SQL이 복사되었습니다!\nSupabase SQL Editor에 붙여넣고 Run 해주세요.");
+      } catch (e) {
+        gameAlert("복사 권한이 없습니다. 위 회색 SQL 상자 내용을 직접 선택해 복사해주세요.");
+      }
+    };
+
+    function getFilteredAdminGiftUsers() {
+      const kw = (document.getElementById("adminGiftUserSearch")?.value || "").trim().toLowerCase();
+      return (adminUsersCache || []).filter(u => {
+        if (!kw) return true;
+        return String(u.nickname || "").toLowerCase().includes(kw);
+      });
+    }
+
+    function updateAdminGiftSelectionUi() {
+      const cnt = adminGiftSelectedIds.size;
+      const badge = document.getElementById("adminGiftSelectedCountBadge");
+      if (badge) badge.textContent = `${cnt}명 선택됨`;
+      const btn = document.getElementById("adminGiftSendSubmitBtn");
+      if (btn) {
+        btn.textContent = cnt > 0 ? `🎁 선택한 ${cnt}명에게 선물 발송하기` : "🎁 받을 유저를 먼저 선택해주세요";
+      }
+    }
+
+    window.renderAdminGiftUserChecklist = function () {
+      const box = document.getElementById("adminGiftUserChecklist");
+      if (!box) return;
+      const filtered = getFilteredAdminGiftUsers();
+      if (filtered.length === 0) {
+        box.innerHTML = `<div style="grid-column:1 / -1; text-align:center; padding:16px; font-size:0.8rem; color:var(--text-sub);">조건에 맞는 유저가 없습니다.</div>`;
+        updateAdminGiftSelectionUi();
+        return;
+      }
+      box.innerHTML = filtered
+        .map(u => {
+          const uid = String(u.id);
+          const checked = adminGiftSelectedIds.has(uid);
+          const lvNum = typeof getLevelInfo === "function" ? getLevelInfo(Number(u.avatar_config?._exp) || 0).level : 1;
+          return `
+            <label class="gift-user-chk-card ${checked ? "is-checked" : ""}">
+              <input type="checkbox" ${checked ? "checked" : ""} onchange="toggleAdminGiftUser('${escapeJsSingleArg(uid)}', this.checked)" />
+              <div style="min-width:0; flex:1;">
+                <div style="font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeMdHtml(u.nickname || "도전자")}${u.nickname === "관리자" ? " 🛠️" : ""}</div>
+                <div style="font-size:0.68rem; color:var(--text-sub);">Lv.${lvNum} · 💿 ${(u.cd_coins ?? 0).toLocaleString()}</div>
+              </div>
+            </label>
+          `;
+        })
+        .join("");
+      updateAdminGiftSelectionUi();
+    };
+
+    window.toggleAdminGiftUser = function (uid, checked) {
+      if (!uid) return;
+      if (checked) adminGiftSelectedIds.add(String(uid));
+      else adminGiftSelectedIds.delete(String(uid));
+      renderAdminGiftUserChecklist();
+    };
+
+    window.selectAllAdminGiftUsers = function (shouldSelect) {
+      const filtered = getFilteredAdminGiftUsers();
+      filtered.forEach(u => {
+        if (shouldSelect) adminGiftSelectedIds.add(String(u.id));
+        else adminGiftSelectedIds.delete(String(u.id));
+      });
+      renderAdminGiftUserChecklist();
+    };
+
+    window.applyGiftReasonPreset = function (title, msg) {
+      const tEl = document.getElementById("adminGiftTitleInput");
+      const mEl = document.getElementById("adminGiftMessageInput");
+      if (tEl) tEl.value = title || "";
+      if (mEl) mEl.value = msg || "";
+    };
+
+    window.addGiftQuickNumber = function (inputId, delta) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      el.value = String(Math.max(0, (Number(el.value) || 0) + Number(delta || 0)));
+    };
+
+    function getAllGiftCatalogGroups() {
+      const groups = [
+        {
+          label: "🎒 게임 아이템 (소모품)",
+          kind: "consumable",
+          cat: "game_item",
+          items: typeof GAME_ITEMS_CATALOG !== "undefined" ? GAME_ITEMS_CATALOG : []
+        },
+        {
+          label: "🪱 낚시 미끼 (소모품)",
+          kind: "consumable",
+          cat: "fishing_bait",
+          items: AVATAR_SHOP_ITEMS.fishing_bait || []
+        },
+        {
+          label: "✨ 캐릭터 이펙트 (황금주화 전용 영구)",
+          kind: "effect",
+          cat: "effect",
+          items: (AVATAR_SHOP_ITEMS.effect || []).filter(i => i.id !== "none")
+        },
+        {
+          label: "🪽 날개 (한정판 포함 영구)",
+          kind: "owned",
+          cat: "wing",
+          items: (AVATAR_SHOP_ITEMS.wing || []).filter(i => i.id !== "none")
+        },
+        {
+          label: "🎣 낚싯대 (영구)",
+          kind: "owned",
+          cat: "fishing_rod",
+          items: AVATAR_SHOP_ITEMS.fishing_rod || []
+        },
+        {
+          label: "👑 모자 (영구)",
+          kind: "owned",
+          cat: "hat",
+          items: (AVATAR_SHOP_ITEMS.hat || []).filter(i => i.id !== "none")
+        },
+        {
+          label: "👕 의상 (영구)",
+          kind: "owned",
+          cat: "outfit",
+          items: AVATAR_SHOP_ITEMS.outfit || []
+        },
+        {
+          label: "🎒 소품 (영구)",
+          kind: "owned",
+          cat: "acc",
+          items: AVATAR_SHOP_ITEMS.acc || []
+        },
+        {
+          label: "💇 헤어 (영구)",
+          kind: "owned",
+          cat: "hair",
+          items: AVATAR_SHOP_ITEMS.hair || []
+        },
+        {
+          label: "😎 얼굴 (영구)",
+          kind: "owned",
+          cat: "face",
+          items: AVATAR_SHOP_ITEMS.face || []
+        },
+        {
+          label: "🏞️ 배경 (영구)",
+          kind: "owned",
+          cat: "bg",
+          items: AVATAR_SHOP_ITEMS.bg || []
+        }
+      ];
+      return groups;
+    }
+
+    function populateAdminGiftItemSelect() {
+      const sel = document.getElementById("adminGiftItemSelect");
+      if (!sel) return;
+      const groups = getAllGiftCatalogGroups();
+      sel.innerHTML = groups
+        .map(g => {
+          const opts = (g.items || [])
+            .map(it => {
+              const val = `${g.kind}::${g.cat}::${it.id}`;
+              const kindTag = g.kind === "consumable" ? "수량" : g.kind === "effect" ? "이펙트" : "영구";
+              return `<option value="${escapeMdHtml(val)}" data-name="${escapeMdHtml(it.name)}">${escapeMdHtml(it.name)} (${kindTag})</option>`;
+            })
+            .join("");
+          return `<optgroup label="${escapeMdHtml(g.label)}">${opts}</optgroup>`;
+        })
+        .join("");
+      onAdminGiftItemSelectChange();
+    }
+
+    window.onAdminGiftItemSelectChange = function () {
+      const sel = document.getElementById("adminGiftItemSelect");
+      const qtyEl = document.getElementById("adminGiftItemQtyInput");
+      if (!sel || !qtyEl) return;
+      const isConsumable = String(sel.value || "").startsWith("consumable::");
+      qtyEl.disabled = !isConsumable;
+      if (!isConsumable) qtyEl.value = "1";
+    };
+
+    function renderAdminGiftDraftItems() {
+      const box = document.getElementById("adminGiftSelectedItemsBox");
+      if (!box) return;
+      if (adminGiftDraftItems.length === 0) {
+        box.innerHTML = `<span style="font-size:0.75rem; color:var(--text-sub);">추가된 아이템 없음 (필요 시 위에서 선택 후 [➕ 아이템 추가])</span>`;
+        return;
+      }
+      box.innerHTML = adminGiftDraftItems
+        .map(
+          (it, idx) => `
+          <span class="gift-draft-chip">
+            <span>${escapeMdHtml(it.name)}${it.kind === "consumable" ? ` ×${it.qty}` : it.kind === "effect" ? " (이펙트)" : " (영구)"}</span>
+            <button type="button" style="border:none; background:none; color:#be123c; font-weight:900; cursor:pointer; padding:0 2px;" onclick="removeAdminGiftDraftItem(${idx})">✕</button>
+          </span>
+        `
         )
         .join("");
     }
+
+    window.addItemToAdminGiftDraft = function () {
+      const sel = document.getElementById("adminGiftItemSelect");
+      const qtyEl = document.getElementById("adminGiftItemQtyInput");
+      if (!sel || !sel.value) return;
+      const [kind, category, id] = sel.value.split("::");
+      const opt = sel.options[sel.selectedIndex];
+      const rawName = (opt && opt.getAttribute("data-name")) || id;
+      const qty = kind === "consumable" ? Math.max(1, Math.min(99, Math.floor(Number(qtyEl?.value) || 1))) : 1;
+
+      const existing = adminGiftDraftItems.find(x => x.id === id && x.kind === kind);
+      if (existing) {
+        if (kind === "consumable") existing.qty = Math.min(99, existing.qty + qty);
+      } else {
+        adminGiftDraftItems.push({ kind, category, id, name: rawName, qty });
+      }
+      renderAdminGiftDraftItems();
+    };
+
+    window.removeAdminGiftDraftItem = function (idx) {
+      adminGiftDraftItems.splice(idx, 1);
+      renderAdminGiftDraftItems();
+    };
+
+    window.submitAdminGiftsBatch = async function () {
+      if (!sbClient) return;
+      const targetIds = Array.from(adminGiftSelectedIds);
+      if (targetIds.length === 0) {
+        gameAlert("먼저 받을 유저를 1명 이상 체크해주세요!");
+        return;
+      }
+      const title = (document.getElementById("adminGiftTitleInput")?.value || "").trim() || "운영자 선물";
+      const message = (document.getElementById("adminGiftMessageInput")?.value || "").trim();
+      const rewardCd = Math.max(0, Math.floor(Number(document.getElementById("adminGiftCdInput")?.value) || 0));
+      const rewardExp = Math.max(0, Math.floor(Number(document.getElementById("adminGiftExpInput")?.value) || 0));
+      const rewardArcadeCoins = Math.max(0, Math.floor(Number(document.getElementById("adminGiftArcadeCoinInput")?.value) || 0));
+      const rewardGoldenCoins = Math.max(0, Math.floor(Number(document.getElementById("adminGiftGoldenCoinInput")?.value) || 0));
+      const rewardItems = adminGiftDraftItems.map(x => ({ ...x }));
+
+      if (rewardCd <= 0 && rewardExp <= 0 && rewardArcadeCoins <= 0 && rewardGoldenCoins <= 0 && rewardItems.length === 0) {
+        gameAlert("CD, EXP, 동전, 황금주화, 또는 아이템 중 최소 1개 이상 보상을 구성해주세요!");
+        return;
+      }
+
+      const previewParts = [];
+      if (rewardCd > 0) previewParts.push(`💿 ${rewardCd.toLocaleString()} CD`);
+      if (rewardExp > 0) previewParts.push(`✨ ${rewardExp.toLocaleString()} EXP`);
+      if (rewardArcadeCoins > 0) previewParts.push(`🎟️ 동전 ${rewardArcadeCoins.toLocaleString()}개`);
+      if (rewardGoldenCoins > 0) previewParts.push(`🪙 황금주화 ${rewardGoldenCoins.toLocaleString()}개`);
+      rewardItems.forEach(it => previewParts.push(`${it.kind === "effect" ? "✨" : "🎒"} ${it.name}${it.kind === "consumable" ? ` ×${it.qty}` : ""}`));
+
+      gameConfirm(
+        `총 ${targetIds.length}명의 유저에게 아래 선물을 발송할까요?\n\n[사유] ${title}\n[내용] ${previewParts.join(" · ")}`,
+        async () => {
+          const rows = targetIds.map(uid => ({
+            target_user_id: uid,
+            sender_nickname: "관리자",
+            title,
+            message,
+            reward_cd: rewardCd,
+            reward_exp: rewardExp,
+            reward_arcade_coins: rewardArcadeCoins,
+            reward_golden_coins: rewardGoldenCoins,
+            reward_items: rewardItems
+          }));
+
+          const { error } = await sbClient.from("admin_gifts").insert(rows);
+          if (error) {
+            const sqlPanel = document.getElementById("adminGiftsSqlPanel");
+            if (sqlPanel) sqlPanel.classList.remove("hidden");
+            gameAlert(`선물 발송 실패: ${error.message}\n(Supabase에서 admin_gifts V3.1 컬럼/RPC SQL을 실행했는지 확인해주세요.)`);
+            return;
+          }
+
+          document.getElementById("adminGiftCdInput").value = "0";
+          document.getElementById("adminGiftExpInput").value = "0";
+          const arcEl = document.getElementById("adminGiftArcadeCoinInput");
+          if (arcEl) arcEl.value = "0";
+          const goldEl = document.getElementById("adminGiftGoldenCoinInput");
+          if (goldEl) goldEl.value = "0";
+          adminGiftDraftItems = [];
+          renderAdminGiftDraftItems();
+          await loadAdminGiftsHistory();
+          gameAlert(`🎉 총 ${targetIds.length}명에게 [${title}] 선물을 발송했습니다!`);
+        },
+        "🎁 운영자 선물 발송 확인"
+      );
+    };
+
+    async function loadAdminGiftsHistory() {
+      const tbody = document.getElementById("adminGiftsHistoryTbody");
+      if (!tbody || !sbClient) return;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">발송 내역 불러오는 중...</td></tr>`;
+
+      try {
+        const { data, error } = await sbClient
+          .from("admin_gifts")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (error) {
+          const sqlPanel = document.getElementById("adminGiftsSqlPanel");
+          if (sqlPanel) sqlPanel.classList.remove("hidden");
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--danger);">선물 내역을 조회할 수 없습니다 (${escapeMdHtml(error.message)}). 상단 [🛠️ DB SQL 보기/복사]를 확인해주세요.</td></tr>`;
+          return;
+        }
+
+        const nickMap = new Map((adminUsersCache || []).map(u => [String(u.id), u.nickname]));
+        const list = data || [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:18px; color:var(--text-sub);">아직 발송한 선물이 없습니다.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list
+          .map(g => {
+            const nick = nickMap.get(String(g.target_user_id)) || String(g.target_user_id || "-").slice(0, 8);
+            const sentAt = g.created_at ? new Date(g.created_at).toLocaleString() : "-";
+            const parts = [];
+            if (g.reward_cd > 0) parts.push(`💿+${Number(g.reward_cd).toLocaleString()}`);
+            if (g.reward_exp > 0) parts.push(`✨+${Number(g.reward_exp).toLocaleString()}`);
+            if (g.reward_arcade_coins > 0) parts.push(`🎟️+${Number(g.reward_arcade_coins).toLocaleString()}`);
+            if (g.reward_golden_coins > 0) parts.push(`🪙+${Number(g.reward_golden_coins).toLocaleString()}`);
+            (Array.isArray(g.reward_items) ? g.reward_items : []).forEach(it => {
+              parts.push(`${it.kind === "effect" ? "✨" : "🎒"}${escapeMdHtml(it.name || it.id)}${Number(it.qty) > 1 ? `×${it.qty}` : ""}`);
+            });
+            const statusHtml = g.claimed_at
+              ? `<span style="color:#15803d; font-weight:900; font-size:0.74rem;">✅ 수령완료</span><div style="font-size:0.65rem; color:var(--text-sub);">${new Date(g.claimed_at).toLocaleDateString()}</div>`
+              : `<span style="color:#b45309; font-weight:900; font-size:0.74rem;">⏳ 미수령</span>`;
+            return `
+              <tr>
+                <td style="font-size:0.72rem; color:var(--text-sub);">${escapeMdHtml(sentAt)}</td>
+                <td><strong>${escapeMdHtml(nick)}</strong></td>
+                <td style="font-size:0.76rem;"><strong>${escapeMdHtml(g.title || "")}</strong>${g.message ? `<div style="color:var(--text-sub);">${escapeMdHtml(g.message)}</div>` : ""}</td>
+                <td style="font-size:0.75rem; font-weight:800;">${parts.join(" · ") || "-"}</td>
+                <td>${statusHtml}</td>
+                <td><button type="button" class="btn" style="padding:3px 7px; font-size:0.72rem; color:var(--danger);" onclick="deleteAdminGiftHistoryRow(${Number(g.id)})">삭제</button></td>
+              </tr>
+            `;
+          })
+          .join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">조회 오류</td></tr>`;
+      }
+    }
+
+    window.deleteAdminGiftHistoryRow = function (giftId) {
+      gameConfirm("이 선물 내역을 삭제할까요? (미수령 상태라면 유저에게서도 회수됩니다)", async () => {
+        const { error } = await sbClient.from("admin_gifts").delete().eq("id", Number(giftId));
+        if (error) {
+          gameAlert("삭제 실패: " + error.message);
+          return;
+        }
+        await loadAdminGiftsHistory();
+      });
+    };
 
     window.adminGiveCd = function (uid, nick, curCd) {
       gamePrompt(`[${nick}] 유저의 보유 CD를 몇 개로 설정할까요?`, String(curCd), async val => {

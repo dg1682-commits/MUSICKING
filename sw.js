@@ -5,18 +5,23 @@
 // - Supabase / iTunes / 외부 CDN: 실시간 통신 보장을 위해 캐시하지 않고 네트워크 직통
 // ============================================================================
 
-const CACHE_NAME = "musicking-pwa-v20.0";
+const CACHE_NAME = "musicking-pwa-v25.1";
 const APP_SHELL_FILES = [
   "./",
   "./index.html",
-  "./style.css?v=20.0",
-  "./data.js?v=20.0",
-  "./pixel_avatar.js?v=20.0",
-  "./online.js?v=20.0",
-  "./fishing.js?v=20.0",
-  "./app.js?v=20.0",
+  "./style.css?v=25.1",
+  "./data.js?v=25.1",
+  "./pixel_avatar_v3.js?v=25.1",
+  "./pixel_avatar.js?v=25.1",
+  "./online.js?v=25.1",
+  "./fishing.js?v=25.1",
+  "./arcade_sfx.js?v=25.1",
+  "./arcade_games.js?v=25.1",
+  "./arcade.js?v=25.1",
+  "./app.js?v=25.1",
   "./manifest.json",
-  "./bgm/click.wav"
+  "./bgm/click.wav",
+  "./myad/ad1.png?v=20.0"
 ];
 
 self.addEventListener("install", event => {
@@ -53,9 +58,17 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // 같은 출처의 정적/HTML 파일은 Network-First 전략으로 항상 최신 반영 + 오프라인 폴백 지원
+  // 같은 출처의 HTML/내비게이션은 브라우저 HTTP 캐시(max-age)까지 우회해 최신 반영, 정적 리소스는 Network-First
+  const isHtmlRequest =
+    req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith(".html");
+  const networkFetch = isHtmlRequest
+    ? fetch(req.url, { cache: "no-cache", credentials: "same-origin" }).then(res =>
+        res && res.redirected ? Response.redirect(res.url, 302) : res
+      )
+    : fetch(req);
+
   event.respondWith(
-    fetch(req)
+    networkFetch
       .then(networkRes => {
         if (networkRes && networkRes.status === 200) {
           const cloned = networkRes.clone();

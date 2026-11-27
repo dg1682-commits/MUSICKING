@@ -39,7 +39,11 @@ const fishingState = {
   bgAnimFrame: null,
   lastTickAt: 0,
   lastServerSyncAt: 0,
+  bgEnteredAt: 0,
   msCarry: 0,
+  expCarry: 0,
+  cdCarry: 0,
+  baitSecCarry: 0,
   daily: {
     date: "",
     seconds: 0,
@@ -72,6 +76,8 @@ function getPublicFishingAvatarConfig(rawCfg = null) {
       face: clean.face,
       outfit: clean.outfit,
       acc: clean.acc,
+      wing: clean.wing || "none",
+      effect: clean.effect || "none",
       fishingRod: clean.fishingRod || "none",
       fishingBait: clean.fishingBait || "none"
     };
@@ -131,11 +137,11 @@ function isFishing2xBuffActive(nowTs = Date.now()) {
   return ds.fishing2xKstDate === curCycle && Number(ds.fishing2xExpiresAt || 0) > nowTs;
 }
 
-function getFishingBuffMultipliers() {
+function getFishingBuffMultipliers(nowTs = Date.now()) {
   // [V2.0] 낚싯대(영구 EXP 버프) + 소모품 미끼(보유 > 0일 때만 CD 버프) + 광고 2배 버프
   let expMultiplier = 1.0;
   let cdMultiplier = 1.0;
-  const is2xActive = isFishing2xBuffActive();
+  const is2xActive = isFishing2xBuffActive(nowTs);
 
   if (typeof AVATAR_SHOP_ITEMS !== "undefined" && typeof userState !== "undefined" && userState.avatarConfig) {
     const rodItem = (AVATAR_SHOP_ITEMS.fishing_rod || []).find(r => r.id === userState.avatarConfig.fishingRod);
@@ -175,6 +181,8 @@ function computeCumulativeFishingRewards(secondsInCycle, multipliers = getFishin
 function loadFishingDailyFromUserState(nowTs = Date.now()) {
   const curKey = getFishingCycleKey(nowTs);
   const saved = (typeof userState !== "undefined" && userState.fishingDaily) || null;
+  fishingState.expCarry = 0;
+  fishingState.cdCarry = 0;
   if (saved && saved.date === curKey) {
     fishingState.daily = {
       date: curKey,
@@ -233,18 +241,20 @@ function renderFishingHud() {
     cdFillEl.style.width = `${pct.toFixed(1)}%`;
   }
 
+  const noAdMode = typeof isPlayNoAdMode === "function" && isPlayNoAdMode();
   const buffEl = document.getElementById("fishingBuffBadge");
   if (buffEl) {
     const parts = [];
     if (mults.expMultiplier > 1) parts.push(`🎣EXP+${Math.round((mults.expMultiplier - 1) * 100)}%`);
     if (mults.cdMultiplier > 1) parts.push(`🪱CD+${Math.round((mults.cdMultiplier - 1) * 100)}%`);
-    if (mults.is2xActive) parts.push("⚡광고2배");
+    if (mults.is2xActive) parts.push(noAdMode ? "⚡2배버프" : "⚡광고2배");
     buffEl.textContent = parts.join(" · ");
     buffEl.classList.toggle("hidden", parts.length === 0);
   }
 
   const ad2xBtn = document.getElementById("fishing2xBuffBtn");
   if (ad2xBtn) {
+    ad2xBtn.classList.toggle("is-reward-sparkle", !mults.is2xActive);
     if (mults.is2xActive && typeof userState !== "undefined" && userState.dailyState) {
       const remSec = Math.max(0, Math.ceil((Number(userState.dailyState.fishing2xExpiresAt) - Date.now()) / 1000));
       const mm = String(Math.floor(remSec / 60)).padStart(2, "0");
@@ -253,7 +263,7 @@ function renderFishingHud() {
       ad2xBtn.textContent = `⚡ 2배 버프중 (${mm}:${ss})`;
     } else {
       ad2xBtn.disabled = false;
-      ad2xBtn.textContent = "📺 30분 CD 2배";
+      ad2xBtn.textContent = noAdMode ? "⚡ 30분 CD 2배" : "📺 30분 CD 2배";
     }
   }
 
@@ -283,73 +293,114 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
     return;
   }
 
-  const mults = getFishingBuffMultipliers();
   let changedRewards = false;
   let crossedReset = false;
 
   while (cursor < nowTs) {
     const nextReset = getNextFishingResetTimestampMs(cursor);
-    const segmentEnd = Math.min(nowTs, nextReset);
+    const dayEnd = Math.min(nowTs, nextReset);
     const segKey = getFishingCycleKey(cursor);
 
     if (fishingState.daily.date !== segKey) {
       fishingState.daily = { date: segKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
       fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
       crossedReset = true;
     }
 
-    fishingState.msCarry += segmentEnd - cursor;
-    const deltaSec = Math.floor(fishingState.msCarry / 1000);
-    if (deltaSec > 0) {
-      fishingState.msCarry -= deltaSec * 1000;
-      const nextSec = Math.min(FISHING_MAX_SECONDS_PER_DAY, fishingState.daily.seconds + deltaSec);
-      fishingState.daily.seconds = nextSec;
+    while (cursor < dayEnd) {
+      const is2xAtCursor = isFishing2xBuffActive(cursor);
+      const ad2xExpiresAt =
+        is2xAtCursor && typeof userState !== "undefined" && userState.dailyState
+          ? Number(userState.dailyState.fishing2xExpiresAt || 0)
+          : 0;
+      const chunkEnd = ad2xExpiresAt > cursor && ad2xExpiresAt < dayEnd ? ad2xExpiresAt : dayEnd;
 
-      const calc = computeCumulativeFishingRewards(nextSec, mults);
-      const gainExp = Math.max(0, calc.totalExp - fishingState.daily.earnedExp);
-      const gainCd = Math.max(0, calc.totalCd - fishingState.daily.earnedCd);
+      fishingState.msCarry += chunkEnd - cursor;
+      let chunkSec = Math.floor(fishingState.msCarry / 1000);
+      fishingState.msCarry -= chunkSec * 1000;
 
-      if (gainExp > 0 || gainCd > 0) {
-        fishingState.daily.earnedExp += gainExp;
-        fishingState.daily.earnedCd += gainCd;
-        if (typeof userState !== "undefined") {
-          userState.exp = (Number(userState.exp) || 0) + gainExp;
-          userState.cdCoins = (Number(userState.cdCoins) || 0) + gainCd;
-        }
-        changedRewards = true;
+      if (chunkSec > 0 && typeof window.recordDailyQuestProgress === "function") {
+        try { window.recordDailyQuestProgress("fishing_sec", chunkSec); } catch (e) {}
       }
 
-      // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모
-      if (typeof userState !== "undefined" && userState.avatarConfig) {
-        const curBaitId = userState.avatarConfig.fishingBait;
-        const curBaitCnt = typeof getConsumableCount === "function" ? getConsumableCount(curBaitId) : 0;
-        if (curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
-          fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + deltaSec;
-          while (fishingState.baitSecCarry >= 1800 && getConsumableCount(curBaitId) > 0) {
-            fishingState.baitSecCarry -= 1800;
-            const nextCnt = Math.max(0, getConsumableCount(curBaitId) - 1);
-            userState.inventory[curBaitId] = nextCnt;
-            changedRewards = true;
-            if (nextCnt <= 0) {
-              userState.avatarConfig.fishingBait = "none";
-              if (typeof appendFishingChatLine === "function") {
-                appendFishingChatLine("시스템", "🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
-              }
-              break;
+      while (chunkSec > 0) {
+        const hasAvatarCfg = typeof userState !== "undefined" && userState.avatarConfig;
+        const curBaitId = hasAvatarCfg ? userState.avatarConfig.fishingBait : "none";
+        const curBaitCnt =
+          hasAvatarCfg && curBaitId && curBaitId !== "none" && typeof getConsumableCount === "function"
+            ? getConsumableCount(curBaitId)
+            : 0;
+
+        const remDailySec = Math.max(0, FISHING_MAX_SECONDS_PER_DAY - (fishingState.daily.seconds || 0));
+        let takeSec = chunkSec;
+        if (curBaitCnt > 0 && remDailySec > 0) {
+          const secToBaitStep = Math.max(1, 1800 - (fishingState.baitSecCarry || 0));
+          takeSec = Math.min(chunkSec, remDailySec, secToBaitStep);
+        } else if (remDailySec > 0 && chunkSec > remDailySec) {
+          takeSec = remDailySec;
+        }
+
+        const earnableSec = Math.min(takeSec, remDailySec);
+        if (earnableSec > 0) {
+          const stepMult = getFishingBuffMultipliers(cursor);
+          fishingState.daily.seconds += earnableSec;
+
+          fishingState.expCarry =
+            (fishingState.expCarry || 0) +
+            (earnableSec / FISHING_MAX_SECONDS_PER_DAY) * (FISHING_BASE_MAX_EXP * stepMult.expMultiplier);
+          fishingState.cdCarry =
+            (fishingState.cdCarry || 0) +
+            (earnableSec / FISHING_MAX_SECONDS_PER_DAY) * (FISHING_BASE_MAX_CD * stepMult.cdMultiplier);
+
+          const gainExp = Math.floor(fishingState.expCarry);
+          fishingState.expCarry -= gainExp;
+          const gainCd = Math.floor(fishingState.cdCarry);
+          fishingState.cdCarry -= gainCd;
+
+          if (gainExp > 0 || gainCd > 0) {
+            fishingState.daily.earnedExp += gainExp;
+            fishingState.daily.earnedCd += gainCd;
+            if (typeof userState !== "undefined") {
+              userState.exp = (Number(userState.exp) || 0) + gainExp;
+              userState.cdCoins = (Number(userState.cdCoins) || 0) + gainCd;
             }
+            changedRewards = true;
           }
-        } else {
-          fishingState.baitSecCarry = 0;
+
+          // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모 (일일 6시간 내 적립 시간만 소모)
+          if (hasAvatarCfg && curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
+            fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + earnableSec;
+            if (fishingState.baitSecCarry >= 1800) {
+              fishingState.baitSecCarry -= 1800;
+              const nextCnt = Math.max(0, curBaitCnt - 1);
+              userState.inventory[curBaitId] = nextCnt;
+              changedRewards = true;
+              if (nextCnt <= 0) {
+                userState.avatarConfig.fishingBait = "none";
+                fishingState.baitSecCarry = 0;
+                appendFishingSystemMessage("🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
+              }
+            }
+          } else {
+            fishingState.baitSecCarry = 0;
+          }
         }
+
+        chunkSec -= takeSec;
       }
+
+      cursor = chunkEnd;
     }
 
-    cursor = segmentEnd;
     if (cursor >= nextReset) {
       // 오전 06:00 정각 돌파 시 미사용 잔여 시간 즉시 폐기하고 00:00:00으로 새 주기 시작!
       const newKey = getFishingCycleKey(nextReset);
       fishingState.daily = { date: newKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
       fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
       crossedReset = true;
     }
   }
@@ -744,6 +795,10 @@ function syncFishingPlayersDOM() {
   // 나간 유저 DOM 정리
   fishingState.playerNodeMap.forEach((node, key) => {
     if (!activeKeys.has(key)) {
+      if (typeof AvatarRenderEngine !== "undefined") {
+        const oldCv = node.querySelector(".fishing-player-canvas");
+        if (oldCv) AvatarRenderEngine.unregisterCanvas(oldCv);
+      }
       node.remove();
       fishingState.playerNodeMap.delete(key);
       fishingState.playerAvatarKeys.delete(key);
@@ -786,15 +841,25 @@ function syncFishingPlayersDOM() {
 
     const nickEl = node.querySelector(".fishing-player-nick");
     if (nickEl) {
-      nickEl.textContent = p.mode === "bg" ? `${p.nickname || "도전자"} 💤` : p.nickname || "도전자";
+      const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+      const rankHtml = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 13 }) : "";
+      const nickSafe = escapeFishingHtml(p.nickname || "도전자");
+      nickEl.innerHTML = `${rankHtml}${rankHtml ? " " : ""}${nickSafe}${p.mode === "bg" ? " 💤" : ""}`;
     }
 
-    // 아바타가 변경되었을 때만 480x480 캔버스 렌더링 (6시간 배터리 최적화!)
+    // 아바타가 변경되었을 때만 480x480 캔버스 렌더링 (V3.2 무릎 바운스 + 눈 깜빡임 + 낚싯대, 12.5fps 최적화)
     if (fishingState.playerAvatarKeys.get(p.key) !== cfgSig) {
       fishingState.playerAvatarKeys.set(p.key, cfgSig);
       const cv = node.querySelector(".fishing-player-canvas");
       if (cv && typeof renderPixelAvatar === "function") {
-        renderPixelAvatar(cv, cfg, { transparentBg: true, matchCssAspect: false });
+        renderPixelAvatar(cv, cfg, {
+          transparentBg: true,
+          matchCssAspect: false,
+          maxEffectParticles: 6,
+          idleAnim: true,
+          fishingIdle: true,
+          idleFps: 12.5
+        });
       }
     }
   });
@@ -818,7 +883,10 @@ function renderFishingOnlineUsersList(playersList = null) {
       const safeId = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.userId || "") : "";
       const safeNick = typeof escapeJsSingleArg === "function" ? escapeJsSingleArg(p.nickname || "") : "";
       const isMe = userState.id && p.userId === userState.id;
-      return `<div class="fishing-user-item${isMe ? " is-me" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}">${escapeFishingHtml(p.nickname || "도전자")}${p.mode === "bg" ? " 💤" : ""}</div>`;
+      const isBg = p.mode === "bg";
+      const pExp = isMe && typeof userState !== "undefined" ? (Number(userState.exp) || 0) : (Number(p.exp) || 0);
+      const rankHtml = typeof renderMusicRankIconHtml === "function" ? renderMusicRankIconHtml(pExp, { isExp: true, size: 15 }) : "";
+      return `<div class="fishing-user-item${isMe ? " is-me" : ""}${isBg ? " is-afk" : ""}" onclick="event.stopPropagation(); ${isMe ? "openMyProfileModal()" : `inspectOtherUser('${safeId}', '${safeNick}')`}"><span class="fishing-user-nick">${rankHtml}${rankHtml ? " " : ""}${escapeFishingHtml(p.nickname || "도전자")}</span>${isBg ? `<span class="fishing-user-afk">(잠수중)</span>` : ""}</div>`;
     })
     .join("");
 }
@@ -890,6 +958,32 @@ function appendFishingSystemMessage(text) {
   appendFishingChatRow(escapeFishingHtml(text), "system-join");
 }
 
+function formatFishingElapsedLabel(totalSec) {
+  const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  if (sec >= 3600) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  }
+  if (sec >= 60) {
+    const m = Math.floor(sec / 60);
+    return `${m}분`;
+  }
+  return `${sec}초`;
+}
+
+function appendFishingBackgroundReturnNotice(elapsedSec, expGain, cdGain) {
+  const sec = Math.max(0, Math.floor(Number(elapsedSec) || 0));
+  const eGain = Math.max(0, Math.floor(Number(expGain) || 0));
+  const cGain = Math.max(0, Math.floor(Number(cdGain) || 0));
+  const parts = [];
+  if (sec > 0) parts.push(`${formatFishingElapsedLabel(sec)} 경과`);
+  if (eGain > 0) parts.push(`+${eGain.toLocaleString()} EXP`);
+  if (cGain > 0) parts.push(`+${cGain.toLocaleString()} CD 정산`);
+  const suffix = parts.length > 0 ? ` (${parts.join(" · ")})` : "";
+  appendFishingSystemMessage(`🔄 잠수 상태에서 복귀했습니다${suffix}`);
+}
+
 function appendFishingUserChat(nick, msg, isMe = false) {
   appendFishingChatRow(
     `<strong class="fishing-chat-nick${isMe ? " is-me" : ""}">${escapeFishingHtml(nick)}:</strong> <span>${escapeFishingHtml(msg)}</span>`,
@@ -933,6 +1027,7 @@ async function trackMyFishingPresence(alsoBroadcastMove = false) {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
+    exp: Number(userState.exp) || 0,
     avatarConfig: cleanAvatar,
     x: fishingState.myPos.x,
     y: fishingState.myPos.y,
@@ -1060,6 +1155,7 @@ async function syncFishingGlobalRosterFromDb() {
         key: r.id,
         userId: r.id,
         nickname: r.nickname || prev?.nickname || "도전자",
+        exp: Number(cfg._exp) || prev?.exp || 0,
         avatarConfig: getPublicFishingAvatarConfig(cfg),
         x: useDbPos ? (Number(live.x) || 50) : prev.x,
         y: useDbPos ? (Number(live.y) || 68) : prev.y,
@@ -1127,7 +1223,8 @@ function stopFishingNetworkSync() {
   }
 }
 
-function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
+function connectFishingRealtimeChannel(isReconnect = false, restorePos = null, opts = {}) {
+  const suppressJoinNotice = Boolean(opts && opts.suppressJoinNotice);
   disconnectFishingRealtimeChannel({ keepPlayers: isReconnect, sendLeaveSignal: false });
 
   const myKey = getMyFishingKey();
@@ -1151,6 +1248,7 @@ function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
     key: myKey,
     userId: userState.id,
     nickname: userState.nickname,
+    exp: Number(userState.exp) || 0,
     avatarConfig: getPublicFishingAvatarConfig(),
     x: fishingState.myPos.x,
     y: fishingState.myPos.y,
@@ -1274,7 +1372,7 @@ function connectFishingRealtimeChannel(isReconnect = false, restorePos = null) {
     .subscribe(async status => {
       if (status === "SUBSCRIBED") {
         await trackMyFishingPresence(isReconnect);
-        if (!isReconnect) {
+        if (!isReconnect && !suppressJoinNotice) {
           appendFishingSystemMessage(`[${userState.nickname || "도전자"}]님이 입장하였습니다`);
         }
         syncFishingGlobalRosterFromDb();
@@ -1323,6 +1421,17 @@ window.sendFishingChat = function () {
   if (!input) return;
   const msg = input.value.trim();
   if (!msg) return;
+
+  if (typeof validateCleanUserText === "function") {
+    const check = validateCleanUserText(msg, { fieldLabel: "낚시터 채팅", spamChannel: "fishing" });
+    if (!check.ok) {
+      if (check.reason === "banned") input.value = "";
+      input.blur();
+      if (typeof gameAlert === "function") gameAlert(check.message, "🚫 채팅 안내");
+      return;
+    }
+  }
+
   input.value = "";
 
   const myKey = getMyFishingKey();
@@ -1353,18 +1462,209 @@ window.sendFishingChat = function () {
 // ============================================================================
 // 5. 2초 로딩 오버레이 · 폰 홈 유지 / 스와이프 강제종료 퇴장 라이프사이클
 // ============================================================================
+let fishingLoadingAnimId = null;
+
 function showFishingLoadingOverlay(labelText) {
   const overlay = document.getElementById("fishingLoadingOverlay");
   const titleEl = document.getElementById("fishingLoadingTitle");
+  const subEl = document.getElementById("fishingLoadingSub");
   const barEl = document.getElementById("fishingLoadingBarFill");
-  const avatarCv = document.getElementById("fishingLoadingAvatar");
+  const sceneCv = document.getElementById("fishingLoadingAvatar");
   if (!overlay) return;
 
+  const isExit = String(labelText || "").includes("나오는");
   if (titleEl) titleEl.textContent = labelText;
-  if (avatarCv && typeof renderPixelAvatar === "function") {
-    const cfg = typeof userState !== "undefined" ? userState.avatarConfig : DEFAULT_AVATAR_CONFIG;
-    renderPixelAvatar(avatarCv, cfg, { transparentBg: true, matchCssAspect: false });
+  if (subEl) subEl.textContent = isExit ? "오늘 낚시 기록을 저장하고 집으로 돌아가는 중!" : "차를 타고 호수로 신나게 달리는 중!";
+
+  if (fishingLoadingAnimId) {
+    cancelAnimationFrame(fishingLoadingAnimId);
+    fishingLoadingAnimId = null;
   }
+
+  if (sceneCv) {
+    const ctx = sceneCv.getContext("2d");
+    const W = sceneCv.width || 400;
+    const H = sceneCv.height || 220;
+
+    // 자동차 창문에 크게 담을 얼굴+머리+모자 전용 오프스크린 베이킹
+    const headOff = document.createElement("canvas");
+    headOff.width = 480;
+    headOff.height = 480;
+    if (typeof renderPixelAvatar === "function") {
+      try {
+        const cfg = typeof userState !== "undefined" ? userState.avatarConfig : DEFAULT_AVATAR_CONFIG;
+        renderPixelAvatar(headOff, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true, headOnly: true });
+      } catch (e) {}
+    }
+
+    const startMs = performance.now();
+    const outline = "#1e1b18";
+    const rrect = (x, y, w, h, r, fill, stroke = outline, lw = 3) => {
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+      else ctx.rect(x, y, w, h);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+    };
+
+    const drawFrame = now => {
+      if (overlay.classList.contains("hidden")) {
+        fishingLoadingAnimId = null;
+        return;
+      }
+      const t = (now - startMs) / 1000;
+      ctx.clearRect(0, 0, W, H);
+
+      // 1) 하늘 + 해
+      const skyG = ctx.createLinearGradient(0, 0, 0, 145);
+      skyG.addColorStop(0, isExit ? "#fb923c" : "#38bdf8");
+      skyG.addColorStop(1, isExit ? "#fef3c7" : "#e0f2fe");
+      ctx.fillStyle = skyG;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = isExit ? "#fde047" : "#fef08a";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(342, 40, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // 2) 구름 (오른쪽 -> 왼쪽 흐르기)
+      for (let i = 0; i < 3; i++) {
+        const cx = ((W + 100) - ((t * 42 + i * 165) % (W + 140))) - 20;
+        const cy = 34 + (i % 2) * 20;
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(cx - 14, cy + 3, 12, Math.PI * 0.5, Math.PI * 1.7);
+        ctx.arc(cx, cy - 5, 16, Math.PI, 0);
+        ctx.arc(cx + 15, cy + 3, 12, Math.PI * 1.3, Math.PI * 0.5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+
+      // 3) 먼 산 & 반짝이는 호수 물길 (오른쪽 -> 왼쪽)
+      for (let i = 0; i < 4; i++) {
+        const hx = ((W + 140) - ((t * 68 + i * 145) % (W + 180))) - 30;
+        ctx.fillStyle = i % 2 === 0 ? "#86efac" : "#4ade80";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(hx, 134, 62, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(0, 130, W, 14);
+
+      // 4) 잔디 갓길 + 나무 + 이정표 (오른쪽 -> 왼쪽 스크롤)
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(0, 140, W, 24);
+      ctx.strokeStyle = outline; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 140); ctx.lineTo(W, 140); ctx.stroke();
+
+      for (let i = 0; i < 4; i++) {
+        const tx = ((W + 90) - ((t * 175 + i * 135) % (W + 140))) - 25;
+        if (i === 1) {
+          // 낚시터/집 이정표 표지판
+          rrect(tx - 2, 102, 6, 44, 2, "#92400e", outline, 2);
+          rrect(tx - 28, 86, 58, 22, 6, "#fef08a", outline, 2.5);
+          ctx.fillStyle = outline;
+          ctx.font = "900 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(isExit ? "🏠 집으로" : "🎣 호수➔", tx + 1, 97);
+        } else {
+          rrect(tx - 4, 114, 8, 32, 2, "#78350e", outline, 2.2);
+          ctx.fillStyle = "#16a34a";
+          ctx.strokeStyle = outline;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(tx, 104, 18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      }
+
+      // 5) 아스팔트 도로 + 중앙선 점선 (오른쪽 -> 왼쪽)
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(0, 162, W, H - 162);
+      ctx.strokeStyle = outline; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(0, 162); ctx.lineTo(W, 162); ctx.stroke();
+
+      const dashOff = (t * 280) % 56;
+      ctx.fillStyle = "#fde047";
+      for (let lx = -dashOff; lx < W + 56; lx += 56) {
+        ctx.fillRect(lx, 188, 28, 5);
+      }
+
+      // 6) 배기구 동글 연기 (왼쪽으로 흘러감)
+      const bounce = Math.sin(t * 20) * 1.8;
+      const carX = 112;
+      const carY = 82 + bounce;
+      for (let p = 0; p < 3; p++) {
+        const age = (t * 2.1 + p * 0.33) % 1;
+        const px = carX - 10 - age * 54;
+        const py = carY + 74 - age * 14 + Math.sin(age * 6) * 3;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 0.72 * (1 - age));
+        ctx.fillStyle = "#f1f5f9";
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(px, py, 5 + age * 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 7) 자동차 본체 (우측 주행, 낚시대 루프랙 장식)
+      if (!isExit) {
+        ctx.strokeStyle = outline; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(carX + 24, carY - 2); ctx.lineTo(carX + 132, carY - 12); ctx.stroke();
+        ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(carX + 24, carY - 2); ctx.lineTo(carX + 132, carY - 12); ctx.stroke();
+      }
+      // 차 윗몸체(캐빈) & 아랫몸체(보닛)
+      rrect(carX + 24, carY + 2, 114, 48, 16, "#fffbeb", outline, 3.5);
+      rrect(carX, carY + 38, 174, 46, 15, "#ef4444", outline, 3.5);
+      // 범퍼 + 헤드라이트 + 후미등
+      rrect(carX + 160, carY + 48, 16, 14, 6, "#fde047", outline, 2.5);
+      rrect(carX - 4, carY + 48, 10, 14, 4, "#fb7185", outline, 2.5);
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillRect(carX + 10, carY + 44, 142, 6);
+
+      // 8) 큼직한 자동차 창문 + 창문 밖으로 얼굴만 큼직하게 내민 내 캐릭터!
+      const winX = carX + 34;
+      const winY = carY + 7;
+      const winW = 94;
+      const winH = 54;
+      rrect(winX, winY, winW, winH, 12, "#bae6fd", outline, 3.5);
+      ctx.save();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(winX + 2, winY + 2, winW - 4, winH - 4, 10);
+      else ctx.rect(winX + 2, winY + 2, winW - 4, winH - 4);
+      ctx.clip();
+      // 480x480 에서 머리·모자 영역(x:82..398, y:36..288)을 창문 안에 크게 꽉 차게 배치!
+      ctx.drawImage(headOff, 82, 36, 316, 252, winX + 4, winY - 2 + bounce * 0.35, 86, 68);
+      // 창문 사선 반사광
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.beginPath();
+      ctx.moveTo(winX + 8, winY); ctx.lineTo(winX + 24, winY);
+      ctx.lineTo(winX + 10, winY + winH); ctx.lineTo(winX - 6, winY + winH);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      rrect(winX, winY, winW, winH, 12, null, outline, 3.5);
+
+      // 9) 빙글빙글 굴러가는 양쪽 바퀴
+      [carX + 36, carX + 136].forEach(wx => {
+        const wy = carY + 84;
+        ctx.save();
+        ctx.translate(wx, wy);
+        ctx.fillStyle = "#1e293b"; ctx.strokeStyle = outline; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e2e8f0";
+        ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.rotate(t * 11);
+        ctx.strokeStyle = outline; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+        ctx.restore();
+      });
+
+      fishingLoadingAnimId = requestAnimationFrame(drawFrame);
+    };
+    fishingLoadingAnimId = requestAnimationFrame(drawFrame);
+  }
+
   if (barEl) {
     barEl.style.transition = "none";
     barEl.style.width = "0%";
@@ -1376,6 +1676,10 @@ function showFishingLoadingOverlay(labelText) {
 }
 
 function hideFishingLoadingOverlay() {
+  if (fishingLoadingAnimId) {
+    cancelAnimationFrame(fishingLoadingAnimId);
+    fishingLoadingAnimId = null;
+  }
   const overlay = document.getElementById("fishingLoadingOverlay");
   if (overlay) overlay.classList.add("hidden");
 }
@@ -1383,6 +1687,8 @@ function hideFishingLoadingOverlay() {
 window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {}) {
   const skipLoading = !!(opts && opts.skipLoading);
   const restorePos = opts && opts.restorePos ? opts.restorePos : null;
+  const rawRestoreFromAt = Number(opts && opts.restoreFromAt) || 0;
+  const isRestoreEntry = Boolean(skipLoading && (restorePos || rawRestoreFromAt > 0));
   if (fishingState.isTransitioning && !skipLoading) return;
   if (typeof userState !== "undefined" && !userState.isLoggedIn) {
     gameConfirm("낚시터는 로그인한 계정으로만 입장할 수 있습니다.\n로그인 화면으로 이동할까요?", () => showLoginScreen());
@@ -1391,6 +1697,7 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
 
   fishingState.isTransitioning = !skipLoading;
   fishingState.hasRunForcedExit = false;
+  fishingState.bgEnteredAt = 0;
   currentFishingChannelId = channelId || FISHING_CHANNELS[0].id;
   fishingState.chatMessages = [];
   const logEl = document.getElementById("fishingChatLog");
@@ -1400,8 +1707,22 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
   const chBadge = document.getElementById("fishingChannelLabel");
   if (chBadge) chBadge.textContent = `🎣 ${chInfo.name}`;
 
-  loadFishingDailyFromUserState(Date.now());
+  const nowTs = Date.now();
+  const dbLive = typeof userState !== "undefined" ? userState.fishingLive : null;
+  const canAutoSettleRestore = Boolean(isRestoreEntry && rawRestoreFromAt > 0 && dbLive && dbLive.active);
+  const restoreAnchorTs = canAutoSettleRestore ? Math.max(rawRestoreFromAt, Number(dbLive.heartbeatAt) || 0) : nowTs;
+  const settleBaseTs = canAutoSettleRestore && restoreAnchorTs > 0 && restoreAnchorTs < nowTs ? restoreAnchorTs : nowTs;
+
+  if (restorePos && typeof restorePos.x === "number" && typeof restorePos.y === "number") {
+    fishingState.myPos = { x: restorePos.x, y: restorePos.y };
+  }
+
+  loadFishingDailyFromUserState(settleBaseTs);
   renderFishingHud();
+
+  if (typeof userState !== "undefined") {
+    userState.fishingLive = buildMyFishingLivePayload("fg", true);
+  }
 
   if (!skipLoading) {
     showFishingLoadingOverlay("🎣 낚시터 가는중..");
@@ -1412,7 +1733,38 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
     switchScreen("fishingScreen", skipLoading ? { replaceHistory: true } : {});
   }
   fishingState.isInside = true;
-  connectFishingRealtimeChannel(false, restorePos);
+
+  let restoreSettledSec = 0;
+  let restoreExpGain = 0;
+  let restoreCdGain = 0;
+  if (canAutoSettleRestore && settleBaseTs < nowTs) {
+    const settleTargetTs = Math.min(nowTs, settleBaseTs + FISHING_BG_IDLE_MAX_MS);
+    const expBefore = Number(userState.exp) || 0;
+    const cdBefore = Number(userState.cdCoins) || 0;
+    fishingState.lastTickAt = settleBaseTs;
+    window.advanceFishingClockTo(settleTargetTs);
+    if (getFishingCycleKey(settleTargetTs) !== getFishingCycleKey(nowTs)) {
+      fishingState.daily = {
+        date: getFishingCycleKey(nowTs),
+        seconds: 0,
+        earnedExp: 0,
+        earnedCd: 0
+      };
+      fishingState.msCarry = 0;
+      fishingState.expCarry = 0;
+      fishingState.cdCarry = 0;
+      syncUserStateFishingDaily();
+      renderFishingHud();
+    }
+    restoreSettledSec = Math.max(0, Math.floor((settleTargetTs - settleBaseTs) / 1000));
+    restoreExpGain = Math.max(0, (Number(userState.exp) || 0) - expBefore);
+    restoreCdGain = Math.max(0, (Number(userState.cdCoins) || 0) - cdBefore);
+  }
+
+  connectFishingRealtimeChannel(false, restorePos, { suppressJoinNotice: isRestoreEntry });
+  if (isRestoreEntry) {
+    appendFishingBackgroundReturnNotice(restoreSettledSec, restoreExpGain, restoreCdGain);
+  }
   persistFishingSessionMarker();
 
   if (typeof userState !== "undefined") {
@@ -1442,10 +1794,14 @@ window.handleFishingVisibilityChange = function (isHidden) {
 
   if (isHidden) {
     // 폰 홈버튼 전환: 낚시터에서 나가지 않고 방 + 경험치/CD 시계 + 백그라운드 상태 유지!
+    fishingState.bgEnteredAt = Date.now();
     window.advanceFishingClockTo(Date.now());
     persistFishingSessionMarker();
     if (typeof userState !== "undefined") {
       userState.fishingLive = buildMyFishingLivePayload("bg", true);
+    }
+    if (typeof syncGlobalOnlineActivity === "function") {
+      syncGlobalOnlineActivity("fishingScreen");
     }
     if (fishingState.channel) {
       try {
@@ -1471,12 +1827,28 @@ window.handleFishingVisibilityChange = function (isHidden) {
       syncProfileToServer();
     }
   } else {
-    // 폰 홈에서 복귀: 경과 시간 즉시 반영 + 끊긴 WebSocket·전역 로스터 즉시 재동기화!
-    window.advanceFishingClockTo(Date.now());
+    // 폰 홈에서 복귀: 경과 시간 즉시 반영 + 잠수 복귀 안내 + 끊긴 WebSocket·전역 로스터 즉시 재동기화!
+    const nowTs = Date.now();
+    const prevBgAt = Number(fishingState.bgEnteredAt) || 0;
+    fishingState.bgEnteredAt = 0;
+    const expBefore = typeof userState !== "undefined" ? Number(userState.exp) || 0 : 0;
+    const cdBefore = typeof userState !== "undefined" ? Number(userState.cdCoins) || 0 : 0;
+
+    window.advanceFishingClockTo(nowTs);
+    const expGain = typeof userState !== "undefined" ? Math.max(0, (Number(userState.exp) || 0) - expBefore) : 0;
+    const cdGain = typeof userState !== "undefined" ? Math.max(0, (Number(userState.cdCoins) || 0) - cdBefore) : 0;
+    const elapsedSec = prevBgAt > 0 ? Math.max(0, Math.floor((nowTs - prevBgAt) / 1000)) : 0;
+    if (prevBgAt > 0 && (elapsedSec >= 5 || expGain > 0 || cdGain > 0)) {
+      appendFishingBackgroundReturnNotice(elapsedSec, expGain, cdGain);
+    }
+
     persistFishingSessionMarker();
     if (typeof userState !== "undefined") {
       userState.fishingLive = buildMyFishingLivePayload("fg", true);
       if (typeof syncProfileToServer === "function") syncProfileToServer();
+    }
+    if (typeof syncGlobalOnlineActivity === "function") {
+      syncGlobalOnlineActivity("fishingScreen");
     }
     ensureFishingRealtimeHealthy();
     syncFishingGlobalRosterFromDb();
@@ -1588,8 +1960,6 @@ window.activateFishing2xBuffAd = function () {
     }
     if (typeof syncProfileToServer === "function") await syncProfileToServer();
     renderFishingHud();
-    if (typeof appendFishingChatLine === "function") {
-      appendFishingChatLine("시스템", "⚡ [황금 떡밥 2배 버프] 30분간 낚시터 CD 획득량이 2배가 됩니다!");
-    }
+    appendFishingSystemMessage("⚡ [황금 떡밥 2배 버프] 30분간 낚시터 CD 획득량이 2배가 됩니다!");
   });
 };
