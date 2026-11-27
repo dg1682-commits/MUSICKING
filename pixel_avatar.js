@@ -442,7 +442,7 @@ function getLevelInfo(rawExp = 0) {
   };
 }
 
-const SHOP_CATALOG_VERSION = 15;
+const SHOP_CATALOG_VERSION = 16;
 
 const GAME_ITEMS_CATALOG = [
   {
@@ -793,6 +793,23 @@ if (typeof V3_NEW_SHOP_PARTS !== "undefined") {
     });
   });
 }
+
+// [V4.0] CD 결제 상점 전 품목 +10% 인상 (황금주화 전용 이펙트 카테고리는 제외)
+GAME_ITEMS_CATALOG.forEach(item => {
+  if (item && Number(item.price) > 0) {
+    item.price = Math.round(Number(item.price) * 1.1);
+  }
+});
+Object.keys(BASE_AVATAR_SHOP_ITEMS).forEach(cat => {
+  if (cat === "effect") return;
+  const list = BASE_AVATAR_SHOP_ITEMS[cat];
+  if (!Array.isArray(list)) return;
+  list.forEach(item => {
+    if (item && Number(item.price) > 0) {
+      item.price = Math.round(Number(item.price) * 1.1);
+    }
+  });
+});
 
 let AVATAR_SHOP_ITEMS = JSON.parse(JSON.stringify(BASE_AVATAR_SHOP_ITEMS));
 

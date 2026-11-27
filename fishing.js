@@ -188,18 +188,61 @@ function loadFishingDailyFromUserState(nowTs = Date.now()) {
       date: curKey,
       seconds: Math.max(0, Math.min(FISHING_MAX_SECONDS_PER_DAY, Math.floor(Number(saved.seconds) || 0))),
       earnedExp: Math.max(0, Math.floor(Number(saved.earnedExp) || 0)),
-      earnedCd: Math.max(0, Math.floor(Number(saved.earnedCd) || 0))
+      earnedCd: Math.max(0, Math.floor(Number(saved.earnedCd) || 0)),
+      baitSecCarry: Math.max(0, Math.min(1799, Math.floor(Number(saved.baitSecCarry) || 0)))
     };
+    fishingState.baitSecCarry = fishingState.daily.baitSecCarry;
   } else {
-    fishingState.daily = { date: curKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
+    fishingState.daily = { date: curKey, seconds: 0, earnedExp: 0, earnedCd: 0, baitSecCarry: 0 };
+    fishingState.baitSecCarry = 0;
   }
   syncUserStateFishingDaily();
 }
 
 function syncUserStateFishingDaily() {
   if (typeof userState !== "undefined") {
+    fishingState.daily.baitSecCarry = Math.max(0, Math.floor(Number(fishingState.baitSecCarry) || 0));
     userState.fishingDaily = { ...fishingState.daily };
   }
+}
+
+function consumeFishingBaitSeconds(secCount) {
+  const addSec = Math.max(0, Math.floor(Number(secCount) || 0));
+  if (addSec <= 0) return false;
+  const hasAvatarCfg = typeof userState !== "undefined" && userState.avatarConfig;
+  const curBaitId = hasAvatarCfg ? userState.avatarConfig.fishingBait : "none";
+  const curBaitCnt =
+    hasAvatarCfg && curBaitId && curBaitId !== "none" && typeof getConsumableCount === "function"
+      ? getConsumableCount(curBaitId)
+      : 0;
+
+  if (hasAvatarCfg && curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
+    fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + addSec;
+    let consumed = false;
+    while (fishingState.baitSecCarry >= 1800 && (getConsumableCount(curBaitId) || 0) > 0) {
+      fishingState.baitSecCarry -= 1800;
+      const latestCnt = getConsumableCount(curBaitId);
+      const nextCnt = Math.max(0, latestCnt - 1);
+      userState.inventory[curBaitId] = nextCnt;
+      consumed = true;
+      if (nextCnt <= 0) {
+        userState.avatarConfig.fishingBait = "none";
+        fishingState.baitSecCarry = 0;
+        appendFishingSystemMessage("🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
+        break;
+      }
+    }
+    if (consumed) {
+      renderFishingHud();
+      if (typeof window.syncManualFishingHud === "function") window.syncManualFishingHud();
+      if (typeof syncFishingPlayersDOM === "function") {
+        try { syncFishingPlayersDOM(); } catch (e) {}
+      }
+    }
+    return consumed;
+  }
+  fishingState.baitSecCarry = 0;
+  return false;
 }
 
 function formatFishingHms(totalSec) {
@@ -302,7 +345,7 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
     const segKey = getFishingCycleKey(cursor);
 
     if (fishingState.daily.date !== segKey) {
-      fishingState.daily = { date: segKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
+      fishingState.daily = { date: segKey, seconds: 0, earnedExp: 0, earnedCd: 0, baitSecCarry: fishingState.baitSecCarry || 0 };
       fishingState.msCarry = 0;
       fishingState.expCarry = 0;
       fishingState.cdCarry = 0;
@@ -369,22 +412,9 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
             changedRewards = true;
           }
 
-          // [V2.0] 소모품 미끼 30분(1800초)당 1개 자동 소모 (일일 6시간 내 적립 시간만 소모)
-          if (hasAvatarCfg && curBaitId && curBaitId !== "none" && curBaitCnt > 0) {
-            fishingState.baitSecCarry = (fishingState.baitSecCarry || 0) + earnableSec;
-            if (fishingState.baitSecCarry >= 1800) {
-              fishingState.baitSecCarry -= 1800;
-              const nextCnt = Math.max(0, curBaitCnt - 1);
-              userState.inventory[curBaitId] = nextCnt;
-              changedRewards = true;
-              if (nextCnt <= 0) {
-                userState.avatarConfig.fishingBait = "none";
-                fishingState.baitSecCarry = 0;
-                appendFishingSystemMessage("🪱 장착한 미끼가 모두 소모되어 기본 낚시로 전환되었습니다.");
-              }
-            }
-          } else {
-            fishingState.baitSecCarry = 0;
+          // [V2.0/V4.0] 소모품 미끼 30분(1800초)당 1개 자동 소모 (일일 6시간 내 적립 시간 + 손낚시 보강)
+          if (consumeFishingBaitSeconds(earnableSec)) {
+            changedRewards = true;
           }
         }
 
@@ -397,7 +427,7 @@ window.advanceFishingClockTo = function (nowTs = Date.now()) {
     if (cursor >= nextReset) {
       // 오전 06:00 정각 돌파 시 미사용 잔여 시간 즉시 폐기하고 00:00:00으로 새 주기 시작!
       const newKey = getFishingCycleKey(nextReset);
-      fishingState.daily = { date: newKey, seconds: 0, earnedExp: 0, earnedCd: 0 };
+      fishingState.daily = { date: newKey, seconds: 0, earnedExp: 0, earnedCd: 0, baitSecCarry: fishingState.baitSecCarry || 0 };
       fishingState.msCarry = 0;
       fishingState.expCarry = 0;
       fishingState.cdCarry = 0;
@@ -435,7 +465,20 @@ function startFishingRewardTimer() {
       stopFishingRewardTimer();
       return;
     }
+    const prevDailySec = fishingState.daily.seconds || 0;
     window.advanceFishingClockTo(Date.now());
+    // [V4.0] 일일 6시간 방치 충전이 끝난 뒤에는 손낚시 오버레이 포그라운드 플레이 시간만 미끼 30분 타이머 차감
+    if (
+      prevDailySec >= FISHING_MAX_SECONDS_PER_DAY &&
+      typeof window.isManualFishingForegroundActive === "function" &&
+      window.isManualFishingForegroundActive()
+    ) {
+      const baitUsed = consumeFishingBaitSeconds(1);
+      syncUserStateFishingDaily();
+      if (baitUsed && typeof syncProfileToServer === "function") {
+        syncProfileToServer();
+      }
+    }
   }, 1000);
 }
 
@@ -1748,7 +1791,8 @@ window.enterFishingRoom = function (channelId = FISHING_CHANNELS[0].id, opts = {
         date: getFishingCycleKey(nowTs),
         seconds: 0,
         earnedExp: 0,
-        earnedCd: 0
+        earnedCd: 0,
+        baitSecCarry: fishingState.baitSecCarry || 0
       };
       fishingState.msCarry = 0;
       fishingState.expCarry = 0;
@@ -1880,6 +1924,9 @@ window.addEventListener("online", () => {
 });
 
 window.cleanupFishingRuntime = function (shouldSyncServer = true) {
+  if (typeof window.closeManualFishingOverlay === "function") {
+    try { window.closeManualFishingOverlay(); } catch (e) {}
+  }
   if (fishingState.isInside) {
     window.advanceFishingClockTo(Date.now());
   }

@@ -3556,7 +3556,7 @@ body.on-fishing-screen.keyboard-open .app-shell {
 
 .shop-group-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 3px;
   padding: 6px 6px 2px;
   background: #e0f2fe;
@@ -6338,4 +6338,732 @@ body.midi-play-theme .hint-btn.is-cooldown {
     padding: 5px 8px;
     font-size: 0.78rem;
   }
+}
+
+
+/* ============================================================================
+   [V4.0] 손낚시 · 어망 · 물고기 도감 · 낚시 상점 · 상점 허브 · 퀴즈광장
+   ============================================================================ */
+.play-hub-banner.is-shop-general {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border-color: #fb7185;
+}
+.play-hub-banner.is-shop-fishing {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border-color: #0284c7;
+}
+.play-hub-banner.is-quiz-plaza {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #d97706;
+}
+#shopHubScreen .play-hub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 낚시터 좌측 상단 손낚시/도감 버튼 */
+.fishing-top-actions-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+.fishing-action-pill {
+  border: 2.5px solid #1e1b18;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: #1e1b18;
+  box-shadow: 0 2px 0 #1e1b18;
+  cursor: pointer;
+}
+.fishing-action-pill.is-fish {
+  background: linear-gradient(135deg, #fde047, #f59e0b);
+}
+.fishing-action-pill.is-dex {
+  background: linear-gradient(135deg, #bae6fd, #38bdf8);
+}
+
+/* 손낚시 풀스크린 오버레이 */
+.manual-fishing-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 95;
+  background: #0369a1;
+  display: flex;
+  flex-direction: column;
+  padding: max(8px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
+  gap: 8px;
+}
+.manual-fish-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.manual-fish-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  border: 3px solid #1e1b18;
+  overflow: hidden;
+  background: #0ea5e9;
+  box-shadow: 0 4px 0 #1e1b18;
+}
+#manualFishingCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.manual-fish-hud-pills {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  pointer-events: none;
+}
+.manual-fish-pill {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2px solid #1e1b18;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #1e1b18;
+  box-shadow: 0 2px 0 #1e1b18;
+}
+.manual-fish-pill.is-btn { cursor: pointer; background: #fef9c3; }
+.manual-fish-pill.is-shop { cursor: pointer; background: #fde68a; }
+.manual-fish-pill.is-warn { background: #fed7aa; border-color: #ea580c; }
+.manual-fish-pill.is-full { background: #fecaca; border-color: #dc2626; color: #991b1b; }
+.manual-fish-warn-badge {
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1.5px solid #1e1b18;
+}
+.manual-fish-timer {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  background: rgba(15, 23, 42, 0.84);
+  color: #fde047;
+  border: 2px solid #facc15;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+.manual-fish-result-card {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  background: rgba(255, 253, 247, 0.96);
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 0 #1e1b18;
+}
+.manual-fish-result-card.is-max-card {
+  border-color: #eab308;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef08a 100%);
+}
+#manualFishResultCanvas {
+  width: 78px;
+  height: 62px;
+  border-radius: 10px;
+  border: 2px solid #cbd5e1;
+  background: #e0f2fe;
+  flex-shrink: 0;
+}
+.manual-fish-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.manual-fish-status {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2.5px solid #1e1b18;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e1b18;
+  text-align: center;
+}
+.manual-fish-gauge-wrap {
+  background: #0f172a;
+  border: 2.5px solid #1e1b18;
+  border-radius: 999px;
+  padding: 4px;
+}
+.manual-fish-gauge-track {
+  position: relative;
+  height: 24px;
+  border-radius: 999px;
+  background: #334155;
+  overflow: hidden;
+}
+.manual-fish-gauge-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #facc15, #f59e0b);
+  border-left: 2px solid #fff;
+  border-right: 2px solid #fff;
+}
+.manual-fish-gauge-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  margin-left: -3px;
+  background: #ffffff;
+  border: 1.5px solid #1e1b18;
+  border-radius: 4px;
+}
+.manual-fish-main-btn {
+  width: 100%;
+  padding: 13px 10px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+.manual-fish-main-btn.is-pulse {
+  animation: pulsePop 0.55s infinite alternate;
+}
+
+/* 가방 [어망] 탭 & 도감 & 낚시상점 공용 배지 */
+.bag-main-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bag-main-tab {
+  padding: 7px 6px;
+  border-radius: 10px;
+  border: 2px solid #1e1b18;
+  background: #f1f5f9;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.bag-main-tab.active {
+  background: #fde047;
+  box-shadow: 0 2px 0 #1e1b18;
+}
+.bag-fish-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bag-fish-warn {
+  background: #fee2e2;
+  border: 2px solid #ef4444;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.fish-bag-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 2px;
+}
+.fish-bag-row, .fshop-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffdf9;
+  border: 2px solid #1e1b18;
+  border-radius: 11px;
+  padding: 6px 8px;
+}
+.fish-bag-row.is-max-row, .fshop-item-row.is-max-row {
+  border-color: #eab308;
+  background: #fefce8;
+}
+.fshop-item-row.is-equipped {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+.fish-mini-canvas, .fshop-item-cv, .manual-bait-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #e0f2fe;
+  flex-shrink: 0;
+}
+.fish-grade-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  border: 1.5px solid #1e1b18;
+}
+.fish-grade-pill.is-C { background: #e2e8f0; color: #334155; }
+.fish-grade-pill.is-B { background: #bae6fd; color: #0369a1; }
+.fish-grade-pill.is-A { background: #e9d5ff; color: #6b21a8; }
+.fish-grade-pill.is-S { background: #fef08a; color: #b45309; }
+.fish-max-badge {
+  background: #f59e0b;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+.fish-new-badge {
+  background: #10b981;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+.fish-new-badge.is-best { background: #3b82f6; }
+
+/* 미끼 선택 팝업 */
+.manual-bait-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid #1e1b18;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+}
+.manual-bait-row.is-active { background: #fef9c3; border-color: #d97706; }
+.manual-bait-row.is-empty { opacity: 0.72; }
+.manual-bait-sub { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+
+/* 낚시 상점 모달 */
+.fshop-modal-card {
+  max-width: 470px;
+  width: 94%;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.fshop-npc-stage {
+  position: relative;
+  border-radius: 12px;
+  border: 2.5px solid #1e1b18;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#fishingShopNpcCanvas { width: 100%; height: 112px; display: block; object-fit: cover; }
+.fshop-npc-speech {
+  background: #fffdf7;
+  border-top: 2px solid #1e1b18;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #1e1b18;
+}
+.fshop-cur-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.fshop-cur-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  padding: 5px 6px;
+}
+.fshop-cur-cv { width: 34px; height: 34px; flex-shrink: 0; border-radius: 6px; background: #e0f2fe; }
+.fshop-cur-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fshop-cur-meta strong { font-size: 0.73rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fshop-cur-meta span { font-size: 0.65rem; color: #64748b; }
+.fshop-tab-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0; }
+.fshop-tab-btn {
+  padding: 7px 6px;
+  border-radius: 10px;
+  border: 2px solid #1e1b18;
+  background: #f1f5f9;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.fshop-tab-btn.active { background: #38bdf8; color: #fff; box-shadow: 0 2px 0 #1e1b18; }
+.fshop-scroll-pane { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
+.fshop-sec-title { font-size: 0.78rem; font-weight: 900; color: #0369a1; margin: 4px 0; }
+.fshop-list { display: flex; flex-direction: column; gap: 6px; }
+.fshop-sell-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fef9c3;
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 7px;
+}
+
+/* 물고기 도감 모달 */
+.fish-dex-modal-card {
+  max-width: 470px;
+  width: 94%;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fish-dex-summary {
+  background: #e0f2fe;
+  border: 2px solid #0284c7;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #0c4a6e;
+}
+.fish-dex-filter-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.fish-dex-filter-btn {
+  padding: 5px 2px;
+  border: 2px solid #1e1b18;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.73rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.fish-dex-filter-btn.active { background: #facc15; }
+.fish-dex-grid {
+  max-height: 180px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  padding: 2px;
+}
+.fish-dex-tile {
+  position: relative;
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 5px 4px;
+  text-align: center;
+  cursor: pointer;
+}
+.fish-dex-tile.is-selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 2px 0 #2563eb; }
+.fish-dex-tile.is-locked { opacity: 0.7; }
+.dex-pill { position: absolute; top: 3px; left: 3px; font-size: 0.58rem; padding: 0 4px; }
+.dex-max { position: absolute; top: 3px; right: 3px; font-size: 0.58rem; padding: 0 3px; }
+.fish-dex-thumb { width: 46px; height: 46px; display: block; margin: 4px auto 2px; }
+.fish-dex-name { font-size: 0.68rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fish-dex-cm { font-size: 0.62rem; color: #64748b; font-weight: 700; }
+.fish-dex-detail-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  padding: 7px 8px;
+  background: #fffdf7;
+}
+.fish-dex-detail-cv { width: 68px; height: 54px; border-radius: 8px; background: #e0f2fe; border: 1.5px solid #cbd5e1; flex-shrink: 0; }
+.fish-dex-detail-meta { flex: 1; min-width: 0; }
+.fish-dex-detail-meta strong { font-size: 0.82rem; display: block; }
+.fish-dex-detail-meta p { font-size: 0.72rem; color: #475569; margin: 2px 0 0; line-height: 1.35; }
+.fish-dex-rank-list {
+  max-height: 112px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fish-dex-rank-row, .fish-rank-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+.fish-dex-rank-row.is-me, .fish-rank-row.is-me { background: #fef08a; border: 1.5px solid #d97706; }
+.fish-rank-row.is-max-row { border: 1.5px solid #eab308; background: #fefce8; }
+
+/* 퀴즈광장 대기실 & 인게임 */
+.qplaza-lobby-card, .qplaza-play-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qplaza-lobby-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
+}
+.qplaza-group-box {
+  border: 2.5px solid #1e1b18;
+  border-radius: 14px;
+  padding: 9px;
+  background: #f8fafc;
+}
+.qplaza-group-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 7px; }
+.qplaza-group-head strong { font-size: 0.9rem; }
+.qplaza-group-head span { font-size: 0.71rem; color: #475569; font-weight: 700; }
+.qplaza-group-cards { display: flex; flex-direction: column; gap: 6px; }
+.qplaza-room-card {
+  width: 100%;
+  text-align: left;
+  border: 2px solid #1e1b18;
+  border-radius: 11px;
+  padding: 8px 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 0 #1e1b18;
+  cursor: pointer;
+}
+.qplaza-room-card.is-playing { opacity: 0.62; cursor: not-allowed; background: #e2e8f0; }
+.qplaza-room-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.qplaza-room-title { font-size: 0.86rem; font-weight: 900; color: #1e1b18; }
+.qplaza-status-pill {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  border: 1.5px solid #1e1b18;
+}
+.qplaza-status-pill.is-wait { background: #bbf7d0; color: #166534; }
+.qplaza-status-pill.is-play { background: #fecaca; color: #991b1b; }
+.qplaza-room-mid { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.72rem; font-weight: 800; color: #475569; }
+.qplaza-play-topbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.qplaza-round-badge { font-size: 0.71rem; font-weight: 900; color: #2563eb; }
+.qplaza-timer-pill {
+  background: #fef08a;
+  border: 2px solid #1e1b18;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.qplaza-wait-banner {
+  background: #dbeafe;
+  border: 2px solid #2563eb;
+  border-radius: 10px;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  margin-bottom: 8px;
+}
+.qplaza-wait-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.qplaza-wait-slot {
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  padding: 6px 4px;
+  text-align: center;
+  background: #f8fafc;
+}
+.qplaza-wait-slot.is-me { background: #fef9c3; border-color: #d97706; }
+.qplaza-wait-slot.is-empty { opacity: 0.62; border-style: dashed; }
+.qplaza-slot-av { width: 46px; height: 46px; object-fit: contain; display: block; margin: 0 auto 3px; }
+.qplaza-slot-nick { font-size: 0.68rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qplaza-game-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.qplaza-arena { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.qplaza-ox-question-box, .qplaza-climb-qbox, .qplaza-typing-stage {
+  background: #fffbeb;
+  border: 2.5px solid #1e1b18;
+  border-radius: 13px;
+  padding: 10px 12px;
+}
+.qplaza-question-txt { font-size: 0.94rem; font-weight: 900; color: #1e1b18; line-height: 1.4; word-break: keep-all; }
+.qplaza-note-txt { font-size: 0.78rem; font-weight: 800; color: #0369a1; margin-top: 5px; }
+.qplaza-ox-ring {
+  position: relative;
+  flex: 1;
+  min-height: 170px;
+  border: 3px solid #1e1b18;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #dbeafe 0%, #dbeafe 50%, #fee2e2 50%, #fee2e2 100%);
+  overflow: hidden;
+}
+.qplaza-ox-zone { position: absolute; top: 8px; font-size: 1rem; font-weight: 900; opacity: 0.65; }
+.qplaza-ox-zone.is-o { left: 16%; color: #1d4ed8; }
+.qplaza-ox-zone.is-x { right: 16%; color: #b91c1c; }
+.qplaza-ox-actors { position: absolute; inset: 0; }
+.qplaza-ring-actor { position: absolute; transform: translate(-50%, -50%); text-align: center; transition: left 0.25s ease; }
+.qplaza-ring-actor.is-me .qplaza-actor-nick { background: #facc15; color: #1e1b18; }
+.qplaza-actor-img { width: 42px; height: 42px; display: block; margin: 0 auto; }
+.qplaza-actor-nick { display: inline-block; font-size: 0.62rem; font-weight: 900; background: rgba(15, 23, 42, 0.78); color: #fff; padding: 1px 5px; border-radius: 6px; white-space: nowrap; }
+.qplaza-spec-bar { background: #334155; color: #f8fafc; padding: 7px 10px; border-radius: 10px; font-size: 0.76rem; font-weight: 800; text-align: center; }
+.qplaza-ox-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.qplaza-ox-btn {
+  padding: 13px 8px;
+  border: 3px solid #1e1b18;
+  border-radius: 13px;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.qplaza-ox-btn.is-o { background: #93c5fd; color: #1e3a8a; }
+.qplaza-ox-btn.is-x { background: #fca5a5; color: #7f1d1d; }
+.qplaza-ox-btn.is-picked { box-shadow: 0 0 0 3px #facc15; transform: scale(1.02); }
+.qplaza-typing-tag { font-size: 0.74rem; font-weight: 900; color: #b45309; margin-bottom: 4px; }
+.qplaza-typing-target { font-size: 0.96rem; font-weight: 900; color: #1e1b18; line-height: 1.45; word-break: keep-all; }
+.qplaza-typing-author { font-size: 0.74rem; font-weight: 800; color: #64748b; margin-top: 3px; text-align: right; }
+.qplaza-typing-feedback { margin-top: 7px; font-size: 0.88rem; font-weight: 800; line-height: 1.45; word-break: break-all; }
+.qt-ch { color: #94a3b8; }
+.qt-ch.is-ok { color: #15803d; }
+.qt-ch.is-err { color: #dc2626; background: #fee2e2; border-radius: 2px; }
+.qt-err-msg { color: #dc2626; font-size: 0.74rem; margin-top: 4px; }
+.qplaza-typing-race, .qplaza-climb-stairs {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.qplaza-race-row, .qplaza-climb-lane {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border-radius: 9px;
+  background: #f1f5f9;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.qplaza-race-row.is-me, .qplaza-climb-lane.is-me { background: #fef9c3; border: 1.5px solid #d97706; }
+.qplaza-race-nick, .qplaza-climb-name { width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.qplaza-race-track, .qplaza-climb-bar {
+  position: relative;
+  flex: 1;
+  height: 16px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  overflow: hidden;
+}
+.qplaza-race-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); transition: width 0.15s linear; }
+.qplaza-climb-avatar { position: absolute; top: -6px; width: 28px; height: 28px; transform: translateX(-50%); transition: left 0.25s ease; }
+.qplaza-climb-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.qplaza-race-pct, .qplaza-climb-step { width: 42px; text-align: right; flex-shrink: 0; }
+.qplaza-climb-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.qplaza-climb-choice-btn {
+  padding: 9px 7px;
+  border: 2px solid #1e1b18;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+.qplaza-climb-choice-btn.is-picked { background: #dbeafe; border-color: #2563eb; }
+.qplaza-climb-choice-btn.is-correct { background: #bbf7d0; border-color: #16a34a; }
+.qplaza-climb-choice-btn.is-wrong { background: #fecaca; border-color: #dc2626; }
+.qplaza-finish-panel { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+.qplaza-finish-summary {
+  background: #fef08a;
+  border: 2.5px solid #1e1b18;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 0.84rem;
+  font-weight: 900;
+  white-space: pre-line;
+  text-align: center;
+}
+.qplaza-finish-ranks { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+.qplaza-fin-row { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 9px; background: #f1f5f9; font-size: 0.78rem; font-weight: 800; }
+.qplaza-fin-row.is-me { background: #fef9c3; border: 1.5px solid #d97706; }
+
+/* 타자왕 플로팅 입력 바 (모바일 키보드 바로 위 고정) */
+.quiz-plaza-typing-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+.quiz-plaza-typing-bar .text-input { flex: 1; min-width: 0; padding: 9px 11px; font-size: 0.88rem; }
+.quiz-plaza-typing-bar.is-kb-floating {
+  position: fixed !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: var(--kb-fixed-bottom, 0px) !important;
+  z-index: 9600 !important;
+  background: rgba(255, 253, 247, 0.98) !important;
+  border: 2.5px solid #1e1b18 !important;
+  border-radius: 14px !important;
+  padding: 7px 8px !important;
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.22) !important;
+}
+
+
+/* [V4.0] 다크모드 텍스트 보호 & hidden 우선순위 안전장치 */
+#bagFishPane.hidden,
+#bagItemsPane.hidden,
+#fishingShopBuyPane.hidden,
+#fishingShopSellPane.hidden,
+.quiz-plaza-typing-bar.hidden {
+  display: none !important;
+}
+.bag-main-tab,
+.fish-bag-row,
+.fshop-item-row,
+.fshop-cur-slot,
+.manual-bait-row,
+.fish-dex-tile,
+.fish-dex-detail-box,
+.fish-dex-rank-row,
+.fish-rank-row,
+.qplaza-group-box,
+.qplaza-wait-slot,
+.qplaza-race-row,
+.qplaza-climb-lane,
+.qplaza-fin-row,
+.qplaza-finish-summary,
+.qplaza-climb-choice-btn,
+.qplaza-timer-pill {
+  color: #1e1b18;
 }

@@ -63,7 +63,7 @@ document.addEventListener(
   "touchmove",
   e => {
     const scrollable = e.target.closest(
-      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, .dm-emoji-grid, .arcade-lobby-scroll, .arcade-match-board, .arcade-csort-shelves, .arcade-rank-game-tabs, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
+      ".question-content, .judge-note-box, .history-scroll-box, .modal-content, .md-preview-scroll, .setup-card, .shop-grid, .apf-tile-grid, .shop-multibuy-list, #roomChatLog, .fishing-chat-log, .fishing-online-users-list, .kakao-friend-list, .kakao-chat-messages, .dm-emoji-grid, .arcade-lobby-scroll, .arcade-match-board, .arcade-csort-shelves, .arcade-rank-game-tabs, .qplaza-lobby-scroll, .fshop-scroll-pane, .fish-dex-grid, .fish-dex-rank-list, .fish-bag-list, #manualBaitPickerList, #quizPlazaTypingRaceList, #quizPlazaFinishRankList, body.keyboard-open #loginScreen .home-hero, textarea, input[type='range']"
     );
     if (!scrollable) {
       e.preventDefault();
@@ -315,6 +315,19 @@ function setupMobileKeyboardViewportHandler() {
         effectiveKb > 0;
       battleInputBox.classList.toggle("is-kb-floating", shouldFloatBattle);
       if (shouldFloatBattle) activeFloatEl = battleInputBox;
+    }
+
+    const quizPlazaTypingBar = document.getElementById("quizPlazaTypingBar");
+    if (quizPlazaTypingBar) {
+      const shouldFloatPlaza =
+        isKbOpen &&
+        isInputFocused &&
+        state.currentScreen === "quizPlazaPlayScreen" &&
+        !activeInsideModal &&
+        !quizPlazaTypingBar.classList.contains("hidden") &&
+        effectiveKb > 0;
+      quizPlazaTypingBar.classList.toggle("is-kb-floating", shouldFloatPlaza);
+      if (shouldFloatPlaza) activeFloatEl = quizPlazaTypingBar;
     }
 
     const floatBarH = activeFloatEl ? Math.max(48, Math.round(activeFloatEl.offsetHeight || 54)) : 60;
@@ -635,7 +648,7 @@ window.checkPlayStoreInAppUpdate = async function (opts = {}) {
   if (!appUpdate || typeof appUpdate.getAppUpdateInfo !== "function") return;
   if (playUpdateCheckInFlight) return;
 
-  const busyScreens = ["gameScreen", "judgeScreen", "battlePlayScreen", "arcadePlayScreen", "fishingScreen"];
+  const busyScreens = ["gameScreen", "judgeScreen", "battlePlayScreen", "arcadePlayScreen", "fishingScreen", "quizPlazaPlayScreen"];
   if (!force && busyScreens.includes(state.currentScreen)) return;
 
   const now = Date.now();
@@ -786,6 +799,9 @@ function performCleanAppExit() {
   hasBackGuardPushed = false;
 
   if (typeof cleanupFishingRuntime === "function") cleanupFishingRuntime(true);
+  if (typeof leaveQuizPlazaRoom === "function" && typeof quizPlazaState !== "undefined" && quizPlazaState.currentRoom) {
+    try { leaveQuizPlazaRoom({ skipNavigate: true }); } catch (e) {}
+  }
   stopAllAppAudio(true);
   try {
     if (typeof stopGlobalOnlinePresence === "function") stopGlobalOnlinePresence();
@@ -834,7 +850,7 @@ window.openAdminBackendPage = function () {
   location.replace("admin.html?v=25.0");
 };
 
-const PATCH_NOTES_LATEST_VERSION = "v25.0";
+const PATCH_NOTES_LATEST_VERSION = "v26.0";
 const PATCH_NOTES_SEEN_STORAGE_KEY = "mk_seen_patch_version";
 
 window.syncPatchNotesNotiDot = function () {
@@ -902,8 +918,29 @@ window.processInAppBackStep = function (fromOnestore = false) {
   }
 
   if (state.currentScreen === "fishingScreen") {
+    if (typeof isManualFishingOverlayOpen === "function" && isManualFishingOverlayOpen()) {
+      closeManualFishingOverlay();
+      if (!fromOnestore) armAppBackGuard(true);
+      return true;
+    }
     if (typeof confirmExitFishingRoom === "function") confirmExitFishingRoom();
     else if (typeof exitFishingScreenWithLoading === "function") exitFishingScreenWithLoading();
+    else showHome();
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
+  }
+
+  if (state.currentScreen === "quizPlazaPlayScreen") {
+    if (typeof confirmExitQuizPlazaPlay === "function") confirmExitQuizPlazaPlay();
+    else if (typeof closeQuizPlazaLobby === "function") closeQuizPlazaLobby();
+    else showHome();
+    if (!fromOnestore) armAppBackGuard(true);
+    return true;
+  }
+
+  if (state.currentScreen === "quizPlazaScreen") {
+    if (typeof closeQuizPlazaLobby === "function") closeQuizPlazaLobby();
+    else if (typeof openOutingHubScreen === "function") openOutingHubScreen();
     else showHome();
     if (!fromOnestore) armAppBackGuard(true);
     return true;
@@ -940,7 +977,7 @@ window.processInAppBackStep = function (fromOnestore = false) {
     return true;
   }
 
-  if (["setupScreen", "plazaScreen", "playHubScreen", "outingHubScreen", "bagScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
+  if (["setupScreen", "plazaScreen", "playHubScreen", "outingHubScreen", "shopHubScreen", "bagScreen", "resultScreen", "shopScreen", "rankingScreen", "socialScreen"].includes(state.currentScreen)) {
     showHome();
     if (!fromOnestore) armAppBackGuard(true);
     return true;
@@ -1856,7 +1893,7 @@ function syncFloatingSoundBtn(screenId) {
 
   const btn = document.getElementById("floatingSoundBtn");
   if (!btn) return;
-  const showBtn = ["loginScreen", "rankingScreen", "shopScreen", "socialScreen", "outingHubScreen", "arcadeScreen"].includes(screenId);
+  const showBtn = ["loginScreen", "rankingScreen", "shopHubScreen", "shopScreen", "socialScreen", "outingHubScreen", "quizPlazaScreen", "arcadeScreen"].includes(screenId);
   btn.classList.toggle("hidden", !showBtn);
   btn.textContent = bgmState.muted ? "🔇" : "🔊";
   btn.classList.toggle("is-muted", bgmState.muted);
@@ -2107,6 +2144,23 @@ window.switchScreen = function (targetId, opts = {}) {
   ) {
     cleanupArcadeRuntime();
   }
+  if (
+    prevScreen === "quizPlazaScreen" &&
+    targetId !== "quizPlazaScreen" &&
+    typeof stopQuizPlazaLobbySync === "function"
+  ) {
+    try { stopQuizPlazaLobbySync(); } catch (e) {}
+  }
+  if (
+    prevScreen === "quizPlazaPlayScreen" &&
+    targetId !== "quizPlazaPlayScreen" &&
+    typeof leaveQuizPlazaRoom === "function" &&
+    typeof quizPlazaState !== "undefined" &&
+    !quizPlazaState.isLeavingRoom &&
+    quizPlazaState.currentRoom
+  ) {
+    try { leaveQuizPlazaRoom({ skipNavigate: true }); } catch (e) {}
+  }
 
   state.currentScreen = targetId;
   if (opts && opts.replaceHistory) {
@@ -2143,7 +2197,7 @@ window.switchScreen = function (targetId, opts = {}) {
   if (headerEl) {
     headerEl.classList.toggle(
       "hidden",
-      ["loginScreen", "shopScreen", "fishingScreen", "outingHubScreen", "arcadeScreen", "arcadePlayScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
+      ["loginScreen", "shopHubScreen", "shopScreen", "fishingScreen", "outingHubScreen", "quizPlazaScreen", "quizPlazaPlayScreen", "arcadeScreen", "arcadePlayScreen", "battleRoomScreen", "battlePlayScreen", "rankingScreen", "socialScreen", "dmChatScreen"].includes(targetId)
     );
   }
 
@@ -2152,6 +2206,9 @@ window.switchScreen = function (targetId, opts = {}) {
     "homeScreen",
     "playHubScreen",
     "outingHubScreen",
+    "shopHubScreen",
+    "quizPlazaScreen",
+    "quizPlazaPlayScreen",
     "arcadeScreen",
     "arcadePlayScreen",
     "bagScreen",
@@ -3285,8 +3342,8 @@ async function showFinalResult() {
     ${infiniteTierLabel ? `<span class="badge" style="background:#ffe4e6; color:#be123c; border-color:#fb7185;">${infiniteTierLabel}</span>` : ""}
   `;
 
-  const rawBaseCd = Math.max(solvedCount > 0 ? (isHardDiff ? 10 : 5) : 0, Math.floor(effectiveScore / 10));
-  const rawBaseExp = Math.max(0, Math.round(effectiveScore * 0.1));
+  const rawBaseCd = Math.max(solvedCount > 0 ? (isHardDiff ? 50 : 25) : 0, Math.round(effectiveScore * 0.5));
+  const rawBaseExp = Math.max(solvedCount > 0 ? (isHardDiff ? 25 : 15) : 0, Math.round(effectiveScore * 0.25));
   const bonusMult = 1 + totalBonusRate;
   const baseCd = rawBaseCd > 0 ? Math.round(rawBaseCd * bonusMult) : 0;
   const baseExpVal = rawBaseExp > 0 ? Math.round(rawBaseExp * bonusMult) : 0;

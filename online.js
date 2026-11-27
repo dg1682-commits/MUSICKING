@@ -128,6 +128,8 @@ const userState = {
   hiddenDmPeers: {},
   fishingDaily: null,
   fishingLive: null,
+  fishBag: [],
+  fishDex: {},
   inventory: {},
   equippedItems: [],
   dailyState: null,
@@ -413,6 +415,8 @@ function resetUserStateToFreshDefaults() {
   userState.hiddenDmPeers = {};
   userState.fishingDaily = null;
   userState.fishingLive = null;
+  userState.fishBag = [];
+  userState.fishDex = {};
   userState.inventory = {};
   userState.equippedItems = [];
   userState.dailyState = createFreshDailyState();
@@ -934,6 +938,13 @@ function applyProfileRowToUserState(uid, prof, fallbackNick = "도전자") {
     rawCfg._fishingLive && typeof rawCfg._fishingLive === "object"
       ? { ...rawCfg._fishingLive }
       : null;
+  userState.fishBag = Array.isArray(prof?.fish_bag)
+    ? prof.fish_bag.filter(f => f && f.fishId).slice(0, 50)
+    : [];
+  userState.fishDex =
+    prof?.fish_dex && typeof prof.fish_dex === "object" && !Array.isArray(prof.fish_dex)
+      ? { ...prof.fish_dex }
+      : {};
   userState.inventory =
     rawCfg._inventory && typeof rawCfg._inventory === "object"
       ? { ...rawCfg._inventory }
@@ -1132,6 +1143,8 @@ window.sendProfileKeepalivePatch = function () {
       body: JSON.stringify({
         cd_coins: userState.cdCoins,
         avatar_config: buildProfilePayloadConfig(),
+        fish_bag: Array.isArray(userState.fishBag) ? userState.fishBag : [],
+        fish_dex: userState.fishDex && typeof userState.fishDex === "object" ? userState.fishDex : {},
         updated_at: new Date().toISOString()
       })
     }).catch(() => {});
@@ -1143,7 +1156,7 @@ async function syncProfileToServer() {
   if (!sbClient || !userState.isLoggedIn || !userState.id) return;
   try {
     const payloadConfig = buildProfilePayloadConfig();
-      await sbClient.from("profiles").upsert({
+    const basePayload = {
       id: userState.id,
       nickname: userState.nickname,
       bio: userState.bio,
@@ -1151,7 +1164,15 @@ async function syncProfileToServer() {
       avatar_config: payloadConfig,
       owned_items: userState.ownedItems,
       updated_at: new Date().toISOString()
+    };
+    const { error } = await sbClient.from("profiles").upsert({
+      ...basePayload,
+      fish_bag: Array.isArray(userState.fishBag) ? userState.fishBag : [],
+      fish_dex: userState.fishDex && typeof userState.fishDex === "object" ? userState.fishDex : {}
     });
+    if (error && /fish_bag|fish_dex|column/i.test(String(error.message || ""))) {
+      await sbClient.from("profiles").upsert(basePayload);
+    }
     if (typeof syncGlobalOnlineActivity === "function") {
       syncGlobalOnlineActivity();
     }
@@ -1796,6 +1817,15 @@ window.loadRankingsList = async function () {
 // - 성별은 회원가입 시 설정하며, 이후 변경은 [성별 변경권 10,000 CD] 아이템으로만 가능!
 // - [닉네임 변경권 5,000 CD] 아이템 판매
 // ============================================================================
+window.openShopHubScreen = function () {
+  const cdEl = document.getElementById("shopHubCdBalance");
+  if (cdEl) cdEl.textContent = (Number(userState?.cdCoins) || 0).toLocaleString();
+  const bag = Array.isArray(userState?.fishBag) ? userState.fishBag : [];
+  const bagTag = document.getElementById("shopHubFishCount");
+  if (bagTag) bagTag.textContent = `🐟 내 어망: ${bag.length}/50마리`;
+  switchScreen("shopHubScreen");
+};
+
 window.openShopModal = function (initialCat = null) {
   shopPreviewState.config = sanitizeAvatarConfigShape(userState.avatarConfig);
   if (
@@ -1805,7 +1835,10 @@ window.openShopModal = function (initialCat = null) {
   ) {
     shopPreviewState.config.fishingBait = "none";
   }
-  const targetCat = initialCat || shopPreviewState.selectedCat || "hair";
+  let targetCat = initialCat || shopPreviewState.selectedCat || "hair";
+  if (targetCat === "fishing_rod" || targetCat === "fishing_bait") {
+    targetCat = "hair";
+  }
   shopPreviewState.selectedCat = targetCat;
   if (targetCat === "game_item") {
     const firstGameItem = (typeof GAME_ITEMS_CATALOG !== "undefined" && GAME_ITEMS_CATALOG[0]) || null;
@@ -1829,7 +1862,6 @@ const SHOP_GROUP_MAP = {
   fashion: ["face", "hair", "hat", "outfit"],
   etc: ["acc", "wing", "bg", "effect"],
   item: ["game_item"],
-  feature: ["fishing_rod", "fishing_bait"],
   special: ["special"]
 };
 
@@ -2442,7 +2474,7 @@ async function purchaseAndEquipPreviewItem(sel) {
 
 function purchaseSpecialTicketToBag(ticketId) {
   const item = getItemById("special", ticketId);
-  const defaultPrice = ticketId === "nickname_ticket" ? 20000 : 20000;
+  const defaultPrice = ticketId === "nickname_ticket" ? 22000 : 22000;
   const price = Number(item?.price) || defaultPrice;
   const label = item?.name || (ticketId === "nickname_ticket" ? "✨ 닉네임 변경권" : "⚧️ 성별 변경권");
 
@@ -2579,6 +2611,9 @@ window.confirmShopQtyBuy = async function () {
   await syncProfileToServer();
   renderShopCategory(shopPreviewState.selectedCat);
   updateShopPreviewCanvas();
+  if (typeof renderFishingHud === "function") renderFishingHud();
+  if (typeof syncManualFishingHud === "function") syncManualFishingHud();
+  if (typeof refreshFishingShopModalIfOpen === "function") refreshFishingShopModalIfOpen();
   if (typeof syncAllRewardSparklesUI === "function") syncAllRewardSparklesUI();
   gameAlert(
     `🎉 [${item.name}] ×${qty}개를 구매했습니다!\n(사용: 💿 ${totalCost.toLocaleString()} CD · 현재 보유: ${userState.inventory[item.id]}개)`,
@@ -5621,12 +5656,12 @@ function renderBattlePlayScreen(room) {
       const isWinner = !!(winner && winner.id === userState.id && myScore > 0);
       const isHardDiff = String(cfg.difficulty || "normal") === "hard";
       const diffMult = isHardDiff ? 2 : 1;
-      const baseEarnedCd = isWinner ? 30 : myScore > 0 ? 10 : 0;
+      const baseEarnedCd = isWinner ? 450 : myScore > 0 ? 150 : 0;
       const doubleMult = plazaState.battleDoubleActive ? 2 : 1;
       const earnedCd = baseEarnedCd * diffMult * doubleMult;
       const expBefore = Number(userState.exp) || 0;
-      // myScore는 고수 난이도에서 문제당 ×2 점수(200점)가 이미 반영되어 있으므로 0.1배 × 더블어택으로 곱연산 완성
-      const gainExp = Math.round(myScore * 0.1) * doubleMult;
+      // myScore는 고수 난이도에서 문제당 ×2 점수(200점)가 이미 반영되어 있음
+      const gainExp = (Math.round(myScore * 0.3) + (isWinner ? 100 : 0)) * doubleMult;
       userState.exp = expBefore + gainExp;
       if (earnedCd > 0) userState.cdCoins += earnedCd;
 
@@ -6514,7 +6549,7 @@ function getDisplayBagCatalogItems() {
 window.openBagScreen = function (initialItemId = null) {
   ensureV2DailyState();
   const catalog = getDisplayBagCatalogItems();
-  if (initialItemId && catalog.some(it => it.id === initialItemId)) {
+  if (initialItemId && initialItemId !== "fish" && catalog.some(it => it.id === initialItemId)) {
     bagSelectedItemId = initialItemId;
   } else if (getConsumableCount("welcome_box") > 0) {
     bagSelectedItemId = "welcome_box";
@@ -6526,6 +6561,9 @@ window.openBagScreen = function (initialItemId = null) {
   }
   switchScreen("bagScreen");
   renderBagScreen();
+  if (typeof switchBagMainTab === "function") {
+    switchBagMainTab(initialItemId === "fish" ? "fish" : "items");
+  }
   requestAnimationFrame(() => {
     const avCv = document.getElementById("bagAvatarCanvas");
     if (avCv && typeof renderPixelAvatar === "function") {
@@ -7387,6 +7425,9 @@ const SCREEN_ACTIVITY_LABELS = {
   outingHubScreen: "🏘️ 놀러가기",
   arcadeScreen: "🕹️ 오락실 대기",
   arcadePlayScreen: "🕹️ 오락실 플레이중",
+  quizPlazaScreen: "🎪 퀴즈광장 대기",
+  quizPlazaPlayScreen: "🎪 퀴즈광장 플레이중",
+  shopHubScreen: "🛍️ 상점 선택",
   setupScreen: "⚙️ 게임 설정",
   gameScreen: "🎵 퀴즈 도전중",
   judgeScreen: "🎵 퀴즈 도전중",
@@ -7417,7 +7458,9 @@ function isSelfCurrentlyFishingBg() {
 
 function getGlobalOnlineActivityLabel(screenId) {
   if (screenId === "fishingScreen") {
-    return isSelfCurrentlyFishingBg() ? "💤 낚시 잠수중" : "🎣 낚시중";
+    if (isSelfCurrentlyFishingBg()) return "💤 낚시 잠수중";
+    if (typeof isManualFishingOverlayOpen === "function" && isManualFishingOverlayOpen()) return "🎣 손낚시중";
+    return "🎣 낚시중";
   }
   const room = typeof plazaState !== "undefined" ? plazaState.currentRoom : null;
   if (screenId === "battleRoomScreen") {
@@ -8351,7 +8394,7 @@ window.renderOnlineUsersModalList = function () {
 // [V3.1] 실시간 대결 요청 · 방 초대 (상단 20초 타이머 바 토스트 · 접속자/친구 선택)
 // ============================================================================
 const BATTLE_INVITE_DURATION_MS = 20000;
-const GAMEPLAY_BUSY_SCREENS = new Set(["gameScreen", "judgeScreen", "arcadePlayScreen", "battlePlayScreen"]);
+const GAMEPLAY_BUSY_SCREENS = new Set(["gameScreen", "judgeScreen", "arcadePlayScreen", "battlePlayScreen", "quizPlazaPlayScreen"]);
 
 const battleInviteState = {
   activeIncoming: null,
