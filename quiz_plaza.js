@@ -202,6 +202,32 @@ function buildBotRoster(humans, maxSlots = QUIZ_PLAZA_MAX_PLAYERS) {
   return bots;
 }
 
+const _plazaAvatarCanvasCache = new Map();
+
+function getCachedAvatarCanvas(avatarCfg) {
+  const clean = typeof sanitizeAvatarConfigShape === "function"
+    ? sanitizeAvatarConfigShape(avatarCfg || {})
+    : (avatarCfg || {});
+  const key = JSON.stringify(clean);
+  if (_plazaAvatarCanvasCache.has(key)) {
+    return _plazaAvatarCanvasCache.get(key);
+  }
+  const cv = document.createElement("canvas");
+  cv.width = 480;
+  cv.height = 480;
+  if (typeof renderPixelAvatar === "function") {
+    try {
+      renderPixelAvatar(cv, clean, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true });
+    } catch (e) {}
+  }
+  _plazaAvatarCanvasCache.set(key, cv);
+  if (_plazaAvatarCanvasCache.size > 48) {
+    const firstKey = _plazaAvatarCanvasCache.keys().next().value;
+    _plazaAvatarCanvasCache.delete(firstKey);
+  }
+  return cv;
+}
+
 function getCachedAvatarDataUrl(avatarCfg) {
   const clean = typeof sanitizeAvatarConfigShape === "function"
     ? sanitizeAvatarConfigShape(avatarCfg || {})
@@ -210,17 +236,10 @@ function getCachedAvatarDataUrl(avatarCfg) {
   if (quizPlazaState.avatarDataUrlCache.has(key)) {
     return quizPlazaState.avatarDataUrlCache.get(key);
   }
-  const cv = document.createElement("canvas");
-  cv.width = 160;
-  cv.height = 160;
-  if (typeof renderPixelAvatar === "function") {
-    try {
-      renderPixelAvatar(cv, clean, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true });
-    } catch (e) {}
-  }
+  const cv = getCachedAvatarCanvas(clean);
   const url = cv.toDataURL();
   quizPlazaState.avatarDataUrlCache.set(key, url);
-  if (quizPlazaState.avatarDataUrlCache.size > 60) {
+  if (quizPlazaState.avatarDataUrlCache.size > 48) {
     const firstKey = quizPlazaState.avatarDataUrlCache.keys().next().value;
     quizPlazaState.avatarDataUrlCache.delete(firstKey);
   }
@@ -317,9 +336,9 @@ function renderQuizPlazaRoomCards() {
 
   const nowMs = getPlazaServerNowMs();
   const typeMeta = {
-    ox: { label: "🥊 OX 퀴즈", sub: "권투 링 생존전 · 10문제 생존 시 500 CD / 125 EXP", cls: "is-ox" },
+    ox: { label: "🥊 OX 퀴즈", sub: "권투 링 생존전 · 7초 내 O/X 이동! 10라운드 생존 시 500 CD / 125 EXP", cls: "is-ox" },
     typing: { label: "🏜️ 타자왕", sub: "사막 궁전 선착순 · 1등 300 / 2등 200 / 3등 100 CD", cls: "is-typing" },
-    climb: { label: "🏞️ 올라강", sub: "강가 10계단 상식 · 최고점 전원 300 CD / 75 EXP", cls: "is-climb" }
+    climb: { label: "🏞️ 올라강", sub: "강 위 밧줄 바구니 7초 상식 퀴즈 · 최고층 전원 300 CD / 75 EXP", cls: "is-climb" }
   };
 
   const sections = ["ox", "typing", "climb"].map(gt => {
@@ -430,6 +449,7 @@ window.joinQuizPlazaRoom = async function (roomId) {
 };
 
 function clearQuizPlazaRoomTimers() {
+  stopQuizPlazaClimbAnim();
   if (quizPlazaState.roomHeartbeatTimer) {
     clearInterval(quizPlazaState.roomHeartbeatTimer);
     quizPlazaState.roomHeartbeatTimer = null;
@@ -554,6 +574,8 @@ function handlePlazaRoomRowSync(newRoom) {
 
 function hydrateLocalGameFromRoom(room) {
   clearBotRoundTimers();
+  const oxActors = document.getElementById("quizPlazaOxActorsLayer");
+  if (oxActors) oxActors.innerHTML = "";
   const gs = room.game_state || {};
   const humans = Array.isArray(room.players) ? room.players : [];
   const bots = Array.isArray(gs.bots) ? gs.bots : [];
@@ -700,7 +722,7 @@ window.confirmExitQuizPlazaPlay = function () {
 function getPlazaRoundDurationMs(gameType) {
   if (gameType === "ox") return 7000;
   if (gameType === "typing") return 25000;
-  return 12000; // climb
+  return 7000; // climb (7초 선택)
 }
 
 function clearBotRoundTimers() {
@@ -721,7 +743,7 @@ function scheduleBotActionsForCurrentRound() {
     if (!p.isBot || p.eliminated) return;
     if (g.gameType === "ox" || g.gameType === "climb") {
       if (p.currentChoice !== null && p.currentChoice !== undefined) return;
-      const delay = Math.max(250, Math.round(1500 + Math.random() * 3500 - elapsed));
+      const delay = Math.max(250, Math.round(1100 + Math.random() * 3400 - elapsed));
       const tId = setTimeout(() => {
         if (!quizPlazaState.game || quizPlazaState.game.phase !== "round" || quizPlazaState.game.roundIdx !== g.roundIdx) return;
         const skill = g.gameType === "ox" ? (p.oxSkill || 0.75) : (p.climbSkill || 0.75);
@@ -1086,9 +1108,10 @@ window.selectQuizPlazaClimbChoice = function (choiceIdx) {
   if (!g || g.gameType !== "climb" || g.phase !== "round") return;
   const me = g.participants.find(p => p.id === userState?.id);
   if (!me) return;
-  if (me.currentChoice !== null && me.currentChoice !== undefined) return; // 한 번 고르면 확정
-  applyParticipantChoice(userState.id, Number(choiceIdx), g.roundIdx);
-  sendPlazaBroadcast({ type: "choice", roundIdx: g.roundIdx, playerId: userState.id, choice: Number(choiceIdx) });
+  const nextIdx = Number(choiceIdx);
+  if (me.currentChoice === nextIdx) return;
+  applyParticipantChoice(userState.id, nextIdx, g.roundIdx);
+  sendPlazaBroadcast({ type: "choice", roundIdx: g.roundIdx, playerId: userState.id, choice: nextIdx });
 };
 
 window.handleQuizPlazaTypingInput = function (e) {
@@ -1262,16 +1285,18 @@ function renderQuizPlazaPlayScreen() {
   const clmBox = document.getElementById("quizPlazaClimbArena");
   const finBox = document.getElementById("quizPlazaFinishPanel");
 
-  if (oxBox) oxBox.classList.toggle("hidden", g.gameType !== "ox");
-  if (typBox) typBox.classList.toggle("hidden", g.gameType !== "typing");
-  if (clmBox) clmBox.classList.toggle("hidden", g.gameType !== "climb");
-  if (finBox) finBox.classList.toggle("hidden", g.phase !== "finished");
+  const isFinished = g.phase === "finished";
+  if (oxBox) oxBox.classList.toggle("hidden", isFinished || g.gameType !== "ox");
+  if (typBox) typBox.classList.toggle("hidden", isFinished || g.gameType !== "typing");
+  if (clmBox) clmBox.classList.toggle("hidden", isFinished || g.gameType !== "climb");
+  if (finBox) finBox.classList.toggle("hidden", !isFinished);
 
   if (typingBar) {
-    typingBar.classList.toggle("hidden", !(g.gameType === "typing" && g.phase === "round"));
+    typingBar.classList.toggle("hidden", isFinished || !(g.gameType === "typing" && g.phase === "round"));
   }
 
-  if (g.phase === "finished") {
+  if (isFinished) {
+    stopQuizPlazaClimbAnim();
     const finTxt = document.getElementById("quizPlazaFinishSummary");
     const finRanks = document.getElementById("quizPlazaFinishRankList");
     if (finTxt) finTxt.textContent = g.finishSummaryText || "경기가 종료되었습니다!";
@@ -1282,24 +1307,40 @@ function renderQuizPlazaPlayScreen() {
         }
         return (b.score || 0) - (a.score || 0);
       });
-      finRanks.innerHTML = sorted.map((p, idx) => `
-        <div class="qplaza-fin-row ${p.id === userState?.id ? "is-me" : ""}">
-          <span>${idx + 1}위 · ${p.isBot ? "🤖 " : ""}${escapePlazaHtml(p.nickname)}</span>
-          <strong>${g.gameType === "ox" ? (p.eliminated ? "탈락" : "👑 생존!") : `${p.score}점`}</strong>
-        </div>
-      `).join("");
+      finRanks.innerHTML = sorted.map((p, idx) => {
+        const avUrl = getCachedAvatarDataUrl(p.avatarConfig);
+        const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}위`;
+        const valText = g.gameType === "ox"
+          ? (p.eliminated ? "💀 탈락" : "👑 생존!")
+          : g.gameType === "climb"
+          ? `🪜 ${p.step || 0}단 (${p.score || 0}점)`
+          : `${p.score || 0}점`;
+        return `
+          <div class="qplaza-fin-row ${p.id === userState?.id ? "is-me" : ""}">
+            <span class="qplaza-fin-left">
+              <strong class="qplaza-fin-rank">${medal}</strong>
+              <img src="${avUrl}" class="qplaza-fin-av" alt="" />
+              <span>${p.isBot ? "🤖 " : ""}${escapePlazaHtml(p.nickname)}</span>
+            </span>
+            <strong>${valText}</strong>
+          </div>
+        `;
+      }).join("");
     }
+    return;
   }
 
   if (g.gameType === "ox") {
+    stopQuizPlazaClimbAnim();
     try { drawQuizPlazaPlayStageArt("ox", g); } catch (e) {}
     renderQuizPlazaOxView(g);
   } else if (g.gameType === "typing") {
+    stopQuizPlazaClimbAnim();
     try { drawQuizPlazaPlayStageArt("typing", g); } catch (e) {}
     renderQuizPlazaTypingView(g);
   } else if (g.gameType === "climb") {
-    try { drawQuizPlazaPlayStageArt("climb", g); } catch (e) {}
     renderQuizPlazaClimbView(g);
+    startQuizPlazaClimbAnim();
   }
 }
 
@@ -1312,7 +1353,7 @@ function renderQuizPlazaOxView(g) {
   const ctrlRow = document.getElementById("quizPlazaOxControls");
   const actorsEl = document.getElementById("quizPlazaOxActorsLayer");
 
-  if (qEl && q) qEl.textContent = g.phase === "finished" ? "🥊 OX 서바이벌 종료!" : q.q;
+  if (qEl && q) qEl.textContent = q.q;
   if (noteEl) {
     if (g.phase === "reveal" && q) {
       noteEl.textContent = `정답은 [${q.a ? "⭕ O" : "❌ X"}]! — ${q.note}`;
@@ -1323,7 +1364,13 @@ function renderQuizPlazaOxView(g) {
   }
 
   const isEliminated = Boolean(me && me.eliminated);
-  if (specBanner) specBanner.classList.toggle("hidden", !isEliminated || g.phase === "finished");
+  if (specBanner) {
+    const missed = isEliminated && (me.currentChoice === null || me.currentChoice === undefined);
+    specBanner.textContent = missed
+      ? "⏰ 제한시간 내 미선택! 중간 대기 구역에서 탈락했습니다 (관전 중)"
+      : "👻 탈락하여 관전 중입니다 (끝나면 다시 대기실로 돌아갈 수 있습니다)";
+    specBanner.classList.toggle("hidden", !isEliminated);
+  }
   if (ctrlRow) ctrlRow.classList.toggle("hidden", isEliminated || g.phase !== "round");
 
   const oBtn = document.getElementById("quizPlazaOxBtnO");
@@ -1333,20 +1380,48 @@ function renderQuizPlazaOxView(g) {
 
   if (actorsEl) {
     const alive = g.participants.filter(p => !p.eliminated);
-    actorsEl.innerHTML = alive.map((p, idx) => {
-      const imgUrl = getCachedAvatarDataUrl(p.avatarConfig);
-      let leftPct = 42 + ((idx % 4) - 1.5) * 8;
-      if (p.currentChoice === true) leftPct = 10 + (idx % 3) * 11;
-      else if (p.currentChoice === false) leftPct = 62 + (idx % 3) * 11;
-      const topPct = 36 + Math.floor(idx / 3) * 26;
-      const isMe = p.id === userState?.id;
-      return `
-        <div class="qplaza-ring-actor ${isMe ? "is-me" : ""}" style="left:${leftPct}%; top:${topPct}%;">
-          <img src="${imgUrl}" class="qplaza-actor-img" alt="" />
-          <span class="qplaza-actor-nick">${escapePlazaHtml(p.nickname)}</span>
-        </div>
-      `;
-    }).join("");
+    const aliveIds = new Set(alive.map(p => p.id));
+
+    // 탈락한 액터만 DOM에서 제거 (기존 노드를 유지해 부드러운 좌우 슬라이드 전환!)
+    Array.from(actorsEl.children).forEach(node => {
+      const aid = node.getAttribute("data-actor-id");
+      if (!aliveIds.has(aid)) node.remove();
+    });
+
+    const centerGroup = alive.filter(p => p.currentChoice === null || p.currentChoice === undefined);
+    const oGroup = alive.filter(p => p.currentChoice === true);
+    const xGroup = alive.filter(p => p.currentChoice === false);
+
+    const placeInZone = (group, baseLeft, colStep) => {
+      const childNodes = Array.from(actorsEl.children);
+      group.forEach((p, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const rows = Math.max(1, Math.ceil(group.length / 2));
+        const offsetX = group.length === 1 ? 0 : (col === 0 ? -colStep : colStep);
+        const leftPct = baseLeft + offsetX;
+        const topPct = rows === 1 ? 58 : 34 + (row / Math.max(1, rows - 1)) * 44;
+        const isMe = p.id === userState?.id;
+
+        let el = childNodes.find(n => n.getAttribute("data-actor-id") === String(p.id));
+        if (!el) {
+          el = document.createElement("div");
+          el.className = `qplaza-ring-actor ${isMe ? "is-me" : ""}`;
+          el.setAttribute("data-actor-id", p.id);
+          const imgUrl = getCachedAvatarDataUrl(p.avatarConfig);
+          el.innerHTML = `<img src="${imgUrl}" class="qplaza-actor-img" alt="" /><span class="qplaza-actor-nick">${escapePlazaHtml(p.nickname)}</span>`;
+          actorsEl.appendChild(el);
+        }
+        el.classList.toggle("is-me", isMe);
+        el.classList.toggle("is-waiting-center", p.currentChoice === null || p.currentChoice === undefined);
+        el.style.left = `${leftPct.toFixed(1)}%`;
+        el.style.top = `${topPct.toFixed(1)}%`;
+      });
+    };
+
+    placeInZone(oGroup, 17.5, 7.5);
+    placeInZone(centerGroup, 50, 6.2);
+    placeInZone(xGroup, 82.5, 7.5);
   }
 }
 
@@ -1404,13 +1479,23 @@ function renderQuizPlazaTypingView(g) {
 function renderQuizPlazaClimbView(g) {
   const q = g.questions[g.roundIdx];
   const qEl = document.getElementById("quizPlazaClimbQuestionText");
+  const noteEl = document.getElementById("quizPlazaClimbNoteText");
   const choicesEl = document.getElementById("quizPlazaClimbChoices");
-  const stairsEl = document.getElementById("quizPlazaClimbStairsLayer");
   const me = g.participants.find(p => p.id === userState?.id);
 
-  if (q && qEl) qEl.textContent = g.phase === "finished" ? "🏞️ 올라강 10라운드 완료!" : q.q;
+  if (q && qEl) qEl.textContent = q.q;
+  if (noteEl) {
+    if (g.phase === "reveal" && q) {
+      const ansIdx = Number(q.answerIndex) || 0;
+      const ansText = Array.isArray(q.choices) ? (q.choices[ansIdx] || "") : "";
+      noteEl.textContent = `✅ 정답: ${ansIdx + 1}. ${ansText} — 맞힌 도전자 한 칸 상승!`;
+      noteEl.classList.remove("hidden");
+    } else {
+      noteEl.classList.add("hidden");
+    }
+  }
 
-  if (choicesEl && q && g.phase !== "finished") {
+  if (choicesEl && q) {
     const myPick = me ? me.currentChoice : null;
     choicesEl.innerHTML = (q.choices || []).map((c, idx) => {
       let cls = "qplaza-climb-choice-btn";
@@ -1419,28 +1504,8 @@ function renderQuizPlazaClimbView(g) {
         if (idx === Number(q.answerIndex)) cls += " is-correct";
         else if (myPick === idx) cls += " is-wrong";
       }
-      const disabled = g.phase !== "round" || (myPick !== null && myPick !== undefined);
+      const disabled = g.phase !== "round";
       return `<button type="button" class="${cls}" ${disabled ? "disabled" : ""} onclick="selectQuizPlazaClimbChoice(${idx})">${idx + 1}. ${escapePlazaHtml(c)}</button>`;
-    }).join("");
-  }
-
-  if (stairsEl) {
-    const sorted = [...g.participants].sort((a, b) => (b.step || 0) - (a.step || 0));
-    stairsEl.innerHTML = sorted.map((p, idx) => {
-      const imgUrl = getCachedAvatarDataUrl(p.avatarConfig);
-      const stepPct = Math.min(92, 6 + (Number(p.step) || 0) * 8.4);
-      const isMe = p.id === userState?.id;
-      return `
-        <div class="qplaza-climb-lane ${isMe ? "is-me" : ""}">
-          <span class="qplaza-climb-name">${p.isBot ? "🤖 " : ""}${escapePlazaHtml(p.nickname)}</span>
-          <div class="qplaza-climb-bar">
-            <div class="qplaza-climb-avatar" style="left:${stepPct}%;">
-              <img src="${imgUrl}" alt="" />
-            </div>
-          </div>
-          <span class="qplaza-climb-step">${p.step}/10</span>
-        </div>
-      `;
     }).join("");
   }
 }
@@ -1469,19 +1534,65 @@ window.addEventListener("pagehide", () => {
 
 
 // ============================================================================
-// [V4.0 디자인] 퀴즈광장 전용 게임 일러스트 무대 렌더러 (광장 로비 · 대기방 · OX · 타자왕 · 올라강)
+// [V4.0 디자인] 퀴즈광장 전용 정배율 게임 일러스트 무대 렌더러
 // ============================================================================
 let _lastDrawnPlazaArtSig = "";
+let _climbAnimRafId = null;
+let _lastClimbFrameTs = 0;
+
+function syncCanvasBufferToCss(cv, fallbackW, fallbackH) {
+  if (!cv) return { W: fallbackW, H: fallbackH };
+  const cw = cv.clientWidth || (cv.parentElement ? cv.parentElement.clientWidth : 0);
+  const ch = cv.clientHeight || (cv.parentElement ? cv.parentElement.clientHeight : 0);
+  const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+  if (cw > 16 && ch > 16) {
+    const tw = Math.round(cw * dpr);
+    const th = Math.round(ch * dpr);
+    if (Math.abs(cv.width - tw) > 4 || Math.abs(cv.height - th) > 4) {
+      cv.width = tw;
+      cv.height = th;
+    }
+  } else {
+    if (cv.width !== fallbackW) cv.width = fallbackW;
+    if (cv.height !== fallbackH) cv.height = fallbackH;
+  }
+  return { W: cv.width, H: cv.height };
+}
+
+function stopQuizPlazaClimbAnim() {
+  if (_climbAnimRafId) {
+    cancelAnimationFrame(_climbAnimRafId);
+    _climbAnimRafId = null;
+  }
+}
+
+function startQuizPlazaClimbAnim() {
+  if (_climbAnimRafId) return;
+  const loop = ts => {
+    const scr = typeof state !== "undefined" ? state.currentScreen : "";
+    const g = quizPlazaState.game;
+    if (scr !== "quizPlazaPlayScreen" || !g || g.gameType !== "climb" || g.phase === "finished") {
+      _climbAnimRafId = null;
+      return;
+    }
+    _climbAnimRafId = requestAnimationFrame(loop);
+    if (document.hidden || ts - _lastClimbFrameTs < 33) return;
+    _lastClimbFrameTs = ts;
+    try { drawQuizPlazaClimbArt(ts); } catch (e) {}
+  };
+  _climbAnimRafId = requestAnimationFrame(loop);
+}
 
 window.drawQuizPlazaLobbyArt = function () {
   const cv = document.getElementById("quizPlazaLobbyCanvas");
   if (!cv) return;
+  const { W, H } = syncCanvasBufferToCss(cv, 960, 220);
   const ctx = cv.getContext("2d");
-  const W = cv.width || 680;
-  const H = cv.height || 140;
+  const u = Math.min(W, H) / 220;
   const outline = "#1e1b18";
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -1493,7 +1604,7 @@ window.drawQuizPlazaLobbyArt = function () {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  [[W * 0.2, -0.35], [W * 0.8, 0.35]].forEach(([sx, ang]) => {
+  [[W * 0.22, -0.35], [W * 0.78, 0.35]].forEach(([sx, ang]) => {
     ctx.save();
     ctx.translate(sx, H);
     ctx.rotate(ang);
@@ -1502,10 +1613,10 @@ window.drawQuizPlazaLobbyArt = function () {
     beam.addColorStop(1, "rgba(253, 224, 71, 0)");
     ctx.fillStyle = beam;
     ctx.beginPath();
-    ctx.moveTo(-24, 0);
-    ctx.lineTo(-90, -H * 1.3);
-    ctx.lineTo(90, -H * 1.3);
-    ctx.lineTo(24, 0);
+    ctx.moveTo(-30 * u, 0);
+    ctx.lineTo(-110 * u, -H * 1.3);
+    ctx.lineTo(110 * u, -H * 1.3);
+    ctx.lineTo(30 * u, 0);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -1514,89 +1625,97 @@ window.drawQuizPlazaLobbyArt = function () {
   // 삼각 만국기 줄
   const flagCols = ["#f43f5e", "#facc15", "#38bdf8", "#4ade80", "#f97316", "#a855f7"];
   ctx.strokeStyle = "#fde68a";
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3 * u;
   ctx.beginPath();
-  ctx.moveTo(0, 14);
-  ctx.quadraticCurveTo(W / 2, 34, W, 14);
+  ctx.moveTo(0, H * 0.10);
+  ctx.quadraticCurveTo(W / 2, H * 0.25, W, H * 0.10);
   ctx.stroke();
-  for (let i = 0; i < 12; i++) {
-    const fx = (W / 12) * i + 14;
+  for (let i = 0; i < 14; i++) {
+    const fx = (W / 14) * i + W * 0.02;
     const t = fx / W;
-    const fy = (1 - t) * (1 - t) * 14 + 2 * (1 - t) * t * 34 + t * t * 14;
+    const fy = (1 - t) * (1 - t) * (H * 0.10) + 2 * (1 - t) * t * (H * 0.25) + t * t * (H * 0.10);
     ctx.fillStyle = flagCols[i % flagCols.length];
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 3 * u;
     ctx.beginPath();
     ctx.moveTo(fx, fy);
-    ctx.lineTo(fx + 22, fy + 2);
-    ctx.lineTo(fx + 11, fy + 22);
+    ctx.lineTo(fx + 26 * u, fy + 2 * u);
+    ctx.lineTo(fx + 13 * u, fy + 26 * u);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   }
 
   // 중앙 황금 아치 간판
+  const signW = Math.min(W * 0.56, 480 * u);
+  const signH = 110 * u;
+  const signY = H * 0.34;
   ctx.fillStyle = "#b45309";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5 * u;
   ctx.beginPath();
-  ctx.roundRect(W / 2 - 155, 42, 310, 74, 18);
+  ctx.roundRect(W / 2 - signW / 2, signY, signW, signH, 22 * u);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = "#fef08a";
   ctx.beginPath();
-  ctx.roundRect(W / 2 - 146, 49, 292, 60, 13);
+  ctx.roundRect(W / 2 - signW / 2 + 10 * u, signY + 9 * u, signW - 20 * u, signH - 18 * u, 16 * u);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = "#1e1b18";
-  ctx.font = "900 28px sans-serif";
+  ctx.font = `900 ${Math.round(40 * u)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("🎪 QUIZ PLAZA 🏆", W / 2, 79);
+  ctx.fillText("🎪 QUIZ PLAZA 🏆", W / 2, signY + signH / 2 + 2 * u);
 
-  // 좌우 미니 엠블럼 (O/X & 타자 & 등반)
+  // 좌우 정원 메달리온
+  const medR = 44 * u;
   [
-    [82, 82, "#3b82f6", "O/X"],
-    [W - 82, 82, "#10b981", "WIN!"]
+    [W * 0.11, H * 0.60, "#3b82f6", "O/X"],
+    [W * 0.89, H * 0.60, "#10b981", "WIN!"]
   ].forEach(([cx, cy, bg, txt]) => {
     ctx.fillStyle = bg;
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 5 * u;
     ctx.beginPath();
-    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.arc(cx, cy, medR, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#ffffff";
-    ctx.font = "900 16px sans-serif";
-    ctx.fillText(txt, cx, cy + 1);
+    ctx.font = `900 ${Math.round(23 * u)}px sans-serif`;
+    ctx.fillText(txt, cx, cy + 1 * u);
   });
 
   ctx.restore();
 };
 
 function drawQuizPlazaPlayStageArt(theme, g) {
+  const cvId = theme === "waiting" ? "quizPlazaWaitBgCanvas" : theme === "ox" ? "quizPlazaOxBgCanvas" : theme === "typing" ? "quizPlazaTypingBgCanvas" : "";
+  const cv = cvId ? document.getElementById(cvId) : null;
+  const cw = cv ? cv.clientWidth : 0;
+  const ch = cv ? cv.clientHeight : 0;
   const roundKey = g ? `${g.roundIdx}_${g.phase}` : "wait";
-  const sig = `${theme}_${roundKey}`;
-  if (sig === _lastDrawnPlazaArtSig && theme !== "ox") return;
+  const sig = `${theme}_${roundKey}_${cw}x${ch}`;
+  if (sig === _lastDrawnPlazaArtSig) return;
   _lastDrawnPlazaArtSig = sig;
 
   if (theme === "waiting") drawQuizPlazaWaitingArt();
-  else if (theme === "ox") drawQuizPlazaOxArt();
+  else if (theme === "ox") drawQuizPlazaOxArt(g);
   else if (theme === "typing") drawQuizPlazaTypingArt();
-  else if (theme === "climb") drawQuizPlazaClimbArt();
 }
 
 function drawQuizPlazaWaitingArt() {
   const cv = document.getElementById("quizPlazaWaitBgCanvas");
   if (!cv) return;
+  const { W, H } = syncCanvasBufferToCss(cv, 960, 190);
   const ctx = cv.getContext("2d");
-  const W = cv.width || 640;
-  const H = cv.height || 130;
+  const u = Math.min(W, H) / 190;
   const outline = "#1e1b18";
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
 
   const sky = ctx.createLinearGradient(0, 0, 0, H);
@@ -1607,159 +1726,208 @@ function drawQuizPlazaWaitingArt() {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  // 무대 바닥 판자선
   ctx.strokeStyle = "#78350f";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4 * u;
   ctx.beginPath();
   ctx.moveTo(0, H * 0.69);
   ctx.lineTo(W, H * 0.69);
   ctx.stroke();
 
-  // 광장 줄무늬 천막
   const stripes = ["#ef4444", "#fef08a"];
-  const sw = W / 10;
-  for (let i = 0; i < 10; i++) {
+  const nStripes = 16;
+  const sw = W / nStripes;
+  for (let i = 0; i < nStripes; i++) {
     ctx.fillStyle = stripes[i % 2];
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 3;
-    ctx.fillRect(i * sw, 0, sw, 18);
-    ctx.strokeRect(i * sw, 0, sw, 18);
+    ctx.lineWidth = 3.5 * u;
+    ctx.fillRect(i * sw, 0, sw, 20 * u);
+    ctx.strokeRect(i * sw, 0, sw, 20 * u);
     ctx.beginPath();
-    ctx.arc(i * sw + sw / 2, 18, sw / 2, 0, Math.PI);
+    ctx.arc(i * sw + sw / 2, 20 * u, sw / 2, 0, Math.PI);
     ctx.fill();
     ctx.stroke();
   }
 
-  // 중앙 트로피 무대 배너
+  const bw = Math.min(W * 0.56, 420 * u);
+  const bh = 72 * u;
   ctx.fillStyle = "#1e1b4b";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = 4.5 * u;
   ctx.beginPath();
-  ctx.roundRect(W / 2 - 145, 42, 290, 48, 12);
+  ctx.roundRect(W / 2 - bw / 2, H * 0.34, bw, bh, 18 * u);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#fde047";
-  ctx.font = "900 22px sans-serif";
+  ctx.font = `900 ${Math.round(30 * u)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("✨ 도전자 집결 무대 ✨", W / 2, 66);
+  ctx.fillText("✨ 도전자 집결 무대 ✨", W / 2, H * 0.34 + bh / 2);
 
   ctx.restore();
 }
 
-function drawQuizPlazaOxArt() {
+function drawQuizPlazaOxArt(g) {
   const cv = document.getElementById("quizPlazaOxBgCanvas");
   if (!cv) return;
+  const { W, H } = syncCanvasBufferToCss(cv, 760, 420);
   const ctx = cv.getContext("2d");
-  const W = cv.width || 640;
-  const H = cv.height || 360;
+  const u = Math.min(W, H) / 400;
   const outline = "#1e1b18";
+  const isReveal = g?.phase === "reveal";
+  const q = g?.questions?.[g.roundIdx];
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // 1) 어두운 아레나 천장 + 스포트라이트
-  const arenaBg = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+  // 1) 아레나 천장 + 관중석 실루엣 + 스포트라이트
+  const arenaBg = ctx.createLinearGradient(0, 0, 0, H * 0.34);
   arenaBg.addColorStop(0, "#0f172a");
   arenaBg.addColorStop(1, "#1e293b");
   ctx.fillStyle = arenaBg;
   ctx.fillRect(0, 0, W, H);
 
-  // 관중석 실루엣
   ctx.fillStyle = "#334155";
-  for (let x = 18; x < W; x += 28) {
+  const fanStep = 34 * u;
+  for (let x = 22 * u; x < W; x += fanStep) {
     ctx.beginPath();
-    ctx.arc(x, H * 0.34 + ((x % 3) * 4), 10, 0, Math.PI * 2);
+    ctx.arc(x, H * 0.25 + ((Math.round(x) % 3) * 4 * u), 11 * u, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // 스포트라이트 2줄기
-  [[W * 0.25, "#60a5fa"], [W * 0.75, "#fb7185"]].forEach(([sx, col]) => {
-    const g = ctx.createRadialGradient(sx, 20, 8, sx, H * 0.55, H * 0.52);
-    g.addColorStop(0, col + "55");
-    g.addColorStop(1, col + "00");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H * 0.85);
+  // 스포트라이트 (O 구역 & X 구역)
+  [[W * 0.175, "#60a5fa"], [W * 0.825, "#fb7185"]].forEach(([sx, col]) => {
+    const beam = ctx.createRadialGradient(sx, 14 * u, 6 * u, sx, H * 0.52, Math.max(W, H) * 0.45);
+    beam.addColorStop(0, col + "50");
+    beam.addColorStop(1, col + "00");
+    ctx.fillStyle = beam;
+    ctx.fillRect(0, 0, W, H * 0.88);
   });
 
-  // 2) 권투 링 매트 (좌 Blue O vs 우 Red X)
-  const matTop = H * 0.34;
-  ctx.fillStyle = "#dbeafe";
-  ctx.fillRect(0, matTop, W / 2, H - matTop);
-  ctx.fillStyle = "#fee2e2";
-  ctx.fillRect(W / 2, matTop, W / 2, H - matTop);
+  // 2) 3분할 링 매트 (좌 Blue O [0..35%] | 중앙 대기 구역 [35..65%] | 우 Red X [65..100%])
+  const matTop = H * 0.28;
+  const matH = H - matTop;
+  const xLeftEnd = W * 0.35;
+  const xRightStart = W * 0.65;
 
-  // 중앙 경계선 & VS 원판
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(W / 2, matTop);
-  ctx.lineTo(W / 2, H);
-  ctx.stroke();
+  // O 매트 & X 매트
+  ctx.fillStyle = isReveal && q?.a === true ? "#bfdbfe" : "#dbeafe";
+  ctx.fillRect(0, matTop, xLeftEnd, matH);
+  ctx.fillStyle = isReveal && q?.a === false ? "#fecaca" : "#fee2e2";
+  ctx.fillRect(xRightStart, matTop, W - xRightStart, matH);
 
-  // 링 바닥 큰 O / X 마크
+  // 중앙 대기 다리/구역 (미선택 시 탈락)
+  ctx.fillStyle = isReveal ? "#1e293b" : "#fef9c3";
+  ctx.fillRect(xLeftEnd, matTop, xRightStart - xLeftEnd, matH);
+
+  // 중앙 상하 위험 사선 띠 (대기 구역 경고)
   ctx.save();
-  ctx.strokeStyle = "rgba(37, 99, 235, 0.35)";
-  ctx.lineWidth = 14;
   ctx.beginPath();
-  ctx.arc(W * 0.25, H * 0.67, 56, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(220, 38, 38, 0.35)";
-  ctx.lineWidth = 14;
-  ctx.beginPath();
-  ctx.moveTo(W * 0.75 - 42, H * 0.67 - 42);
-  ctx.lineTo(W * 0.75 + 42, H * 0.67 + 42);
-  ctx.moveTo(W * 0.75 + 42, H * 0.67 - 42);
-  ctx.lineTo(W * 0.75 - 42, H * 0.67 + 42);
-  ctx.stroke();
+  ctx.rect(xLeftEnd, matTop, xRightStart - xLeftEnd, 22 * u);
+  ctx.clip();
+  ctx.fillStyle = isReveal ? "#dc2626" : "#f59e0b";
+  for (let sx = xLeftEnd - 40 * u; sx < xRightStart + 40 * u; sx += 24 * u) {
+    ctx.beginPath();
+    ctx.moveTo(sx, matTop + 22 * u);
+    ctx.lineTo(sx + 12 * u, matTop);
+    ctx.lineTo(sx + 24 * u, matTop);
+    ctx.lineTo(sx + 12 * u, matTop + 22 * u);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 
-  // 링 로프 3줄 + 좌우 코너 포스트
-  [H * 0.20, H * 0.26, H * 0.32].forEach((ry, idx) => {
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 7;
+  // 중앙 구역 라벨
+  ctx.fillStyle = isReveal ? "#fca5a5" : "#92400e";
+  ctx.font = `900 ${Math.round(18 * u)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(isReveal ? "💀 미선택 탈락!" : "⏳ 대기 구역", W * 0.5, matTop + matH - 22 * u);
+
+  // 구역 경계선 2줄
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4.5 * u;
+  [xLeftEnd, xRightStart].forEach(lx => {
     ctx.beginPath();
-    ctx.moveTo(16, ry);
-    ctx.lineTo(W - 16, ry);
+    ctx.moveTo(lx, matTop);
+    ctx.lineTo(lx, H);
+    ctx.stroke();
+  });
+
+  // 링 바닥 정원 O 마크 (진정한 원!) & X 마크 (1:1 비례)
+  const markCy = matTop + matH * 0.54;
+  const oRad = Math.min(xLeftEnd * 0.34, matH * 0.32);
+  ctx.strokeStyle = isReveal && q?.a === true ? "rgba(37, 99, 235, 0.72)" : "rgba(37, 99, 235, 0.34)";
+  ctx.lineWidth = 16 * u;
+  ctx.beginPath();
+  ctx.arc(xLeftEnd * 0.5, markCy, oRad, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const xHalf = Math.min((W - xRightStart) * 0.30, matH * 0.28);
+  const xCx = xRightStart + (W - xRightStart) * 0.5;
+  ctx.strokeStyle = isReveal && q?.a === false ? "rgba(220, 38, 38, 0.72)" : "rgba(220, 38, 38, 0.34)";
+  ctx.lineWidth = 16 * u;
+  ctx.beginPath();
+  ctx.moveTo(xCx - xHalf, markCy - xHalf);
+  ctx.lineTo(xCx + xHalf, markCy + xHalf);
+  ctx.moveTo(xCx + xHalf, markCy - xHalf);
+  ctx.lineTo(xCx - xHalf, markCy + xHalf);
+  ctx.stroke();
+
+  // 정답 구역 골든 승리 테두리 강조
+  if (isReveal && q) {
+    ctx.strokeStyle = "#facc15";
+    ctx.lineWidth = 7 * u;
+    if (q.a) ctx.strokeRect(4 * u, matTop + 4 * u, xLeftEnd - 8 * u, matH - 8 * u);
+    else ctx.strokeRect(xRightStart + 4 * u, matTop + 4 * u, (W - xRightStart) - 8 * u, matH - 8 * u);
+  }
+
+  // 3) 링 로프 3줄 + 좌우 포스트 + 중앙 대기 배지
+  [H * 0.14, H * 0.21, H * 0.28].forEach((ry, idx) => {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 7.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(16 * u, ry);
+    ctx.lineTo(W - 16 * u, ry);
     ctx.stroke();
     ctx.strokeStyle = idx === 1 ? "#fef08a" : "#ffffff";
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 3.8 * u;
     ctx.stroke();
   });
 
   [
-    [14, "#2563eb", "O"],
-    [W - 34, "#dc2626", "X"]
+    [12 * u, "#2563eb", "O"],
+    [W - 38 * u, "#dc2626", "X"]
   ].forEach(([px, col, lbl]) => {
     ctx.fillStyle = col;
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 4 * u;
     ctx.beginPath();
-    ctx.roundRect(px, H * 0.14, 20, H * 0.26, 5);
+    ctx.roundRect(px, H * 0.08, 26 * u, H * 0.24, 6 * u);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#ffffff";
-    ctx.font = "900 13px sans-serif";
+    ctx.font = `900 ${Math.round(17 * u)}px sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText(lbl, px + 10, H * 0.19);
+    ctx.textBaseline = "middle";
+    ctx.fillText(lbl, px + 13 * u, H * 0.14);
   });
 
-  // 중앙 VS 메달
+  // 중앙 VS 메달 (1:1 정원)
   ctx.fillStyle = "#facc15";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = 4.5 * u;
   ctx.beginPath();
-  ctx.arc(W / 2, H * 0.34, 22, 0, Math.PI * 2);
+  ctx.arc(W / 2, matTop, 26 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#1e1b18";
-  ctx.font = "900 14px sans-serif";
+  ctx.font = `900 ${Math.round(17 * u)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("VS", W / 2, H * 0.34 + 1);
+  ctx.fillText("VS", W / 2, matTop + 1 * u);
 
   ctx.restore();
 }
@@ -1767,17 +1935,17 @@ function drawQuizPlazaOxArt() {
 function drawQuizPlazaTypingArt() {
   const cv = document.getElementById("quizPlazaTypingBgCanvas");
   if (!cv) return;
+  const { W, H } = syncCanvasBufferToCss(cv, 960, 190);
   const ctx = cv.getContext("2d");
-  const W = cv.width || 640;
-  const H = cv.height || 120;
+  const u = Math.min(W, H) / 190;
   const outline = "#1e1b18";
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // 사막 노을 하늘
   const sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
   sky.addColorStop(0, "#ea580c");
   sky.addColorStop(0.55, "#fb923c");
@@ -1785,33 +1953,32 @@ function drawQuizPlazaTypingArt() {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  // 커다란 사막 태양
+  // 정원 사막 태양
   ctx.fillStyle = "#fffbeb";
   ctx.strokeStyle = "#f59e0b";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4 * u;
   ctx.beginPath();
-  ctx.arc(W * 0.80, H * 0.36, 26, 0, Math.PI * 2);
+  ctx.arc(W * 0.80, H * 0.36, 40 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
   // 사막 궁전 실루엣
   ctx.fillStyle = "#b45309";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3;
-  // 좌우 첨탑 + 중앙 돔
-  ctx.fillRect(W * 0.28, H * 0.34, 14, 48);
-  ctx.strokeRect(W * 0.28, H * 0.34, 14, 48);
-  ctx.fillRect(W * 0.62, H * 0.34, 14, 48);
-  ctx.strokeRect(W * 0.62, H * 0.34, 14, 48);
+  ctx.lineWidth = 4 * u;
+  ctx.fillRect(W * 0.28, H * 0.32, 22 * u, H * 0.44);
+  ctx.strokeRect(W * 0.28, H * 0.32, 22 * u, H * 0.44);
+  ctx.fillRect(W * 0.62, H * 0.32, 22 * u, H * 0.44);
+  ctx.strokeRect(W * 0.62, H * 0.32, 22 * u, H * 0.44);
   ctx.fillStyle = "#fde047";
   ctx.beginPath();
-  ctx.arc(W * 0.48, H * 0.56, 36, Math.PI, 0);
+  ctx.arc(W * 0.48, H * 0.56, 56 * u, Math.PI, 0);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#d97706";
-  ctx.fillRect(W * 0.35, H * 0.56, W * 0.26, 34);
-  ctx.strokeRect(W * 0.35, H * 0.56, W * 0.26, 34);
+  ctx.fillRect(W * 0.36, H * 0.56, W * 0.24, H * 0.30);
+  ctx.strokeRect(W * 0.36, H * 0.56, W * 0.24, H * 0.30);
 
   // 앞 모래언덕
   ctx.fillStyle = "#f59e0b";
@@ -1827,126 +1994,293 @@ function drawQuizPlazaTypingArt() {
 
   // 야자수
   ctx.strokeStyle = "#78350f";
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 8 * u;
   ctx.beginPath();
   ctx.moveTo(W * 0.12, H * 0.90);
   ctx.quadraticCurveTo(W * 0.14, H * 0.60, W * 0.17, H * 0.38);
   ctx.stroke();
   ctx.fillStyle = "#16a34a";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3.5 * u;
   [-0.6, 0, 0.6].forEach(ang => {
     ctx.save();
     ctx.translate(W * 0.17, H * 0.38);
     ctx.rotate(ang);
     ctx.beginPath();
-    ctx.ellipse(14, 0, 16, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(22 * u, 0, 24 * u, 9 * u, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
   });
 
-  // 간판 뱃지
-  ctx.fillStyle = "rgba(30, 27, 24, 0.75)";
+  // 간판 배지
+  ctx.fillStyle = "rgba(30, 27, 24, 0.78)";
   ctx.beginPath();
-  ctx.roundRect(12, 10, 146, 28, 999);
+  ctx.roundRect(18 * u, 16 * u, 232 * u, 42 * u, 999);
   ctx.fill();
   ctx.fillStyle = "#fde047";
-  ctx.font = "900 13px sans-serif";
+  ctx.font = `900 ${Math.round(20 * u)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("🏜️ 사막 타자왕 레이스", 85, 24);
+  ctx.fillText("🏜️ 사막 타자왕 레이스", 134 * u, 37 * u);
 
   ctx.restore();
 }
 
-function drawQuizPlazaClimbArt() {
+function drawQuizPlazaClimbArt(ts = performance.now()) {
   const cv = document.getElementById("quizPlazaClimbBgCanvas");
   if (!cv) return;
+  const g = quizPlazaState.game;
+  const { W, H } = syncCanvasBufferToCss(cv, 760, 440);
   const ctx = cv.getContext("2d");
-  const W = cv.width || 640;
-  const H = cv.height || 120;
+  const u = Math.min(W, H) / 400;
   const outline = "#1e1b18";
+  const t = ts * 0.001;
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // 맑은 하늘 & 푸른 산맥
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.65);
-  sky.addColorStop(0, "#0ea5e9");
-  sky.addColorStop(1, "#bae6fd");
+  // 1) 계곡 하늘 & 뭉게구름
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.85);
+  sky.addColorStop(0, "#0284c7");
+  sky.addColorStop(0.45, "#7dd3fc");
+  sky.addColorStop(1, "#e0f2fe");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  [[0.22, 0.24, 1.0], [0.76, 0.20, 0.85]].forEach(([cxp, cyp, cs]) => {
+    const cx = ((W * cxp + t * 8) % (W + 120 * u)) - 60 * u;
+    const cy = H * cyp;
+    ctx.beginPath();
+    ctx.arc(cx - 22 * u * cs, cy + 4 * u, 16 * u * cs, 0, Math.PI * 2);
+    ctx.arc(cx, cy - 4 * u, 22 * u * cs, 0, Math.PI * 2);
+    ctx.arc(cx + 22 * u * cs, cy + 4 * u, 15 * u * cs, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 좌우 푸른 협곡 절벽
   ctx.fillStyle = "#22c55e";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4 * u;
   ctx.beginPath();
-  ctx.moveTo(0, H * 0.64);
-  ctx.lineTo(W * 0.25, H * 0.28);
-  ctx.lineTo(W * 0.48, H * 0.54);
-  ctx.lineTo(W * 0.76, H * 0.20);
-  ctx.lineTo(W, H * 0.56);
-  ctx.lineTo(W, H);
-  ctx.lineTo(0, H);
+  ctx.moveTo(0, H * 0.28);
+  ctx.lineTo(W * 0.14, H * 0.42);
+  ctx.lineTo(W * 0.06, H * 0.85);
+  ctx.lineTo(0, H * 0.85);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // 흐르는 강물
-  const river = ctx.createLinearGradient(0, H * 0.58, 0, H);
-  river.addColorStop(0, "#0284c7");
-  river.addColorStop(1, "#0369a1");
-  ctx.fillStyle = river;
-  ctx.fillRect(0, H * 0.60, W, H * 0.40);
-  ctx.strokeStyle = outline;
   ctx.beginPath();
-  ctx.moveTo(0, H * 0.60);
-  ctx.lineTo(W, H * 0.60);
+  ctx.moveTo(W, H * 0.25);
+  ctx.lineTo(W * 0.86, H * 0.40);
+  ctx.lineTo(W * 0.94, H * 0.85);
+  ctx.lineTo(W, H * 0.85);
+  ctx.closePath();
+  ctx.fill();
   ctx.stroke();
 
-  // 징검다리 & 나무 10계단 스텝 + 황금 깃발
-  for (let i = 0; i < 10; i++) {
-    const sx = 44 + i * ((W - 110) / 9);
-    const sy = H * 0.78 - i * 3.8;
-    ctx.fillStyle = i === 9 ? "#fde047" : "#f5f5f4";
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 2.5;
+  // 2) 고도 가이드선 (0단계 ~ 10단계 목표선)
+  const ceilY = Math.max(24 * u, H * 0.085);
+  const waterTop = H * 0.82;
+  const step0Y = waterTop - 40 * u;
+  const step10Y = ceilY + 62 * u;
+
+  ctx.save();
+  ctx.setLineDash([6 * u, 6 * u]);
+  ctx.strokeStyle = "rgba(14, 116, 144, 0.22)";
+  ctx.lineWidth = 2 * u;
+  [2, 4, 6, 8, 10].forEach(lvl => {
+    const gy = step0Y - (lvl / QUIZ_PLAZA_ROUNDS_COUNT) * (step0Y - step10Y);
     ctx.beginPath();
-    ctx.ellipse(sx, sy, 18, 8, 0, 0, Math.PI * 2);
+    ctx.moveTo(16 * u, gy);
+    ctx.lineTo(W - 16 * u, gy);
+    ctx.stroke();
+    ctx.fillStyle = lvl === 10 ? "#b45309" : "rgba(15, 23, 42, 0.45)";
+    ctx.font = `900 ${Math.round(11 * u)}px sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(lvl === 10 ? "👑 10단" : `${lvl}단`, W - 10 * u, gy - 8 * u);
+  });
+  ctx.restore();
+
+  // 3) 천장 목재 들보 (도르래 밧줄 지지대)
+  ctx.fillStyle = "#92400e";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4.5 * u;
+  ctx.fillRect(0, 0, W, ceilY);
+  ctx.strokeRect(-2, -2, W + 4, ceilY + 2);
+  ctx.fillStyle = "#d97706";
+  ctx.fillRect(0, 0, W, ceilY * 0.35);
+
+  // 4) 천장 밧줄 + 바구니 탄 각 캐릭터들
+  const list = g && Array.isArray(g.participants) ? g.participants : [];
+  const q = g && g.questions ? g.questions[g.roundIdx] : null;
+  const n = Math.max(1, list.length);
+  const spanW = W * 0.86;
+  const startX = W * 0.07;
+
+  list.forEach((p, idx) => {
+    const targetStep = Math.max(0, Math.min(QUIZ_PLAZA_ROUNDS_COUNT, Number(p.step) || 0));
+    if (typeof p.visualStep !== "number") p.visualStep = targetStep;
+    p.visualStep += (targetStep - p.visualStep) * 0.16;
+
+    const laneX = startX + ((idx + 0.5) / n) * spanW;
+    const laneW = spanW / n;
+    const basketW = Math.min(laneW * 0.82, 62 * u);
+    const basketH = basketW * 0.52;
+    const isMe = p.id === userState?.id;
+
+    // 도르래 바퀴
+    ctx.fillStyle = "#fde047";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.arc(laneX, ceilY, 7.5 * u, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-  }
 
-  // 10번째 정상 황금 깃발
-  const flagX = 44 + 9 * ((W - 110) / 9);
-  const flagY = H * 0.78 - 9 * 3.8;
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
+    const sway = Math.sin(t * 2.4 + idx * 1.1) * 2.5 * u;
+    const basketCenterY = step0Y - (p.visualStep / QUIZ_PLAZA_ROUNDS_COUNT) * (step0Y - step10Y);
+    const bx = laneX + sway;
+    const bridleY = basketCenterY - basketH * 0.92;
+
+    // 천장 -> 바구니까지 수직 밧줄
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 5.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(laneX, ceilY);
+    ctx.lineTo(bx, bridleY);
+    ctx.stroke();
+    ctx.strokeStyle = "#b45309";
+    ctx.lineWidth = 2.8 * u;
+    ctx.stroke();
+
+    // 바구니 양옆 Y-브라이들 밧줄
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 4 * u;
+    ctx.beginPath();
+    ctx.moveTo(bx, bridleY);
+    ctx.lineTo(bx - basketW * 0.42, basketCenterY - basketH * 0.25);
+    ctx.moveTo(bx, bridleY);
+    ctx.lineTo(bx + basketW * 0.42, basketCenterY - basketH * 0.25);
+    ctx.stroke();
+    ctx.strokeStyle = "#d97706";
+    ctx.lineWidth = 2 * u;
+    ctx.stroke();
+
+    // 바구니 뒷면 테두리
+    ctx.fillStyle = "#78350f";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.ellipse(bx, basketCenterY - basketH * 0.22, basketW * 0.46, 6 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 바구니 안에 탄 480×480 유저 아바타 캐릭터
+    const avCanvas = getCachedAvatarCanvas(p.avatarConfig);
+    if (avCanvas) {
+      const avSize = basketW * 0.96;
+      ctx.drawImage(avCanvas, bx - avSize / 2, basketCenterY - basketH * 0.22 - avSize * 0.68, avSize, avSize);
+    }
+
+    // 바구니 앞면 (짜임 디테일)
+    ctx.fillStyle = isMe ? "#f59e0b" : "#d97706";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(bx - basketW * 0.48, basketCenterY - basketH * 0.22);
+    ctx.lineTo(bx + basketW * 0.48, basketCenterY - basketH * 0.22);
+    ctx.lineTo(bx + basketW * 0.36, basketCenterY + basketH * 0.48);
+    ctx.lineTo(bx - basketW * 0.36, basketCenterY + basketH * 0.48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 바구니 위 입체 짜임 라인
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 2 * u;
+    ctx.beginPath();
+    ctx.moveTo(bx - basketW * 0.42, basketCenterY + basketH * 0.08);
+    ctx.lineTo(bx + basketW * 0.42, basketCenterY + basketH * 0.08);
+    ctx.stroke();
+
+    // 바구니 위 닉네임 + 층수 배지
+    const labelText = isMe ? `★나(${targetStep})` : `${String(p.nickname || "").slice(0, 3)}(${targetStep})`;
+    const labelY = basketCenterY + basketH * 0.48 + 11 * u;
+    const pillW = Math.max(basketW * 0.92, 52 * u);
+    ctx.fillStyle = isMe ? "#fde047" : "rgba(15, 23, 42, 0.84)";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.2 * u;
+    ctx.beginPath();
+    ctx.roundRect(bx - pillW / 2, labelY - 8 * u, pillW, 17 * u, 999);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = isMe ? "#1e1b18" : "#ffffff";
+    ctx.font = `900 ${Math.round(10 * u)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(labelText, bx, labelY + 0.5 * u);
+
+    // 정답 공개(reveal) 시 상승 / 오답 이펙트
+    if (g && g.phase === "reveal" && q) {
+      const ok = Number(p.currentChoice) === Number(q.answerIndex);
+      ctx.font = `900 ${Math.round(12 * u)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = ok ? "#16a34a" : "#dc2626";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3 * u;
+      const fxTxt = ok ? "▲ UP!" : "💦";
+      const fxY = basketCenterY - basketH * 0.95;
+      ctx.strokeText(fxTxt, bx, fxY);
+      ctx.fillText(fxTxt, bx, fxY);
+    }
+  });
+
+  // 5) 맨 아래 출렁이며 흐르는 강물
+  const river = ctx.createLinearGradient(0, waterTop, 0, H);
+  river.addColorStop(0, "#0ea5e9");
+  river.addColorStop(0.35, "#0284c7");
+  river.addColorStop(1, "#0369a1");
+  ctx.fillStyle = river;
   ctx.beginPath();
-  ctx.moveTo(flagX, flagY - 2);
-  ctx.lineTo(flagX, flagY - 36);
-  ctx.stroke();
-  ctx.fillStyle = "#ef4444";
-  ctx.beginPath();
-  ctx.moveTo(flagX, flagY - 36);
-  ctx.lineTo(flagX + 26, flagY - 28);
-  ctx.lineTo(flagX, flagY - 20);
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, waterTop);
+  for (let x = 0; x <= W; x += 18 * u) {
+    const wy = waterTop + Math.sin(x * 0.025 / u - t * 4.2) * 5 * u;
+    ctx.lineTo(x, wy);
+  }
+  ctx.lineTo(W, H);
   ctx.closePath();
   ctx.fill();
+
+  // 물결 상단 하얀 물거품 테두리
+  ctx.strokeStyle = "#e0f2fe";
+  ctx.lineWidth = 3.5 * u;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 18 * u) {
+    const wy = waterTop + Math.sin(x * 0.025 / u - t * 4.2) * 5 * u;
+    if (x === 0) ctx.moveTo(x, wy);
+    else ctx.lineTo(x, wy);
+  }
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(15, 23, 42, 0.74)";
-  ctx.beginPath();
-  ctx.roundRect(12, 10, 146, 28, 999);
-  ctx.fill();
-  ctx.fillStyle = "#bae6fd";
-  ctx.font = "900 13px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("🏞️ 올라강 10계단", 85, 24);
+  // 흐르는 물줄기 잔물결
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+  ctx.lineWidth = 2.8 * u;
+  for (let r = 0; r < 6; r++) {
+    const rx = ((r * (W / 5) + t * 90 * u) % (W + 80 * u)) - 40 * u;
+    const ry = waterTop + 18 * u + (r % 3) * 14 * u;
+    ctx.beginPath();
+    ctx.moveTo(rx - 22 * u, ry);
+    ctx.lineTo(rx + 22 * u, ry);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }

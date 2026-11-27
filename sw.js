@@ -5,25 +5,25 @@
 // - Supabase / iTunes / 외부 CDN: 실시간 통신 보장을 위해 캐시하지 않고 네트워크 직통
 // ============================================================================
 
-const CACHE_NAME = "musicking-pwa-v26.1";
+const CACHE_NAME = "musicking-pwa-v26.3";
 const APP_SHELL_FILES = [
   "./",
   "./index.html",
-  "./style.css?v=26.1",
-  "./data.js?v=26.1",
-  "./ox_questions.js?v=26.1",
-  "./climb_questions.js?v=26.1",
-  "./typing_questions.js?v=26.1",
-  "./pixel_avatar_v3.js?v=26.1",
-  "./pixel_avatar.js?v=26.1",
-  "./online.js?v=26.1",
-  "./fishing.js?v=26.1",
-  "./fishing_manual.js?v=26.1",
-  "./quiz_plaza.js?v=26.1",
-  "./arcade_sfx.js?v=26.1",
-  "./arcade_games.js?v=26.1",
-  "./arcade.js?v=26.1",
-  "./app.js?v=26.1",
+  "./style.css?v=26.3",
+  "./data.js?v=26.3",
+  "./ox_questions.js?v=26.3",
+  "./climb_questions.js?v=26.3",
+  "./typing_questions.js?v=26.3",
+  "./pixel_avatar_v3.js?v=26.3",
+  "./pixel_avatar.js?v=26.3",
+  "./online.js?v=26.3",
+  "./fishing.js?v=26.3",
+  "./fishing_manual.js?v=26.3",
+  "./quiz_plaza.js?v=26.3",
+  "./arcade_sfx.js?v=26.3",
+  "./arcade_games.js?v=26.3",
+  "./arcade.js?v=26.3",
+  "./app.js?v=26.3",
   "./manifest.json",
   "./bgm/click.wav",
   "./myad/ad1.png?v=20.0"

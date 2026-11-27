@@ -164,7 +164,7 @@
   <style>
     .hidden, [hidden] { display: none !important; }
   </style>
-  <link rel="stylesheet" href="style.css?v=26.1" />
+  <link rel="stylesheet" href="style.css?v=26.3" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
@@ -521,7 +521,7 @@
         </div>
 
         <div class="shop-hub-stage-banner">
-          <canvas id="shopHubBannerCanvas" width="680" height="190"></canvas>
+          <canvas id="shopHubBannerCanvas" width="960" height="260"></canvas>
         </div>
 
         <div class="play-hub-banners" style="gap:10px;">
@@ -559,7 +559,7 @@
           <span class="badge gold" style="font-size:0.7rem; flex-shrink:0;">CD:EXP = 4:1</span>
         </div>
         <div class="qplaza-lobby-banner-wrap">
-          <canvas id="quizPlazaLobbyCanvas" width="680" height="140"></canvas>
+          <canvas id="quizPlazaLobbyCanvas" width="960" height="220"></canvas>
         </div>
         <div id="quizPlazaRoomsGrid" class="qplaza-lobby-scroll"></div>
       </div>
@@ -579,7 +579,7 @@
 
         <div id="quizPlazaWaitingView" class="qplaza-waiting-view">
           <div class="qplaza-wait-stage-banner">
-            <canvas id="quizPlazaWaitBgCanvas" width="640" height="130"></canvas>
+            <canvas id="quizPlazaWaitBgCanvas" width="960" height="190"></canvas>
           </div>
           <div id="quizPlazaWaitCountdownText" class="qplaza-wait-banner">⏳ 30초 후 자동 시작 (빈자리는 AI 봇 자동 투입)</div>
           <div id="quizPlazaWaitPlayersGrid" class="qplaza-wait-grid"></div>
@@ -592,7 +592,7 @@
               <div id="quizPlazaOxNoteText" class="qplaza-note-txt hidden"></div>
             </div>
             <div class="qplaza-ox-ring">
-              <canvas id="quizPlazaOxBgCanvas" width="640" height="360" class="qplaza-arena-canvas"></canvas>
+              <canvas id="quizPlazaOxBgCanvas" width="760" height="420" class="qplaza-arena-canvas"></canvas>
               <div id="quizPlazaOxActorsLayer" class="qplaza-ox-actors"></div>
             </div>
             <div id="quizPlazaOxSpectatorBar" class="qplaza-spec-bar hidden">👻 탈락하여 관전 중입니다 (끝나면 다시 대기실로 돌아갈 수 있습니다)</div>
@@ -604,7 +604,7 @@
 
           <div id="quizPlazaTypingArena" class="qplaza-arena hidden">
             <div class="qplaza-typing-vista">
-              <canvas id="quizPlazaTypingBgCanvas" width="640" height="120"></canvas>
+              <canvas id="quizPlazaTypingBgCanvas" width="960" height="190"></canvas>
             </div>
             <div class="qplaza-typing-stage">
               <div id="quizPlazaTypingTypeTag" class="qplaza-typing-tag">📜 문장</div>
@@ -616,13 +616,13 @@
           </div>
 
           <div id="quizPlazaClimbArena" class="qplaza-arena hidden">
-            <div class="qplaza-climb-vista">
-              <canvas id="quizPlazaClimbBgCanvas" width="640" height="120"></canvas>
-            </div>
             <div class="qplaza-climb-qbox">
               <div id="quizPlazaClimbQuestionText" class="qplaza-question-txt"></div>
+              <div id="quizPlazaClimbNoteText" class="qplaza-note-txt hidden"></div>
             </div>
-            <div id="quizPlazaClimbStairsLayer" class="qplaza-climb-stairs"></div>
+            <div class="qplaza-climb-stage">
+              <canvas id="quizPlazaClimbBgCanvas" width="760" height="440" class="qplaza-arena-canvas"></canvas>
+            </div>
             <div id="quizPlazaClimbChoices" class="qplaza-climb-choices"></div>
           </div>
 
@@ -1374,7 +1374,7 @@
       </div>
 
       <!-- ==================== [V4.0 오버레이] 손낚시 풀스크린 ==================== -->
-      <div id="manualFishingOverlay" class="manual-fishing-overlay hidden" onclick="event.stopPropagation()">
+      <div id="manualFishingOverlay" class="manual-fishing-overlay hidden" onclick="event.stopPropagation()" onpointerdown="handleManualFishingScreenTap(event)">
         <div class="manual-fish-topbar">
           <button type="button" class="fishing-exit-btn" onclick="closeManualFishingOverlay()">⬅ 광장으로</button>
           <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
@@ -1393,10 +1393,18 @@
             <span id="manualFishBagWarn" class="manual-fish-warn-badge hidden">가득 참 임박</span>
           </div>
 
+          <button type="button" id="manualFishBiteCircleBtn" class="manual-fish-bite-circle hidden" onpointerdown="handleManualBiteCircleTap(event)">
+            <span class="bite-circle-ring"></span>
+            <span class="bite-circle-core">
+              <span class="bite-circle-ico">⚡</span>
+              <span class="bite-circle-txt">낚아채기!</span>
+            </span>
+          </button>
+
           <div id="manualFishTimerBadge" class="manual-fish-timer hidden">⏱️ 3.0초</div>
 
           <div id="manualFishResultCard" class="manual-fish-result-card hidden">
-            <canvas id="manualFishResultCanvas" width="180" height="140"></canvas>
+            <canvas id="manualFishResultCanvas" width="480" height="480"></canvas>
             <div style="flex:1; min-width:0;">
               <div id="manualFishResultTitle" style="font-size:0.95rem; margin-bottom:4px;"></div>
               <div id="manualFishResultMeta" style="font-size:0.76rem; color:#334155; line-height:1.45;"></div>
@@ -2434,22 +2442,22 @@
   <!-- ==================== [V4.0 모달 A] 전용 배경 낚시 상점 ==================== -->
   <div id="fishingShopModal" class="modal-backdrop hidden" style="z-index:2040;">
     <div class="modal-content card fshop-modal-card">
-      <div class="screen-header" style="margin-bottom:8px;">
-        <h3 style="font-size:1rem;">🏪 호수가 낚시 상점</h3>
+      <div class="fshop-topbar">
+        <h3 class="fshop-title">🏪 호수가 낚시상회</h3>
         <div style="display:flex; align-items:center; gap:6px;">
-          <span class="badge gold" style="font-size:0.78rem;">💿 <strong id="fishingShopCdBalance">0</strong> CD</span>
+          <span class="badge gold" style="font-size:0.78rem; box-shadow:0 2px 0 #1e1b18;">💿 <strong id="fishingShopCdBalance">0</strong> CD</span>
           <button type="button" class="header-btn" onclick="closeModal('fishingShopModal')">닫기 ✕</button>
         </div>
       </div>
 
       <div class="fshop-npc-stage">
-        <canvas id="fishingShopNpcCanvas" width="640" height="240"></canvas>
+        <canvas id="fishingShopNpcCanvas" width="960" height="400"></canvas>
         <div id="fishingShopNpcSpeech" class="fshop-npc-speech">어서오쇼! 낚싯대와 싱싱한 미끼 다 준비돼 있소~</div>
       </div>
 
       <div class="fshop-cur-row">
         <div class="fshop-cur-slot">
-          <canvas id="fishShopCurRodCanvas" class="fshop-cur-cv" width="120" height="120"></canvas>
+          <canvas id="fishShopCurRodCanvas" class="fshop-cur-cv" width="480" height="480"></canvas>
           <div class="fshop-cur-meta">
             <strong id="fishShopCurRodName">낚싯대 미착용</strong>
             <span id="fishShopCurRodSub">기본 대기(5~15초)</span>
@@ -2457,7 +2465,7 @@
           <button type="button" id="fishShopUnequipRodBtn" class="btn hidden" style="padding:4px 7px; font-size:0.68rem;" onclick="unequipFishingShopGear('fishing_rod')">해제</button>
         </div>
         <div class="fshop-cur-slot">
-          <canvas id="fishShopCurBaitCanvas" class="fshop-cur-cv" width="120" height="120"></canvas>
+          <canvas id="fishShopCurBaitCanvas" class="fshop-cur-cv" width="480" height="480"></canvas>
           <div class="fshop-cur-meta">
             <strong id="fishShopCurBaitName">미끼 미착용</strong>
             <span id="fishShopCurBaitSub">기본 확률 (C 85% / B 15%)</span>
@@ -2493,7 +2501,7 @@
       </div>
       <div id="fishDexGrid" class="fish-dex-grid"></div>
       <div class="fish-dex-detail-box">
-        <canvas id="fishDexDetailCanvas" class="fish-dex-detail-cv" width="180" height="140"></canvas>
+        <canvas id="fishDexDetailCanvas" class="fish-dex-detail-cv" width="480" height="480"></canvas>
         <div class="fish-dex-detail-meta">
           <strong id="fishDexDetailTitle">물고기를 선택해 주세요</strong>
           <p id="fishDexDetailDesc"></p>
@@ -2533,20 +2541,20 @@
     </div>
   </div>
 
-  <script defer src="data.js?v=26.1"></script>
-  <script defer src="ox_questions.js?v=26.1"></script>
-  <script defer src="climb_questions.js?v=26.1"></script>
-  <script defer src="typing_questions.js?v=26.1"></script>
-  <script defer src="pixel_avatar_v3.js?v=26.1"></script>
-  <script defer src="pixel_avatar.js?v=26.1"></script>
-  <script defer src="online.js?v=26.1"></script>
-  <script defer src="fishing.js?v=26.1"></script>
-  <script defer src="fishing_manual.js?v=26.1"></script>
-  <script defer src="quiz_plaza.js?v=26.1"></script>
-  <script defer src="arcade_sfx.js?v=26.1"></script>
-  <script defer src="arcade_games.js?v=26.1"></script>
-  <script defer src="arcade.js?v=26.1"></script>
-  <script defer src="app.js?v=26.1"></script>
+  <script defer src="data.js?v=26.3"></script>
+  <script defer src="ox_questions.js?v=26.3"></script>
+  <script defer src="climb_questions.js?v=26.3"></script>
+  <script defer src="typing_questions.js?v=26.3"></script>
+  <script defer src="pixel_avatar_v3.js?v=26.3"></script>
+  <script defer src="pixel_avatar.js?v=26.3"></script>
+  <script defer src="online.js?v=26.3"></script>
+  <script defer src="fishing.js?v=26.3"></script>
+  <script defer src="fishing_manual.js?v=26.3"></script>
+  <script defer src="quiz_plaza.js?v=26.3"></script>
+  <script defer src="arcade_sfx.js?v=26.3"></script>
+  <script defer src="arcade_games.js?v=26.3"></script>
+  <script defer src="arcade.js?v=26.3"></script>
+  <script defer src="app.js?v=26.3"></script>
   <script type="module">
     const banner = document.getElementById("smart-pwa-banner");
     const iosContent = document.getElementById("pwa-ios-content");

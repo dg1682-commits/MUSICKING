@@ -6374,7 +6374,8 @@ body.midi-play-theme .hint-btn.is-cooldown {
 }
 #shopHubBannerCanvas {
   width: 100%;
-  height: 112px;
+  height: auto;
+  aspect-ratio: 960 / 260;
   display: block;
 }
 .shop-hub-fish-tag {
@@ -6491,6 +6492,83 @@ body.midi-play-theme .hint-btn.is-cooldown {
   gap: 5px;
   align-items: center;
   pointer-events: none;
+  z-index: 6;
+  transition: opacity 0.2s ease;
+}
+.manual-fishing-overlay.is-bite-mode .manual-fish-hud-pills,
+.manual-fishing-overlay.is-gauge-mode .manual-fish-hud-pills,
+.manual-fishing-overlay.is-bite-mode .manual-fish-hud-pills *,
+.manual-fishing-overlay.is-gauge-mode .manual-fish-hud-pills * {
+  pointer-events: none !important;
+  opacity: 0.78;
+}
+.manual-fishing-overlay.is-gauge-mode {
+  cursor: pointer;
+}
+.manual-fishing-overlay.is-gauge-mode .manual-fish-stage {
+  box-shadow: 0 0 0 3px #facc15, 0 4px 0 #1e1b18;
+}
+.manual-fish-bite-circle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 3.5px solid #1e1b18;
+  background: radial-gradient(circle at 30% 28%, #fffbeb 0%, #fde047 50%, #f59e0b 100%);
+  box-shadow: 0 5px 0 #1e1b18, 0 10px 24px rgba(245, 158, 11, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 16;
+  padding: 0;
+  touch-action: manipulation;
+  user-select: none;
+}
+.manual-fish-bite-circle.is-pop {
+  animation: fishBitePopIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), fishBiteFloat 0.65s ease-in-out infinite alternate;
+}
+.manual-fish-bite-circle:active {
+  transform: translate(-50%, -50%) scale(0.92);
+}
+.bite-circle-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 3.5px solid #fef08a;
+  pointer-events: none;
+  animation: fishBiteRipple 0.9s ease-out infinite;
+}
+.bite-circle-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  pointer-events: none;
+}
+.bite-circle-ico {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 1px 0 rgba(30, 27, 24, 0.25));
+}
+.bite-circle-txt {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #1e1b18;
+  margin-top: 2px;
+}
+@keyframes fishBitePopIn {
+  0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@keyframes fishBiteFloat {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -53%) scale(1.07); }
+}
+@keyframes fishBiteRipple {
+  0% { transform: scale(0.86); opacity: 0.95; }
+  100% { transform: scale(1.42); opacity: 0; }
 }
 .manual-fish-pill {
   pointer-events: auto;
@@ -6547,11 +6625,11 @@ body.midi-play-theme .hint-btn.is-cooldown {
   background: linear-gradient(135deg, #fffbeb 0%, #fef08a 100%);
 }
 #manualFishResultCanvas {
-  width: 78px;
-  height: 62px;
-  border-radius: 10px;
-  border: 2px solid #cbd5e1;
-  background: #e0f2fe;
+  width: 66px;
+  height: 66px;
+  border-radius: 11px;
+  border: 2px solid #1e1b18;
+  background: radial-gradient(circle at 30% 25%, #f0f9ff 0%, #bae6fd 100%);
   flex-shrink: 0;
 }
 .manual-fish-bottom {
@@ -6660,26 +6738,28 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .fish-bag-row, .fshop-item-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: #fffdf9;
   border: 2px solid #1e1b18;
-  border-radius: 11px;
-  padding: 6px 8px;
+  border-radius: 12px;
+  padding: 7px 9px;
+  box-shadow: 0 2px 0 rgba(30, 27, 24, 0.16);
 }
 .fish-bag-row.is-max-row, .fshop-item-row.is-max-row {
   border-color: #eab308;
-  background: #fefce8;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%);
 }
 .fshop-item-row.is-equipped {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: #0284c7;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 .fish-mini-canvas, .fshop-item-cv, .manual-bait-thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  border: 1.5px solid #cbd5e1;
-  background: #e0f2fe;
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  border: 2px solid #1e1b18;
+  background: radial-gradient(circle at 30% 25%, #f0f9ff 0%, #bae6fd 100%);
+  box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.15);
   flex-shrink: 0;
 }
 .fish-grade-pill {
@@ -6733,69 +6813,144 @@ body.midi-play-theme .hint-btn.is-cooldown {
 .fshop-modal-card {
   max-width: 470px;
   width: 94%;
-  max-height: 90dvh;
+  max-height: 92dvh;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  background: linear-gradient(180deg, #0c4a6e 0%, #0369a1 52px, #fffbeb 53px, #fef3c7 100%) !important;
+  border: 3px solid #1e1b18 !important;
+  box-shadow: 0 7px 0 #1e1b18 !important;
+  color: #1e1b18 !important;
+}
+.fshop-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 2px;
+  flex-shrink: 0;
+}
+.fshop-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 0 #1e1b18;
 }
 .fshop-npc-stage {
   position: relative;
-  border-radius: 12px;
-  border: 2.5px solid #1e1b18;
-  overflow: hidden;
+  border-radius: 14px;
+  border: 3px solid #1e1b18;
+  background: #0284c7;
+  box-shadow: 0 3px 0 #1e1b18;
+  overflow: visible;
   flex-shrink: 0;
 }
-#fishingShopNpcCanvas { width: 100%; height: 112px; display: block; object-fit: cover; }
+#fishingShopNpcCanvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 960 / 400;
+  display: block;
+  border-radius: 11px 11px 0 0;
+}
 .fshop-npc-speech {
-  background: #fffdf7;
-  border-top: 2px solid #1e1b18;
-  padding: 5px 10px;
-  font-size: 0.76rem;
-  font-weight: 800;
+  position: relative;
+  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+  border-top: 2.5px solid #1e1b18;
+  border-radius: 0 0 11px 11px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 900;
   color: #1e1b18;
+  line-height: 1.35;
+}
+.fshop-npc-speech::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 10px solid #1e1b18;
+}
+.fshop-npc-speech::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 7px solid #ffffff;
 }
 .fshop-cur-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 7px;
   flex-shrink: 0;
 }
 .fshop-cur-slot {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: #f8fafc;
+  gap: 7px;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
   border: 2px solid #1e1b18;
-  border-radius: 10px;
-  padding: 5px 6px;
+  border-radius: 11px;
+  padding: 6px 7px;
+  box-shadow: 0 2px 0 rgba(30, 27, 24, 0.22);
 }
-.fshop-cur-cv { width: 34px; height: 34px; flex-shrink: 0; border-radius: 6px; background: #e0f2fe; }
-.fshop-cur-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.fshop-cur-meta strong { font-size: 0.73rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fshop-cur-meta span { font-size: 0.65rem; color: #64748b; }
-.fshop-tab-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0; }
-.fshop-tab-btn {
-  padding: 7px 6px;
-  border-radius: 10px;
+.fshop-cur-cv {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 9px;
   border: 2px solid #1e1b18;
-  background: #f1f5f9;
-  font-size: 0.78rem;
+  background: radial-gradient(circle at 30% 25%, #f0f9ff 0%, #bae6fd 100%);
+}
+.fshop-cur-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fshop-cur-meta strong { font-size: 0.74rem; color: #1e1b18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fshop-cur-meta span { font-size: 0.66rem; color: #475569; font-weight: 700; }
+.fshop-tab-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; flex-shrink: 0; }
+.fshop-tab-btn {
+  padding: 8px 6px;
+  border-radius: 11px;
+  border: 2px solid #1e1b18;
+  background: #fffdf9;
+  color: #1e1b18;
+  font-size: 0.79rem;
   font-weight: 900;
   cursor: pointer;
 }
-.fshop-tab-btn.active { background: #38bdf8; color: #fff; box-shadow: 0 2px 0 #1e1b18; }
+.fshop-tab-btn.active {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 0 #1e1b18;
+}
 .fshop-scroll-pane { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
-.fshop-sec-title { font-size: 0.78rem; font-weight: 900; color: #0369a1; margin: 4px 0; }
-.fshop-list { display: flex; flex-direction: column; gap: 6px; }
+.fshop-sec-title {
+  display: inline-block;
+  font-size: 0.77rem;
+  font-weight: 900;
+  color: #0c4a6e;
+  background: #e0f2fe;
+  border: 1.5px solid #0284c7;
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin: 4px 0 6px;
+}
+.fshop-list { display: flex; flex-direction: column; gap: 7px; }
 .fshop-sell-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fef9c3;
+  background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
   border: 2px solid #1e1b18;
-  border-radius: 10px;
+  border-radius: 11px;
   padding: 8px 10px;
   margin-bottom: 7px;
+  box-shadow: 0 2px 0 rgba(30, 27, 24, 0.16);
 }
 
 /* 물고기 도감 모달 */
@@ -6860,7 +7015,7 @@ body.midi-play-theme .hint-btn.is-cooldown {
   padding: 7px 8px;
   background: #fffdf7;
 }
-.fish-dex-detail-cv { width: 68px; height: 54px; border-radius: 8px; background: #e0f2fe; border: 1.5px solid #cbd5e1; flex-shrink: 0; }
+.fish-dex-detail-cv { width: 64px; height: 64px; border-radius: 10px; background: radial-gradient(circle at 30% 25%, #f0f9ff 0%, #bae6fd 100%); border: 2px solid #1e1b18; flex-shrink: 0; }
 .fish-dex-detail-meta { flex: 1; min-width: 0; }
 .fish-dex-detail-meta strong { font-size: 0.82rem; display: block; }
 .fish-dex-detail-meta p { font-size: 0.72rem; color: #475569; margin: 2px 0 0; line-height: 1.35; }
@@ -6922,7 +7077,8 @@ body.midi-play-theme .hint-btn.is-cooldown {
 }
 #quizPlazaLobbyCanvas {
   width: 100%;
-  height: 86px;
+  height: auto;
+  aspect-ratio: 960 / 220;
   display: block;
 }
 .qplaza-lobby-scroll {
@@ -7065,7 +7221,8 @@ body.midi-play-theme .hint-btn.is-cooldown {
 }
 #quizPlazaWaitBgCanvas {
   width: 100%;
-  height: 76px;
+  height: auto;
+  aspect-ratio: 960 / 190;
   display: block;
 }
 .qplaza-wait-banner {
@@ -7125,17 +7282,28 @@ body.midi-play-theme .hint-btn.is-cooldown {
   padding: 9px 11px;
   box-shadow: 0 3px 0 #1e1b18;
 }
-.qplaza-typing-vista, .qplaza-climb-vista {
+.qplaza-typing-vista {
   border: 3px solid #1e1b18;
   border-radius: 13px;
   overflow: hidden;
   box-shadow: 0 3px 0 #1e1b18;
   flex-shrink: 0;
 }
-#quizPlazaTypingBgCanvas, #quizPlazaClimbBgCanvas {
+#quizPlazaTypingBgCanvas {
   width: 100%;
-  height: 72px;
+  height: auto;
+  aspect-ratio: 960 / 190;
   display: block;
+}
+.qplaza-climb-stage {
+  position: relative;
+  flex: 1;
+  min-height: 190px;
+  border: 3px solid #1e1b18;
+  border-radius: 16px;
+  background: #0ea5e9;
+  box-shadow: 0 4px 0 #1e1b18;
+  overflow: hidden;
 }
 .qplaza-typing-stage {
   background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
@@ -7167,7 +7335,7 @@ body.midi-play-theme .hint-btn.is-cooldown {
   z-index: 0;
 }
 .qplaza-ox-actors { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
-.qplaza-ring-actor { position: absolute; transform: translate(-50%, -50%); text-align: center; transition: left 0.25s ease; }
+.qplaza-ring-actor { position: absolute; transform: translate(-50%, -50%); text-align: center; transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1), top 0.28s ease; }
 .qplaza-ring-actor.is-me .qplaza-actor-nick { background: #facc15; color: #1e1b18; border: 1.5px solid #1e1b18; }
 .qplaza-actor-img { width: 44px; height: 44px; display: block; margin: 0 auto; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); }
 .qplaza-actor-nick { display: inline-block; font-size: 0.62rem; font-weight: 900; background: rgba(15, 23, 42, 0.82); color: #fff; padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
@@ -7279,14 +7447,15 @@ body.midi-play-theme .hint-btn.is-cooldown {
   box-shadow: 0 3px 0 #1e1b18;
 }
 .qplaza-finish-ranks { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-.qplaza-fin-row { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 9px; background: #ffffff; border: 1.5px solid #cbd5e1; font-size: 0.78rem; font-weight: 800; }
-.qplaza-fin-row.is-me { background: #fef9c3; border: 2px solid #d97706; }
+.qplaza-fin-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 10px; background: #ffffff; border: 2px solid #cbd5e1; font-size: 0.78rem; font-weight: 800; }
+.qplaza-fin-row.is-me { background: #fef9c3; border: 2px solid #1e1b18; }
+.qplaza-fin-left { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.qplaza-fin-rank { min-width: 24px; text-align: center; }
+.qplaza-fin-av { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
 
 @media (max-height: 700px) {
-  #shopHubBannerCanvas { height: 86px; }
-  #quizPlazaLobbyCanvas { height: 70px; }
-  #quizPlazaWaitBgCanvas { height: 62px; }
-  #quizPlazaTypingBgCanvas, #quizPlazaClimbBgCanvas { height: 58px; }
+  .qplaza-climb-stage { min-height: 155px; }
+  .qplaza-ox-ring { min-height: 150px; }
 }
 
 /* 타자왕 플로팅 입력 바 (모바일 키보드 바로 위 고정) */
@@ -7317,6 +7486,7 @@ body.midi-play-theme .hint-btn.is-cooldown {
 #bagItemsPane.hidden,
 #fishingShopBuyPane.hidden,
 #fishingShopSellPane.hidden,
+#manualFishBiteCircleBtn.hidden,
 .quiz-plaza-typing-bar.hidden {
   display: none !important;
 }

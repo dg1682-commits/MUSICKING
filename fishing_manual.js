@@ -129,9 +129,11 @@ function escapeFishHtml(str) {
 // ============================================================================
 function drawFishCatalogSprite(canvas, fish, opts = {}) {
   if (!canvas || !fish) return;
+  if (canvas.width < 480) canvas.width = 480;
+  if (canvas.height < 480) canvas.height = 480;
   const ctx = canvas.getContext("2d");
-  const W = canvas.width || 160;
-  const H = canvas.height || 160;
+  const W = canvas.width;
+  const H = canvas.height;
   const locked = Boolean(opts.locked);
   const outline = locked ? "#334155" : "#1e1b18";
   const bodyCol = locked ? "#475569" : fish.bodyCol;
@@ -139,97 +141,133 @@ function drawFishCatalogSprite(canvas, fish, opts = {}) {
   const finCol = locked ? "#334155" : fish.finCol;
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.translate(W / 2, H / 2);
-  const sc = Math.min(W, H) / 160;
+  const sc = Math.min(W, H) / 480;
   ctx.scale(sc, sc);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  const lw = 5;
+  const lw = 12;
+
+  // 은은한 물빛 후광 원판 & 거품 (해금된 어종만)
+  if (!locked) {
+    const bgGlow = ctx.createRadialGradient(0, 0, 24, 0, 0, 210);
+    bgGlow.addColorStop(0, fish.isLegendary ? "rgba(254, 240, 138, 0.55)" : "rgba(186, 230, 253, 0.5)");
+    bgGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = bgGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 210, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 물방울 2개
+    [[-158, -124, 14], [164, 118, 10]].forEach(([bx, by, br]) => {
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
 
   if (fish.shape === "squid") {
-    // 오징어
+    // 오징어 (480px 고해상도 입체 음영)
     for (let i = -2; i <= 2; i++) {
       ctx.strokeStyle = outline;
-      ctx.lineWidth = 9;
+      ctx.lineWidth = 24;
       ctx.beginPath();
-      ctx.moveTo(i * 11, 20);
-      ctx.quadraticCurveTo(i * 14, 44, i * 16 + (i % 2 ? 6 : -6), 60);
+      ctx.moveTo(i * 30, 56);
+      ctx.quadraticCurveTo(i * 38, 126, i * 44 + (i % 2 ? 18 : -18), 178);
       ctx.stroke();
       ctx.strokeStyle = bodyCol;
-      ctx.lineWidth = 4.5;
+      ctx.lineWidth = 12;
       ctx.stroke();
     }
-    ctx.fillStyle = bodyCol;
+    const sqGrad = ctx.createLinearGradient(0, -190, 0, 80);
+    sqGrad.addColorStop(0, bodyCol);
+    sqGrad.addColorStop(1, bellyCol);
+    ctx.fillStyle = locked ? bodyCol : sqGrad;
     ctx.strokeStyle = outline;
     ctx.lineWidth = lw;
     ctx.beginPath();
-    ctx.moveTo(0, -64);
-    ctx.lineTo(-34, -30);
-    ctx.lineTo(34, -30);
+    ctx.moveTo(0, -192);
+    ctx.lineTo(-102, -88);
+    ctx.lineTo(102, -88);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(-22, -32);
-    ctx.quadraticCurveTo(-24, 24, 0, 26);
-    ctx.quadraticCurveTo(24, 24, 22, -32);
+    ctx.moveTo(-64, -94);
+    ctx.quadraticCurveTo(-72, 72, 0, 78);
+    ctx.quadraticCurveTo(72, 72, 64, -94);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    if (!locked) {
+      ctx.fillStyle = "rgba(255,255,255,0.34)";
+      ctx.beginPath();
+      ctx.ellipse(-20, -40, 14, 46, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (fish.shape === "octopus") {
     // 대왕문어
     for (let i = -3; i <= 3; i++) {
       ctx.strokeStyle = outline;
-      ctx.lineWidth = 11;
+      ctx.lineWidth = 30;
       ctx.beginPath();
-      ctx.moveTo(i * 10, 14);
-      ctx.bezierCurveTo(i * 18, 34, i * 10, 48, i * 18 + (i % 2 ? 7 : -7), 62);
+      ctx.moveTo(i * 28, 40);
+      ctx.bezierCurveTo(i * 52, 98, i * 28, 142, i * 52 + (i % 2 ? 20 : -20), 184);
       ctx.stroke();
       ctx.strokeStyle = bodyCol;
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 17;
       ctx.stroke();
     }
-    ctx.fillStyle = bodyCol;
+    const octGrad = ctx.createRadialGradient(-30, -82, 16, 0, -40, 120);
+    octGrad.addColorStop(0, bellyCol);
+    octGrad.addColorStop(1, bodyCol);
+    ctx.fillStyle = locked ? bodyCol : octGrad;
     ctx.strokeStyle = outline;
     ctx.lineWidth = lw;
     ctx.beginPath();
-    ctx.arc(0, -14, 38, 0, Math.PI * 2);
+    ctx.arc(0, -42, 110, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = bellyCol;
+    ctx.fillStyle = "rgba(255,255,255,0.36)";
     ctx.beginPath();
-    ctx.ellipse(-14, -26, 9, 5, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(-42, -82, 26, 15, -0.5, 0, Math.PI * 2);
     ctx.fill();
   } else if (fish.shape === "eel") {
     // 미꾸라지 / 장어
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 30;
-    ctx.beginPath();
-    ctx.moveTo(-54, 16);
-    ctx.bezierCurveTo(-22, -26, 16, 30, 52, -10);
-    ctx.stroke();
-    ctx.strokeStyle = bodyCol;
-    ctx.lineWidth = 20;
-    ctx.stroke();
-    ctx.strokeStyle = bellyCol;
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(-46, 18);
-    ctx.bezierCurveTo(-18, -12, 16, 34, 48, -4);
-    ctx.stroke();
-    // 꼬리지느러미
     ctx.fillStyle = finCol;
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.moveTo(-54, 16);
-    ctx.lineTo(-68, 6);
-    ctx.lineTo(-66, 28);
+    ctx.moveTo(-158, 46);
+    ctx.lineTo(-204, 14);
+    ctx.lineTo(-196, 84);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 86;
+    ctx.beginPath();
+    ctx.moveTo(-158, 46);
+    ctx.bezierCurveTo(-64, -76, 48, 88, 154, -28);
+    ctx.stroke();
+    ctx.strokeStyle = bodyCol;
+    ctx.lineWidth = 60;
+    ctx.stroke();
+    ctx.strokeStyle = bellyCol;
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.moveTo(-136, 52);
+    ctx.bezierCurveTo(-52, -34, 48, 98, 142, -12);
     ctx.stroke();
   } else if (fish.shape === "flat") {
     // 광어
@@ -237,131 +275,179 @@ function drawFishCatalogSprite(canvas, fish, opts = {}) {
     ctx.strokeStyle = outline;
     ctx.lineWidth = lw;
     ctx.beginPath();
-    ctx.moveTo(-36, 0);
-    ctx.lineTo(-62, -22);
-    ctx.lineTo(-56, 22);
+    ctx.moveTo(-104, 0);
+    ctx.lineTo(-184, -66);
+    ctx.lineTo(-168, 66);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = bodyCol;
+    const flGrad = ctx.createLinearGradient(0, -110, 0, 110);
+    flGrad.addColorStop(0, bodyCol);
+    flGrad.addColorStop(1, bellyCol);
+    ctx.fillStyle = locked ? bodyCol : flGrad;
     ctx.beginPath();
-    ctx.ellipse(6, 0, 50, 38, 0, 0, Math.PI * 2);
+    ctx.ellipse(18, 0, 148, 112, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = bellyCol;
-    ctx.beginPath();
-    ctx.ellipse(10, 14, 34, 16, 0, 0, Math.PI);
-    ctx.fill();
+    if (!locked) {
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.beginPath();
+      ctx.ellipse(-8, -56, 78, 22, -0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else {
-    // 일반/줄무늬/점박이/참다랑어 어류
-    const rx = fish.shape === "slim" || fish.shape === "tuna" ? 50 : fish.shape === "tiny" ? 36 : 44;
-    const ry = fish.shape === "slim" || fish.shape === "tuna" ? 24 : fish.shape === "tiny" ? 20 : 31;
+    // 일반 / 줄무늬 / 점박이 / 참다랑어 / 둥글 어류 (480px 그라데이션 & 지느러미 결)
+    const rx = fish.shape === "slim" || fish.shape === "tuna" ? 146 : fish.shape === "tiny" ? 106 : fish.shape === "plump" ? 124 : 130;
+    const ry = fish.shape === "slim" || fish.shape === "tuna" ? 72 : fish.shape === "tiny" ? 60 : fish.shape === "plump" ? 100 : 90;
 
     // 꼬리 지느러미
     ctx.fillStyle = finCol;
     ctx.strokeStyle = outline;
     ctx.lineWidth = lw;
     ctx.beginPath();
-    ctx.moveTo(-rx + 8, 0);
-    ctx.lineTo(-rx - 22, -24);
-    ctx.lineTo(-rx - 14, 0);
-    ctx.lineTo(-rx - 22, 24);
+    ctx.moveTo(-rx + 22, 0);
+    ctx.lineTo(-rx - 66, -70);
+    ctx.lineTo(-rx - 40, 0);
+    ctx.lineTo(-rx - 66, 70);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // 등/배 지느러미
+    // 등 지느러미
     ctx.beginPath();
-    ctx.moveTo(-14, -ry + 3);
-    ctx.lineTo(0, -ry - 18);
-    ctx.lineTo(20, -ry + 4);
+    ctx.moveTo(-42, -ry + 8);
+    ctx.lineTo(2, -ry - 54);
+    ctx.lineTo(58, -ry + 10);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
+    // 배 지느러미
     ctx.beginPath();
-    ctx.moveTo(-8, ry - 4);
-    ctx.lineTo(4, ry + 14);
-    ctx.lineTo(16, ry - 4);
+    ctx.moveTo(-24, ry - 10);
+    ctx.lineTo(10, ry + 42);
+    ctx.lineTo(48, ry - 10);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // 몸통
-    ctx.fillStyle = bodyCol;
+    // 몸통 (상하 그라데이션)
+    const bGrad = ctx.createLinearGradient(0, -ry, 0, ry);
+    bGrad.addColorStop(0, bodyCol);
+    bGrad.addColorStop(0.62, bodyCol);
+    bGrad.addColorStop(1, bellyCol);
+    ctx.fillStyle = locked ? bodyCol : bGrad;
     ctx.beginPath();
-    ctx.ellipse(4, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.ellipse(12, 0, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     // 배 하이라이트
     ctx.fillStyle = bellyCol;
     ctx.beginPath();
-    ctx.ellipse(6, ry * 0.35, rx * 0.72, ry * 0.42, 0, 0, Math.PI);
+    ctx.ellipse(16, ry * 0.36, rx * 0.72, ry * 0.42, 0, 0, Math.PI);
     ctx.fill();
+
+    if (!locked) {
+      // 등쪽 반사 하이라이트
+      ctx.fillStyle = "rgba(255,255,255,0.34)";
+      ctx.beginPath();
+      ctx.ellipse(-4, -ry * 0.48, rx * 0.48, ry * 0.16, -0.08, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 아가미 & 옆지느러미
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 7.5;
+      ctx.beginPath();
+      ctx.arc(46, 2, ry * 0.56, Math.PI * 0.68, Math.PI * 1.32);
+      ctx.stroke();
+
+      ctx.fillStyle = finCol;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(22, 16);
+      ctx.quadraticCurveTo(-24, 34, -18, 52);
+      ctx.quadraticCurveTo(18, 42, 34, 24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
 
     if (!locked && fish.shape === "striped") {
       ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 3.5;
-      [-18, -4, 10, 22].forEach(sx => {
+      ctx.lineWidth = 10;
+      [-52, -12, 28, 62].forEach(sx => {
         ctx.beginPath();
-        ctx.moveTo(sx, -ry + 6);
-        ctx.quadraticCurveTo(sx + 5, -6, sx - 2, -2);
+        ctx.moveTo(sx, -ry + 16);
+        ctx.quadraticCurveTo(sx + 14, -18, sx - 6, -4);
         ctx.stroke();
       });
     } else if (!locked && fish.shape === "spotted") {
       ctx.fillStyle = "#451a03";
-      [[-14, -8], [4, -12], [18, -5], [-4, 6]].forEach(([px, py]) => {
+      [[-42, -24], [12, -36], [52, -15], [-12, 18]].forEach(([px, py]) => {
         ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.arc(px, py, 11, 0, Math.PI * 2);
         ctx.fill();
       });
     }
 
     if (!locked && fish.isLegendary) {
       ctx.fillStyle = "#fef08a";
-      ctx.beginPath();
-      ctx.arc(-6, -ry - 22, 4, 0, Math.PI * 2);
-      ctx.arc(38, -28, 3.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.strokeStyle = "#ca8a04";
+      ctx.lineWidth = 3;
+      [[-18, -ry - 64, 13], [116, -84, 11], [-128, 86, 10]].forEach(([sx, sy, sr]) => {
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - sr);
+        ctx.lineTo(sx + sr * 0.35, sy - sr * 0.35);
+        ctx.lineTo(sx + sr, sy);
+        ctx.lineTo(sx + sr * 0.35, sy + sr * 0.35);
+        ctx.lineTo(sx, sy + sr);
+        ctx.lineTo(sx - sr * 0.35, sy + sr * 0.35);
+        ctx.lineTo(sx - sr, sy);
+        ctx.lineTo(sx - sr * 0.35, sy - sr * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
     }
   }
 
-  // 눈 그리기 (잠금 아닌 경우)
+  // 눈 & 빛 반사 (잠금 아닌 경우)
   if (!locked) {
-    const ex = fish.shape === "squid" ? -9 : fish.shape === "octopus" ? -14 : fish.shape === "eel" ? 42 : 30;
-    const ey = fish.shape === "squid" ? 2 : fish.shape === "octopus" ? -10 : fish.shape === "eel" ? -12 : -6;
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(ex, ey, 6.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#0f172a";
-    ctx.beginPath();
-    ctx.arc(ex + 1.5, ey, 3, 0, Math.PI * 2);
-    ctx.fill();
-    if (fish.shape === "squid" || fish.shape === "octopus") {
+    const ex = fish.shape === "squid" ? -26 : fish.shape === "octopus" ? -40 : fish.shape === "eel" ? 124 : 88;
+    const ey = fish.shape === "squid" ? 6 : fish.shape === "octopus" ? -28 : fish.shape === "eel" ? -34 : -18;
+    const drawEye = (cx, cy) => {
       ctx.fillStyle = "#ffffff";
       ctx.strokeStyle = outline;
+      ctx.lineWidth = 8.5;
       ctx.beginPath();
-      ctx.arc(-ex, ey, 6.5, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 19, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = "#0f172a";
       ctx.beginPath();
-      ctx.arc(-ex + 1.5, ey, 3, 0, Math.PI * 2);
+      ctx.arc(cx + 4, cy, 9.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(cx + 7, cy - 4, 3.8, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    drawEye(ex, ey);
+    if (fish.shape === "squid" || fish.shape === "octopus") {
+      drawEye(-ex, ey);
     }
   } else {
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "900 32px sans-serif";
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 10;
+    ctx.font = "900 104px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("?", 0, 4);
+    ctx.strokeText("?", 0, 8);
+    ctx.fillText("?", 0, 8);
   }
 
   ctx.restore();
@@ -429,8 +515,10 @@ const manualFishingState = {
   waitDurationMs: 0,
   biteTimerId: null,
   biteDeadlineAt: 0,
+  biteSpot: { leftPct: 52, topPct: 50 },
   gaugeRafId: null,
   gaugeStartedAt: 0,
+  gaugeReadyAt: 0,
   gaugeDurationMs: 20000,
   gaugePos: 50,
   gaugeDir: 1,
@@ -789,10 +877,12 @@ function renderManualFishingTopBar() {
 function renderManualFishingUi() {
   renderManualFishingTopBar();
 
+  const overlayEl = document.getElementById("manualFishingOverlay");
   const statusTextEl = document.getElementById("manualFishStatusBanner");
   const gaugeWrap = document.getElementById("manualFishGaugeWrap");
   const resultCard = document.getElementById("manualFishResultCard");
   const actionBtn = document.getElementById("manualFishActionBtn");
+  const biteBtn = document.getElementById("manualFishBiteCircleBtn");
   const timerEl = document.getElementById("manualFishTimerBadge");
 
   if (!actionBtn || !statusTextEl) return;
@@ -801,6 +891,21 @@ function renderManualFishingUi() {
   if (gaugeWrap) gaugeWrap.classList.toggle("hidden", phase !== "gauge");
   if (resultCard) resultCard.classList.toggle("hidden", phase !== "result");
   if (timerEl) timerEl.classList.toggle("hidden", phase !== "bite" && phase !== "gauge");
+  if (overlayEl) {
+    overlayEl.classList.toggle("is-bite-mode", phase === "bite");
+    overlayEl.classList.toggle("is-gauge-mode", phase === "gauge");
+  }
+
+  if (biteBtn) {
+    if (phase === "bite") {
+      const spot = manualFishingState.biteSpot || { leftPct: 52, topPct: 50 };
+      biteBtn.style.left = `${spot.leftPct}%`;
+      biteBtn.style.top = `${spot.topPct}%`;
+      biteBtn.classList.remove("hidden");
+    } else {
+      biteBtn.classList.add("hidden");
+    }
+  }
 
   if (phase === "idle") {
     const bagCnt = getSafeFishBag().length;
@@ -810,29 +915,49 @@ function renderManualFishingUi() {
     actionBtn.textContent = "🎣 낚싯대 던지기";
     actionBtn.className = "btn btn-primary manual-fish-main-btn";
     actionBtn.disabled = false;
+    actionBtn.classList.remove("hidden");
   } else if (phase === "waiting") {
-    statusTextEl.textContent = "🌊 찌가 흔들리길 기다리는 중... 곧 입질이 옵니다!";
+    statusTextEl.textContent = "🌊 찌가 흔들리길 기다리는 중... 입질이 오면 원형 버튼을 터치하세요!";
     actionBtn.textContent = "⏳ 입질 대기중...";
     actionBtn.className = "btn manual-fish-main-btn";
     actionBtn.disabled = true;
+    actionBtn.classList.remove("hidden");
   } else if (phase === "bite") {
-    statusTextEl.textContent = "⚡ 찌가 잠겼어요! 3초 안에 재빨리 낚아채세요!";
-    actionBtn.textContent = "⚡ 지금 낚아채기!";
-    actionBtn.className = "btn btn-gold manual-fish-main-btn is-pulse";
-    actionBtn.disabled = false;
+    statusTextEl.textContent = "⚡ 화면에 뜬 반짝이는 원형 버튼을 3초 안에 터치하세요!";
+    actionBtn.classList.add("hidden");
+    actionBtn.disabled = true;
   } else if (phase === "gauge") {
     const f = manualFishingState.targetFish;
     const grade = f ? f.grade : "C";
-    statusTextEl.textContent = `🔥 [${grade}등급] 어종이 걸렸습니다! 노란색 구간에서 당기세요!`;
-    actionBtn.textContent = "🎯 노란 구간에 당기기!";
-    actionBtn.className = "btn btn-gold manual-fish-main-btn";
-    actionBtn.disabled = false;
+    statusTextEl.textContent = `🎯 [${grade}등급] 어종 포착! 화면 아무 곳이나 터치해 노란 구간을 맞추세요!`;
+    actionBtn.classList.add("hidden");
+    actionBtn.disabled = true;
   } else if (phase === "result") {
     actionBtn.textContent = "🎣 다시 낚싯대 던지기";
     actionBtn.className = "btn btn-primary manual-fish-main-btn";
     actionBtn.disabled = false;
+    actionBtn.classList.remove("hidden");
   }
 }
+
+window.handleManualBiteCircleTap = function (e) {
+  if (e) {
+    e.stopPropagation();
+    if (typeof e.preventDefault === "function") e.preventDefault();
+  }
+  if (!manualFishingState.isOpen || manualFishingState.phase !== "bite") return;
+  triggerManualBiteSuccess();
+};
+
+window.handleManualFishingScreenTap = function (e) {
+  if (!manualFishingState.isOpen || manualFishingState.phase !== "gauge") return;
+  if (performance.now() < (manualFishingState.gaugeReadyAt || 0)) return;
+  if (e && e.target && typeof e.target.closest === "function") {
+    if (e.target.closest(".manual-fish-topbar button")) return;
+  }
+  if (e && typeof e.preventDefault === "function") e.preventDefault();
+  resolveManualGaugeAttempt();
+};
 
 window.handleManualFishMainAction = function () {
   if (!manualFishingState.isOpen) return;
@@ -848,6 +973,7 @@ window.handleManualFishMainAction = function () {
 };
 
 function startManualFishingCast() {
+  if (performance.now() < (manualFishingState.actionCooldownUntil || 0)) return;
   const bag = getSafeFishBag();
   if (bag.length >= MANUAL_FISH_BAG_LIMIT) {
     if (typeof gameAlert === "function") {
@@ -882,6 +1008,16 @@ function enterManualBitePhase() {
   clearManualFishingPhaseTimers();
   manualFishingState.phase = "bite";
   manualFishingState.biteDeadlineAt = Date.now() + 3000;
+  manualFishingState.biteSpot = {
+    leftPct: Math.round(20 + Math.random() * 60),
+    topPct: Math.round(30 + Math.random() * 40)
+  };
+  const biteBtn = document.getElementById("manualFishBiteCircleBtn");
+  if (biteBtn) {
+    biteBtn.classList.remove("is-pop");
+    void biteBtn.offsetWidth;
+    biteBtn.classList.add("is-pop");
+  }
   playManualFishSfx("bite");
   if (typeof window.triggerGameHaptic === "function") window.triggerGameHaptic("medium");
   renderManualFishingUi();
@@ -913,6 +1049,7 @@ function triggerManualBiteSuccess() {
   manualFishingState.gaugePos = Math.random() < 0.5 ? 2 : 98;
   manualFishingState.gaugeDir = manualFishingState.gaugePos < 50 ? 1 : -1;
   manualFishingState.gaugeStartedAt = performance.now();
+  manualFishingState.gaugeReadyAt = manualFishingState.gaugeStartedAt + 240;
   manualFishingState.gaugeLastTs = manualFishingState.gaugeStartedAt;
   manualFishingState.phase = "gauge";
 
@@ -966,6 +1103,7 @@ async function resolveManualGaugeAttempt() {
   const start = manualFishingState.gaugeZoneStart;
   const end = start + manualFishingState.gaugeZoneWidth;
   clearManualFishingPhaseTimers();
+  manualFishingState.actionCooldownUntil = performance.now() + 340;
 
   if (pos < start || pos > end) {
     failManualFishing("💦 타이밍이 살짝 빗나갔어요! 물고기가 바늘을 털고 달아났습니다.");
@@ -1067,6 +1205,7 @@ function renderManualCatchResultCard() {
 }
 
 function failManualFishing(reasonText) {
+  manualFishingState.actionCooldownUntil = performance.now() + 340;
   manualFishingState.phase = "idle";
   manualFishingState.targetFish = null;
   playManualFishSfx("fail");
@@ -1100,7 +1239,7 @@ window.openManualBaitPickerModal = function () {
     rows.push(`
       <div class="manual-bait-row ${active ? "is-active" : ""} ${cnt <= 0 ? "is-empty" : ""}" onclick="${cnt > 0 ? `selectManualBaitFromPopup('${b.id}')` : `closeModal('manualBaitPickerModal'); openFishingShopModal('buy')`}">
         <div style="display:flex; align-items:center; gap:9px; min-width:0;">
-          <canvas class="manual-bait-thumb" width="120" height="120" data-bait-id="${b.id}"></canvas>
+          <canvas class="manual-bait-thumb" width="480" height="480" data-bait-id="${b.id}"></canvas>
           <div style="min-width:0;">
             <strong>${escapeFishHtml(b.name)} <span style="color:#b45309;">(${cnt}개)</span></strong>
             <div class="manual-bait-sub">C ${r.C}% · B ${r.B}% · A ${r.A}% · S ${r.S}%</div>
@@ -1195,7 +1334,7 @@ window.renderBagFishTab = function () {
     const fish = getFishCatalogItem(item.fishId);
     return `
       <div class="fish-bag-row ${item.isMax ? "is-max-row" : ""}">
-        <canvas class="fish-mini-canvas" width="120" height="120" data-fish-id="${escapeFishHtml(item.fishId)}"></canvas>
+        <canvas class="fish-mini-canvas" width="480" height="480" data-fish-id="${escapeFishHtml(item.fishId)}"></canvas>
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
             <span class="fish-grade-pill is-${item.grade}">${item.grade}</span>
@@ -1263,7 +1402,7 @@ function renderFishDexModal() {
       <div class="fish-dex-tile ${unlocked ? "is-unlocked" : "is-locked"} ${isSel ? "is-selected" : ""}" onclick="selectFishDexDetail('${f.id}')">
         <span class="fish-grade-pill is-${f.grade} dex-pill">${f.grade}</span>
         ${rec?.isMaxCaught ? `<span class="fish-max-badge dex-max">👑</span>` : ""}
-        <canvas class="fish-dex-thumb" width="140" height="140" data-fish-id="${f.id}" data-locked="${unlocked ? "0" : "1"}"></canvas>
+        <canvas class="fish-dex-thumb" width="480" height="480" data-fish-id="${f.id}" data-locked="${unlocked ? "0" : "1"}"></canvas>
         <div class="fish-dex-name">${unlocked ? escapeFishHtml(f.name) : "???"}</div>
         <div class="fish-dex-cm">${unlocked ? `${Number(rec.maxCm || 0).toFixed(1)}cm` : `MAX ${f.maxCm.toFixed(1)}`}</div>
       </div>
@@ -1349,168 +1488,308 @@ window.selectFishDexDetail = async function (fishId) {
 // ============================================================================
 let fishingShopTab = "buy";
 
-function drawFishingShopSceneAndNpc(speechMsg = null) {
+const FISHING_SHOP_NPC_AVATAR_CFG = {
+  gender: "male",
+  bg: "meadow",
+  hair: "silver_perm",
+  hat: "bucket_hat",
+  face: "tough_beard",
+  outfit: "overalls",
+  acc: "none",
+  wing: "none",
+  effect: "none",
+  fishingRod: "rod_s",
+  fishingBait: "none"
+};
+
+let _fishingShopNpcAvatarOffscreen = null;
+
+function getFishingShopNpcAvatarCanvas() {
+  if (_fishingShopNpcAvatarOffscreen) return _fishingShopNpcAvatarOffscreen;
+  if (typeof renderPixelAvatar !== "function") return null;
+  const off = document.createElement("canvas");
+  off.width = 480;
+  off.height = 480;
+  renderPixelAvatar(off, FISHING_SHOP_NPC_AVATAR_CFG, {
+    transparentBg: true,
+    matchCssAspect: false,
+    skipEffectLoop: true,
+    fishingIdle: true
+  });
+  _fishingShopNpcAvatarOffscreen = off;
+  return off;
+}
+
+function drawFishingShopSceneAndNpc(speechMsg = null, mood = "idle") {
   const cv = document.getElementById("fishingShopNpcCanvas");
   const speechEl = document.getElementById("fishingShopNpcSpeech");
   if (speechEl && speechMsg) speechEl.textContent = speechMsg;
   if (!cv) return;
 
+  if (cv.width < 960 || cv.height < 400) {
+    cv.width = 960;
+    cv.height = 400;
+  }
+
   const ctx = cv.getContext("2d");
-  const W = cv.width || 640;
-  const H = cv.height || 240;
+  const CW = cv.width;
+  const CH = cv.height;
+  const W = 960;
+  const H = 400;
   const outline = "#1e1b18";
+  const isHappy = mood === "happy";
 
   ctx.save();
-  ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.clearRect(0, 0, CW, CH);
+  ctx.scale(CW / W, CH / H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // 1) 하늘 & 노을빛 + 먼 산
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.56);
-  sky.addColorStop(0, "#38bdf8");
-  sky.addColorStop(1, "#e0f2fe");
+  // 1) 화창한 호수 하늘 & 부드러운 구름
+  const sky = ctx.createLinearGradient(0, 0, 0, 224);
+  sky.addColorStop(0, "#0ea5e9");
+  sky.addColorStop(0.58, "#7dd3fc");
+  sky.addColorStop(1, "#fef9c3");
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H * 0.56);
+  ctx.fillRect(0, 0, W, 224);
 
-  ctx.fillStyle = "#4ade80";
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
-  ctx.beginPath();
-  ctx.ellipse(W * 0.2, H * 0.52, W * 0.3, H * 0.16, 0, Math.PI, 0);
-  ctx.ellipse(W * 0.82, H * 0.52, W * 0.28, H * 0.14, 0, Math.PI, 0);
-  ctx.fill();
-  ctx.stroke();
-
-  // 2) 호수
-  const lake = ctx.createLinearGradient(0, H * 0.48, 0, H);
-  lake.addColorStop(0, "#0284c7");
-  lake.addColorStop(1, "#0369a1");
-  ctx.fillStyle = lake;
-  ctx.fillRect(0, H * 0.48, W, H * 0.52);
-
-  // 물결 반짝임
-  ctx.strokeStyle = "rgba(255,255,255,0.45)";
-  ctx.lineWidth = 2.5;
-  [[0.14, 0.62], [0.76, 0.58], [0.85, 0.70]].forEach(([wx, wy]) => {
+  [[190, 88, 1.0], [760, 74, 0.9]].forEach(([cx, cy, cs]) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(cs, cs);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
     ctx.beginPath();
-    ctx.moveTo(W * wx - 22, H * wy);
-    ctx.lineTo(W * wx + 22, H * wy);
-    ctx.stroke();
+    ctx.arc(-28, 8, 22, 0, Math.PI * 2);
+    ctx.arc(4, -2, 28, 0, Math.PI * 2);
+    ctx.arc(36, 10, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   });
 
-  // 3) 줄무늬 어닝 차양 (상점 분위기)
-  const stripes = ["#0ea5e9", "#fef08a", "#0ea5e9", "#fef08a", "#0ea5e9", "#fef08a", "#0ea5e9", "#fef08a"];
-  const sw = W / stripes.length;
-  stripes.forEach((col, i) => {
-    ctx.fillStyle = col;
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.rect(i * sw, 0, sw, 26);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(i * sw + sw / 2, 26, sw / 2, 0, Math.PI);
-    ctx.fill();
-    ctx.stroke();
-  });
-
-  // 4) 나무 부두 매점 카운터 & 랜턴 & 물고기 바구니
-  ctx.fillStyle = "#b45309";
+  // 2) 먼 산 & 소나무 능선
+  ctx.fillStyle = "#16a34a";
   ctx.strokeStyle = outline;
   ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.roundRect(W * 0.08, H * 0.66, W * 0.84, H * 0.34, 10);
+  ctx.moveTo(0, 212);
+  ctx.quadraticCurveTo(180, 134, 380, 204);
+  ctx.quadraticCurveTo(560, 146, 740, 198);
+  ctx.quadraticCurveTo(860, 152, W, 196);
+  ctx.lineTo(W, 224);
+  ctx.lineTo(0, 224);
+  ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = "#ea8c2f";
-  ctx.fillRect(W * 0.09, H * 0.68, W * 0.82, H * 0.06);
+  // 3) 반짝이는 호수 수면
+  const lake = ctx.createLinearGradient(0, 198, 0, 292);
+  lake.addColorStop(0, "#0284c7");
+  lake.addColorStop(1, "#0369a1");
+  ctx.fillStyle = lake;
+  ctx.fillRect(0, 198, W, 96);
+  ctx.strokeStyle = "rgba(255,255,255,0.45)";
+  ctx.lineWidth = 3.5;
+  [[150, 224], [250, 246], [710, 222], [810, 248]].forEach(([wx, wy]) => {
+    ctx.beginPath();
+    ctx.moveTo(wx - 34, wy);
+    ctx.lineTo(wx + 34, wy);
+    ctx.stroke();
+  });
 
-  // 나무 기둥 + 매달린 노란 랜턴
+  // 4) 좌우 낚시 오두막 목재 기둥 & 선반 진열대
   ctx.fillStyle = "#78350f";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
-  ctx.fillRect(W * 0.14, H * 0.16, 14, H * 0.52);
-  ctx.strokeRect(W * 0.14, H * 0.16, 14, H * 0.52);
-  ctx.fillStyle = "#fde047";
+  ctx.lineWidth = 4.5;
+  ctx.fillRect(28, 44, 34, 244);
+  ctx.strokeRect(28, 44, 34, 244);
+  ctx.fillRect(W - 62, 44, 34, 244);
+  ctx.strokeRect(W - 62, 44, 34, 244);
+
+  // 왼쪽 나무 진열 선반 & 매달린 장식 찌/랜턴
+  ctx.fillStyle = "#92400e";
   ctx.beginPath();
-  ctx.arc(W * 0.21, H * 0.36, 14, 0, Math.PI * 2);
+  ctx.roundRect(74, 152, 146, 18, 6);
   ctx.fill();
   ctx.stroke();
 
-  // 오른쪽 물고기 양동이
+  // 선반 위 유리 떡밥 병 2개
+  [{ x: 96, col: "#fb7185" }, { x: 146, col: "#facc15" }].forEach(jar => {
+    ctx.fillStyle = "#e0f2fe";
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.roundRect(jar.x, 108, 36, 44, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = jar.col;
+    ctx.fillRect(jar.x + 6, 122, 24, 24);
+    ctx.fillStyle = "#b45309";
+    ctx.beginPath();
+    ctx.roundRect(jar.x + 5, 101, 26, 9, 4);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // 따뜻한 노란 랜턴
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(212, 46);
+  ctx.lineTo(212, 92);
+  ctx.stroke();
+  ctx.fillStyle = "#fef08a";
+  ctx.beginPath();
+  ctx.arc(212, 114, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(253, 224, 71, 0.28)";
+  ctx.beginPath();
+  ctx.arc(212, 114, 42, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 오른쪽 진열 목판 안내판 ("강태공 낚시상회")
+  ctx.fillStyle = "#fef3c7";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.roundRect(710, 82, 174, 62, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#78350f";
+  ctx.font = "900 22px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("강태공 상회", 797, 106);
+  ctx.fillStyle = "#0369a1";
+  ctx.font = "800 15px sans-serif";
+  ctx.fillText("장비·미끼·어망매입", 797, 130);
+
+  // 5) 가운데 우리 게임 480×480 유저 스타일 캐릭터 NPC ("강태공 사장님")
+  const npcSprite = getFishingShopNpcAvatarCanvas();
+  if (npcSprite) {
+    const npcSize = 368;
+    const npcX = W / 2 - npcSize / 2;
+    const npcY = isHappy ? 0 : 10;
+    ctx.drawImage(npcSprite, npcX, npcY, npcSize, npcSize);
+  }
+
+  // 구매·판매 성공 시 황금 반짝임 효과
+  if (isHappy) {
+    [
+      [340, 128, 16],
+      [626, 112, 15],
+      [372, 228, 11],
+      [612, 214, 12]
+    ].forEach(([sx, sy, sr]) => {
+      ctx.fillStyle = "#fde047";
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - sr);
+      ctx.lineTo(sx + sr * 0.35, sy - sr * 0.35);
+      ctx.lineTo(sx + sr, sy);
+      ctx.lineTo(sx + sr * 0.35, sy + sr * 0.35);
+      ctx.lineTo(sx, sy + sr);
+      ctx.lineTo(sx - sr * 0.35, sy + sr * 0.35);
+      ctx.lineTo(sx - sr, sy);
+      ctx.lineTo(sx - sr * 0.35, sy - sr * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
+
+  // 6) 상점 줄무늬 어닝 차양 (스칼럽 마감 - 모자가 가려지지 않는 컴팩트 높이)
+  const stripeCount = 20;
+  const sw = W / stripeCount;
+  for (let i = 0; i < stripeCount; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "#0284c7" : "#fef08a";
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.rect(i * sw, 0, sw, 14);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(i * sw + sw / 2, 14, sw / 2, 0, Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 7) 전경 원목 상점 카운터 & 얼음 물고기 바구니 & 카운터 찌
+  const counterTopY = 286;
+  const woodGrad = ctx.createLinearGradient(0, counterTopY, 0, H);
+  woodGrad.addColorStop(0, "#d97706");
+  woodGrad.addColorStop(0.2, "#b45309");
+  woodGrad.addColorStop(1, "#78350f");
+  ctx.fillStyle = woodGrad;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.roundRect(14, counterTopY, W - 28, H - counterTopY + 10, 14);
+  ctx.fill();
+  ctx.stroke();
+
+  // 카운터 상판 하이라이트
+  ctx.fillStyle = "#f59e0b";
+  ctx.beginPath();
+  ctx.roundRect(14, counterTopY, W - 28, 22, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  // 나무 결 패널 라인
+  ctx.strokeStyle = "rgba(69, 26, 3, 0.45)";
+  ctx.lineWidth = 3.5;
+  [180, 380, 580, 780].forEach(px => {
+    ctx.beginPath();
+    ctx.moveTo(px, counterTopY + 26);
+    ctx.lineTo(px, H - 6);
+    ctx.stroke();
+  });
+
+  // 카운터 왼쪽: 작은 나무 태클 박스
+  ctx.fillStyle = "#16a34a";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.roundRect(72, counterTopY - 34, 88, 42, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#facc15";
+  ctx.fillRect(108, counterTopY - 18, 16, 12);
+  ctx.strokeRect(108, counterTopY - 18, 16, 12);
+
+  // 카운터 오른쪽: 얼음 물고기 양동이
   ctx.fillStyle = "#94a3b8";
   ctx.beginPath();
-  ctx.roundRect(W * 0.77, H * 0.55, 42, 34, 6);
+  ctx.roundRect(748, counterTopY - 46, 86, 56, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#38bdf8";
+  ctx.beginPath();
+  ctx.ellipse(792, counterTopY - 46, 36, 11, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#fb7185";
   ctx.beginPath();
-  ctx.ellipse(W * 0.80, H * 0.54, 14, 7, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(804, counterTopY - 52, 20, 11, -0.45, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // 5) 가운데 강태공 상점 NPC 사장님 (본게임 #1e1b18 잉크 외곽선 스타일)
-  ctx.save();
-  ctx.translate(W * 0.5, H * 0.56);
-  const s = 0.68;
-  ctx.scale(s, s);
-
-  // 청록 작업조끼 몸통
-  ctx.fillStyle = "#0369a1";
+  // 카운터 중앙 명찰 (나무 각인 명패)
+  ctx.fillStyle = "#fef08a";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.roundRect(-48, 2, 96, 62, 20);
+  ctx.roundRect(386, counterTopY + 38, 188, 44, 12);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "#d97706";
-  ctx.beginPath();
-  ctx.roundRect(-34, 10, 68, 52, 12);
-  ctx.fill();
-  ctx.stroke();
+  ctx.fillStyle = "#1e1b18";
+  ctx.font = "900 21px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🎣 강태공 사장님", 480, counterTopY + 61);
 
-  // 얼굴
-  ctx.fillStyle = "#fffdf9";
-  ctx.beginPath();
-  ctx.roundRect(-52, -76, 104, 86, 40);
-  ctx.fill();
-  ctx.stroke();
-
-  // 푸근한 수염 & 웃는 눈
-  ctx.fillStyle = "#e2e8f0";
-  ctx.beginPath();
-  ctx.ellipse(0, -10, 34, 18, 0, 0, Math.PI);
-  ctx.fill();
-  ctx.stroke();
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 4.5;
-  ctx.beginPath();
-  ctx.arc(-18, -36, 7, Math.PI * 1.1, Math.PI * 1.9);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(18, -36, 7, Math.PI * 1.1, Math.PI * 1.9);
-  ctx.stroke();
-
-  // 낚시 벙거지 밀짚모자
-  ctx.fillStyle = "#facc15";
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.ellipse(0, -64, 68, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(0, -68, 44, Math.PI, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#dc2626";
-  ctx.fillRect(-42, -74, 84, 10);
-  ctx.strokeRect(-42, -74, 84, 10);
-
-  ctx.restore();
   ctx.restore();
 }
 
@@ -1536,12 +1815,12 @@ window.switchFishingShopTab = function (tab) {
 window.refreshFishingShopModalIfOpen = function () {
   const modal = document.getElementById("fishingShopModal");
   if (modal && !modal.classList.contains("hidden")) {
-    renderFishingShopModal();
+    renderFishingShopModal(null, "happy");
   }
 };
 
-window.renderFishingShopModal = function (speechMsg = null) {
-  drawFishingShopSceneAndNpc(speechMsg);
+window.renderFishingShopModal = function (speechMsg = null, npcMood = "idle") {
+  drawFishingShopSceneAndNpc(speechMsg, npcMood);
 
   const cdEl = document.getElementById("fishingShopCdBalance");
   if (cdEl) cdEl.textContent = (Number(userState?.cdCoins) || 0).toLocaleString();
@@ -1620,11 +1899,11 @@ function renderFishingShopBuyPane() {
       : `<button type="button" class="btn btn-gold" style="padding:6px 10px; font-size:0.74rem;" onclick="buyFishingShopRod('${rod.id}')">💿 ${Number(rod.price).toLocaleString()}</button>`;
     return `
       <div class="fshop-item-row ${equipped ? "is-equipped" : ""}">
-        <canvas id="fshopRodCv_${idx}" class="fshop-item-cv" width="120" height="120"></canvas>
+        <canvas id="fshopRodCv_${idx}" class="fshop-item-cv" width="480" height="480"></canvas>
         <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:5px;">
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
             <span class="fish-grade-pill is-${rod.grade || "C"}">${rod.grade || "C"}</span>
-            <strong style="font-size:0.86rem;">${escapeFishHtml(rod.name)}</strong>
+            <strong style="font-size:0.86rem; color:#1e1b18;">${escapeFishHtml(rod.name)}</strong>
             ${equipped ? `<span class="badge gold" style="font-size:0.64rem;">착용중</span>` : owned ? `<span class="badge primary" style="font-size:0.64rem;">보유</span>` : ""}
           </div>
           <div style="font-size:0.72rem; color:#475569; font-weight:700; margin-top:2px;">입질 시간 -${cutSec}초 · 방치 EXP +${expPct}%</div>
@@ -1641,11 +1920,11 @@ function renderFishingShopBuyPane() {
     const cdPct = Math.round(((Number(bait.cdMultiplier) || 1) - 1) * 100);
     return `
       <div class="fshop-item-row ${equipped ? "is-equipped" : ""}">
-        <canvas id="fshopBaitCv_${idx}" class="fshop-item-cv" width="120" height="120"></canvas>
+        <canvas id="fshopBaitCv_${idx}" class="fshop-item-cv" width="480" height="480"></canvas>
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
             <span class="fish-grade-pill is-${bait.grade || "C"}">${bait.grade || "C"}</span>
-            <strong style="font-size:0.86rem;">${escapeFishHtml(bait.name)}</strong>
+            <strong style="font-size:0.86rem; color:#1e1b18;">${escapeFishHtml(bait.name)}</strong>
             <span class="badge" style="font-size:0.64rem;">보유 ${cnt}개</span>
             ${equipped ? `<span class="badge gold" style="font-size:0.64rem;">착용중</span>` : ""}
           </div>
@@ -1709,7 +1988,7 @@ window.buyFishingShopRod = function (rodId) {
         if (typeof renderFishingHud === "function") renderFishingHud();
         if (typeof syncFishingPlayersDOM === "function") { try { syncFishingPlayersDOM(); } catch (e) {} }
         renderManualFishingTopBar();
-        renderFishingShopModal(`[${rod.name}] 장만하셨구먼! 큰 놈 낚으실 거요~`);
+        renderFishingShopModal(`[${rod.name}] 장만하셨구먼! 큰 놈 낚으실 거요~`, "happy");
       },
       "🎣 낚싯대 구매"
     );
@@ -1738,7 +2017,7 @@ window.equipFishingShopGear = async function (cat, itemId) {
   if (typeof renderFishingHud === "function") renderFishingHud();
   if (typeof syncFishingPlayersDOM === "function") { try { syncFishingPlayersDOM(); } catch (e) {} }
   renderManualFishingTopBar();
-  renderFishingShopModal("딱 맞게 장착해드렸소!");
+  renderFishingShopModal("딱 맞게 장착해드렸소!", "happy");
 };
 
 window.unequipFishingShopGear = async function (cat) {
@@ -1769,11 +2048,11 @@ function renderFishingShopSellPane() {
 
   const listHtml = bag.map((item, idx) => `
     <div class="fshop-item-row ${item.isMax ? "is-max-row" : ""}">
-      <canvas id="fshopSellCv_${idx}" class="fshop-item-cv" width="120" height="120"></canvas>
+      <canvas id="fshopSellCv_${idx}" class="fshop-item-cv" width="480" height="480"></canvas>
       <div style="flex:1; min-width:0;">
         <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
           <span class="fish-grade-pill is-${item.grade}">${item.grade}</span>
-          <strong style="font-size:0.86rem;">${escapeFishHtml(item.name)}</strong>
+          <strong style="font-size:0.86rem; color:#1e1b18;">${escapeFishHtml(item.name)}</strong>
           ${item.isMax ? `<span class="fish-max-badge">👑 MAX</span>` : ""}
         </div>
         <div style="font-size:0.72rem; color:#475569; font-weight:800; margin-top:2px;">
@@ -1820,7 +2099,7 @@ window.sellSingleFishFromBag = async function (fishUid) {
   if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
   renderManualFishingTopBar();
   if (typeof renderBagFishTab === "function") renderBagFishTab();
-  renderFishingShopModal(`[${item.name}] 잘 샀소! 💿 +${gainCd} CD · ✨ +${gainExp} EXP 드렸소!`);
+  renderFishingShopModal(`[${item.name}] 잘 샀소! 💿 +${gainCd} CD · ✨ +${gainExp} EXP 드렸소!`, "happy");
 };
 
 window.sellAllFishFromBag = function () {
@@ -1846,7 +2125,7 @@ window.sellAllFishFromBag = function () {
     if (typeof updateHeaderUserUI === "function") updateHeaderUserUI();
     renderManualFishingTopBar();
     if (typeof renderBagFishTab === "function") renderBagFishTab();
-    renderFishingShopModal(`${soldCnt}마리 싹 다 매입했소! 💿 +${sumCd.toLocaleString()} CD · ✨ +${sumExp.toLocaleString()} EXP!`);
+    renderFishingShopModal(`${soldCnt}마리 싹 다 매입했소! 💿 +${sumCd.toLocaleString()} CD · ✨ +${sumExp.toLocaleString()} EXP!`, "happy");
     if (typeof gameAlert === "function") {
       gameAlert(`🎉 물고기 ${soldCnt}마리를 모두 판매했습니다!\n💿 +${sumCd.toLocaleString()} CD · ✨ +${sumExp.toLocaleString()} EXP 지급 완료!`, "💰 판매 완료");
     }
@@ -1870,12 +2149,19 @@ window.sellAllFishFromBag = function () {
 window.drawShopHubBannerArt = function () {
   const cv = document.getElementById("shopHubBannerCanvas");
   if (!cv) return;
+  const targetW = 960;
+  const targetH = 260;
+  if (cv.width !== targetW || cv.height !== targetH) {
+    cv.width = targetW;
+    cv.height = targetH;
+  }
   const ctx = cv.getContext("2d");
-  const W = cv.width || 680;
-  const H = cv.height || 190;
+  const W = targetW;
+  const H = targetH;
   const outline = "#1e1b18";
 
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, W, H);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -1890,81 +2176,81 @@ window.drawShopHubBannerArt = function () {
   // 구름 2개
   ctx.fillStyle = "#ffffff";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3;
-  [[W * 0.24, 34], [W * 0.72, 28]].forEach(([cx, cy]) => {
+  ctx.lineWidth = 4;
+  [[W * 0.25, 48], [W * 0.74, 42]].forEach(([cx, cy]) => {
     ctx.beginPath();
-    ctx.arc(cx - 18, cy + 4, 13, 0, Math.PI * 2);
-    ctx.arc(cx, cy - 2, 16, 0, Math.PI * 2);
-    ctx.arc(cx + 18, cy + 4, 13, 0, Math.PI * 2);
+    ctx.arc(cx - 26, cy + 5, 18, 0, Math.PI * 2);
+    ctx.arc(cx, cy - 3, 24, 0, Math.PI * 2);
+    ctx.arc(cx + 26, cy + 5, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   });
 
-  // 2) 왼쪽 일반 상점 (분홍 부티크 건물) + 오른쪽 호수가 낚시상점 (청록 매점)
+  // 2) 왼쪽 일반 상점 (분홍 부티크) + 오른쪽 호수가 낚시상점 (청록 매점)
   const drawStorefront = (x, y, w, h, roofCols, wallCol, title) => {
     ctx.fillStyle = wallCol;
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.roundRect(x, y + 26, w, h - 26, 8);
+    ctx.roundRect(x, y + 36, w, h - 36, 12);
     ctx.fill();
     ctx.stroke();
 
     // 창문/진열대
     ctx.fillStyle = "#fef9c3";
     ctx.beginPath();
-    ctx.roundRect(x + 16, y + 48, w - 32, h - 62, 6);
+    ctx.roundRect(x + 22, y + 66, w - 44, h - 84, 8);
     ctx.fill();
     ctx.stroke();
 
     // 간판
     ctx.fillStyle = "#1e1b18";
-    ctx.font = "900 18px sans-serif";
+    ctx.font = "900 24px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(title, x + w / 2, y + 48 + (h - 62) / 2);
+    ctx.fillText(title, x + w / 2, y + 66 + (h - 84) / 2);
 
     // 줄무늬 어닝
     const sw = w / 6;
     for (let i = 0; i < 6; i++) {
       ctx.fillStyle = roofCols[i % 2];
       ctx.beginPath();
-      ctx.rect(x + i * sw, y + 8, sw, 20);
+      ctx.rect(x + i * sw, y + 10, sw, 26);
       ctx.fill();
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(x + i * sw + sw / 2, y + 28, sw / 2, 0, Math.PI);
+      ctx.arc(x + i * sw + sw / 2, y + 36, sw / 2, 0, Math.PI);
       ctx.fill();
       ctx.stroke();
     }
   };
 
-  drawStorefront(28, 30, 210, 128, ["#f43f5e", "#ffffff"], "#ffe4e6", "👗 FASHION SHOP");
-  drawStorefront(W - 238, 30, 210, 128, ["#0284c7", "#fef08a"], "#e0f2fe", "🏪 낚시 매점");
+  drawStorefront(36, 40, 290, 174, ["#f43f5e", "#ffffff"], "#ffe4e6", "👗 FASHION SHOP");
+  drawStorefront(W - 326, 40, 290, 174, ["#0284c7", "#fef08a"], "#e0f2fe", "🏪 낚시 매점");
 
   // 바닥 잔디·돌길
   ctx.fillStyle = "#4ade80";
   ctx.fillRect(0, H * 0.72, W, H * 0.28);
   ctx.fillStyle = "#fde68a";
   ctx.strokeStyle = outline;
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = 4.5;
   ctx.fillRect(0, H * 0.74, W, H * 0.16);
   ctx.beginPath();
   ctx.moveTo(0, H * 0.74);
   ctx.lineTo(W, H * 0.74);
   ctx.stroke();
 
-  // 중앙 미니 내 아바타 배치
+  // 중앙 고해상도 480×480 내 아바타 배치
   if (typeof renderPixelAvatar === "function" && typeof userState !== "undefined") {
     const off = document.createElement("canvas");
-    off.width = 240;
-    off.height = 240;
+    off.width = 480;
+    off.height = 480;
     try {
       const cfg = typeof sanitizeAvatarConfigShape === "function"
         ? sanitizeAvatarConfigShape(userState.avatarConfig)
         : userState.avatarConfig;
       renderPixelAvatar(off, cfg, { transparentBg: true, matchCssAspect: false, skipEffectLoop: true });
-      ctx.drawImage(off, W / 2 - 58, 36, 116, 116);
+      ctx.drawImage(off, W / 2 - 84, 46, 168, 168);
     } catch (e) {}
   }
 
